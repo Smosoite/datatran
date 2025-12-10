@@ -4,6 +4,9 @@ import { supabase } from '../lib/supabase';
 import { useTranslation } from 'react-i18next';
 import { differenceInDays } from 'date-fns';
 
+// 1. Updated Types
+export type SubscriptionStatus = 'trial_active' | 'trial_expired' | 'subscribed';
+
 type Profile = {
   id: string;
   username: string;
@@ -16,6 +19,7 @@ type Workgroup = {
   name: string;
   join_code: string;
   admin_passcode: string | null;
+  created_at: string; // Added to calculate trial start date
 };
 
 type AuthContextType = {
@@ -26,14 +30,12 @@ type AuthContextType = {
   refreshProfile: () => Promise<void>;
   isStockGridLocked: boolean;
   setStockGridLocked: (locked: boolean) => void;
+  // New context values
   subscriptionStatus: SubscriptionStatus;
   daysRemaining: number;
 };
 
-export type SubscriptionStatus = 'trial_active' | 'trial_expired' | 'subscribed';
-
-};
-
+// 2. Updated Default Context Values
 const AuthContext = createContext<AuthContextType>({
   session: null,
   profile: null,
@@ -42,20 +44,24 @@ const AuthContext = createContext<AuthContextType>({
   refreshProfile: async () => {},
   isStockGridLocked: false,
   setStockGridLocked: () => {},
+  subscriptionStatus: 'trial_active',
+  daysRemaining: 14,
 });
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const { t } = useTranslation();
+  
+  // State
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [workgroup, setWorkgroup] = useState<Workgroup | null>(null);
   const [loading, setLoading] = useState(true);
   const [isStockGridLocked, setStockGridLocked] = useState(false);
+  
+  // New State for Subscription
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>('trial_active');
   const [daysRemaining, setDaysRemaining] = useState(14);
 
-  // FIX: Removed the lines that set profile/workgroup to null at the start of the function.
-  // This prevents the app from thinking the user is logged out during a refresh.
   const fetchProfileAndWorkgroup = useCallback(async (currentSession: Session) => {
     try {
       // 1. Fetch Profile
@@ -67,23 +73,45 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
       if (profileError) throw profileError;
       
-      // Update profile state
       setProfile(profileData);
 
       // 2. Fetch Workgroup (if applicable)
       if (profileData?.workgroup_id) {
+        // Updated Select: Added 'created_at' to query
         const { data: workgroupData, error: workgroupError } = await supabase
           .from('workgroups')
-          .select('id, name, join_code, admin_passcode')
+          .select('id, name, join_code, admin_passcode, created_at') 
           .eq('id', profileData.workgroup_id)
           .single();
 
         if (workgroupError) throw workgroupError;
 
-        // Update workgroup state
         setWorkgroup(workgroupData);
+
+        // --- 3. Calculate Trial Logic ---
+        if (workgroupData?.created_at) {
+          const createdAt = new Date(workgroupData.created_at);
+          const now = new Date();
+          
+          // Using date-fns for cleaner math (since you imported it)
+          const daysUsed = differenceInDays(now, createdAt);
+          const trialLength = 14;
+
+          if (daysUsed >= trialLength) {
+            // Here you would also check if they have a 'subscribed' status in DB
+            // For now, if > 14 days and no paid plan, it expires.
+            setSubscriptionStatus('trial_expired');
+            setDaysRemaining(0);
+          } else {
+            setSubscriptionStatus('trial_active');
+            setDaysRemaining(trialLength - daysUsed);
+          }
+        }
       } else {
         setWorkgroup(null);
+        // Reset trial status if no workgroup exists yet
+        setSubscriptionStatus('trial_active');
+        setDaysRemaining(14);
       }
     } catch (error) {
       console.error("Error fetching profile/workgroup:", error);
@@ -135,7 +163,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
         loading, 
         refreshProfile,
         isStockGridLocked,
-        setStockGridLocked
+        setStockGridLocked,
+        // Exposing new values
+        subscriptionStatus,
+        daysRemaining
       }}
     >
       {children}
