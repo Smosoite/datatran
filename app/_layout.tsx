@@ -70,7 +70,7 @@ const MainNavigator = () => {
   useEffect(() => {
     if (loading) return;
     const currentRoute = segments[0] || null;
-    const inAuthFlow = ['login', 'sign-up'].includes(currentRoute);
+    const inAuthFlow = ['login', 'sign-up', 'paywall'].includes(currentRoute);
     const inSetupFlow = ['workgroup-gate', 'create-workgroup', 'join-workgroup'].includes(currentRoute);
 
     if (!session) {
