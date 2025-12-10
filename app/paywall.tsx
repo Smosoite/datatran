@@ -43,7 +43,7 @@ export default function PaywallScreen() {
   const handleSubscribe = () => {
     // Integrate RevenueCat/Stripe here
     console.log(`Subscribing to ${planType} - ${personalInterval || COMPANY_TIERS[selectedTierIndex].users}`);
-    router.push('/login'); // Or navigate to success
+    router.push('/signup'); // Or navigate to success
   };
 
   const BenefitItem = ({ text }: { text: string }) => (
