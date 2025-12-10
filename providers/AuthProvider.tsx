@@ -26,6 +26,12 @@ type AuthContextType = {
   refreshProfile: () => Promise<void>;
   isStockGridLocked: boolean;
   setStockGridLocked: (locked: boolean) => void;
+  subscriptionStatus: SubscriptionStatus;
+  daysRemaining: number;
+};
+
+export type SubscriptionStatus = 'trial_active' | 'trial_expired' | 'subscribed';
+
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -45,6 +51,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [workgroup, setWorkgroup] = useState<Workgroup | null>(null);
   const [loading, setLoading] = useState(true);
   const [isStockGridLocked, setStockGridLocked] = useState(false);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>('trial_active');
+  const [daysRemaining, setDaysRemaining] = useState(14);
 
   // FIX: Removed the lines that set profile/workgroup to null at the start of the function.
   // This prevents the app from thinking the user is logged out during a refresh.
