@@ -65,7 +65,7 @@ export default function LoginScreen() {
           )}
         </Pressable>
 
-        <Pressable onPress={() => router.push('/sign-up')}>
+        <Pressable onPress={() => router.push('/paywall')}>
           <Text style={[typography.caption, styles.link, { color: colors.primary }]}>{t('auth.noAccount')}</Text>
         </Pressable>
       </ScrollView>
