@@ -29,7 +29,6 @@ const ThemedStack = () => {
           contentStyle: { backgroundColor: colors.background },
         }}
       >
-        <Stack.Screen name="paywall" options={{ headerShown: false, presentation: 'modal',gestureEnabled: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="warehouse/[id]" options={{ headerShown: true, title: t('warehouse.manageHeader'), presentation: 'push' }} />
         <Stack.Screen name="create-warehouse" options={{ headerShown: true, title: t('warehouse.createHeader'), presentation: 'modal' }} />
@@ -48,6 +47,14 @@ const ThemedStack = () => {
         <Stack.Screen name="stock-grid" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="history" options={{ headerShown: true, presentation: 'push' }} /> 
         <Stack.Screen name="manage-members" options={{ headerShown: true, presentation: 'push' }} />
+        <Stack.Screen 
+  name="paywall" 
+  options={{ 
+    headerShown: false, 
+    presentation: 'modal',
+    gestureEnabled: false // Prevent swiping away if mandatory
+  }} 
+/>
       </Stack>
     </>
   );
