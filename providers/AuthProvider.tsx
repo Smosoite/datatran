@@ -2,6 +2,7 @@ import React, { useState, useEffect, createContext, useContext, PropsWithChildre
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { useTranslation } from 'react-i18next';
+import { differenceInDays } from 'date-fns';
 
 type Profile = {
   id: string;
