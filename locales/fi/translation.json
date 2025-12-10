@@ -260,5 +260,25 @@
   "workgroup": {
     "namePlaceholder": "Roadhouse Inc.",
     "createButton": "Create Workgroup",
+  },
+  "paywall": {
+    "title": "Unlock Warehouse Pro",
+    "subtitle": "Streamline your inventory with professional tools.",
+    "benefit1": "Unlimited Items & Locations",
+    "benefit2": "Cloud Sync & Team Access",
+    "benefit3": "Advanced Reporting & History",
+    "personal": "Personal",
+    "company": "Company",
+    "monthly": "Monthly",
+    "yearly": "Yearly",
+    "savePercent": "Save 20%",
+    "startTrial": "Start 14-Day Free Trial",
+    "subscribe": "Subscribe Now",
+    "restore": "Restore Purchases",
+    "terms": "Terms",
+    "privacy": "Privacy",
+    "companyTier": "{{count}} User License",
+    "cancelAnytime": "Cancel anytime. No commitment.",
+    "trialNote": "First 14 days free, then {{price}}",
   }
 }
