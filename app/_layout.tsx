@@ -29,6 +29,7 @@ const ThemedStack = () => {
           contentStyle: { backgroundColor: colors.background },
         }}
       >
+        <Stack.Screen name="paywall" options={{ headerShown: false, presentation: 'modal',gestureEnabled: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="warehouse/[id]" options={{ headerShown: true, title: t('warehouse.manageHeader'), presentation: 'push' }} />
         <Stack.Screen name="create-warehouse" options={{ headerShown: true, title: t('warehouse.createHeader'), presentation: 'modal' }} />
