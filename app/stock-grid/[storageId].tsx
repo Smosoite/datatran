@@ -26,6 +26,15 @@ type LocationSlot = {
     name: string;
     quantity: number;
   }[] | null;
+  // Computed for layout
+  _top?: number;
+  _left?: number;
+  _zIndex?: number;
+};
+
+// Helper for Natural Sort (Row 1, Row 2, Row 10)
+const naturalSort = (a: string | null, b: string | null) => {
+    return (a || '').localeCompare(b || '', undefined, { numeric: true, sensitivity: 'base' });
 };
 
 export default function StockGridScreen() {
@@ -41,7 +50,7 @@ export default function StockGridScreen() {
   // --- LAYOUT CONSTANTS ---
   const TOTAL_GRID_COLS = 6; 
   const GRID_PADDING = 12; 
-  const GAP_SIZE = 4;      
+  const GAP_SIZE = 2;      // Tighter gap for better "merged" look
   const BASE_HEIGHT = 80;  
 
   // Precise Math
@@ -55,7 +64,6 @@ export default function StockGridScreen() {
   // --- EDIT MODE STATE ---
   const [isEditMode, setIsEditMode] = useState(false);
   const [showGridLines, setShowGridLines] = useState(true);
-  const [pickedSlotId, setPickedSlotId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!storageId) return;
@@ -104,6 +112,7 @@ export default function StockGridScreen() {
         
         if (newSpan === (dimension === 'width' ? slot.width_span : slot.height_span)) return;
 
+        // Apply Shrink
         setLocations(prev => prev.map(l => l.id === slotId ? { 
             ...l, 
             width_span: dimension === 'width' ? newSpan : l.width_span,
@@ -119,66 +128,70 @@ export default function StockGridScreen() {
     }
 
     // --- EXPANDING (Merge) ---
-    let victimId: string | null = null;
-    
     // 1. Identify Context (Shelf Rows/Cols)
     const shelfSlots = locations.filter(l => l.shelf === slot.shelf);
     
-    // Sort unique Rows and Columns to establish grid coordinates
-    const uniqueRows = [...new Set(shelfSlots.map(l => l.row))].sort((a,b) => (a||'').localeCompare(b||'', undefined, {numeric:true}));
-    const uniqueCols = [...new Set(shelfSlots.map(l => l.column))].sort((a,b) => (a||'').localeCompare(b||'', undefined, {numeric:true}));
+    // Sort unique Rows and Columns
+    const uniqueRows = [...new Set(shelfSlots.map(l => l.row))].sort(naturalSort);
+    const uniqueCols = [...new Set(shelfSlots.map(l => l.column))].sort(naturalSort);
 
-    const currentRowIdx = uniqueRows.indexOf(slot.row);
-    const currentColIdx = uniqueCols.indexOf(slot.column);
+    let victimId: string | null = null;
 
     if (dimension === 'width') {
-        // Look for neighbor in: Same Row, Next Column (accounting for current span)
-        // Note: Logic is tricky with variable spans. We look for a slot that STARTS where we end.
-        // Simplified: Look for the slot with the *next* index in the sorted list for this row.
+        // --- WIDTH MERGE ---
+        const rowSlots = shelfSlots.filter(l => l.row === slot.row).sort((a,b) => naturalSort(a.column, b.column));
+        const myIndex = rowSlots.findIndex(l => l.id === slot.id);
         
-        // Filter slots in this row
-        const rowSlots = shelfSlots.filter(l => l.row === slot.row).sort((a,b) => (a.column||'').localeCompare(b.column||'', undefined, {numeric:true}));
-        const myIndexInRow = rowSlots.findIndex(l => l.id === slot.id);
-        
-        // The victim is the very next slot in the visual list
-        if (myIndexInRow !== -1 && myIndexInRow < rowSlots.length - 1) {
-            const potentialVictim = rowSlots[myIndexInRow + 1];
+        // We look for the neighbor immediately after this slot
+        if (myIndex !== -1 && myIndex < rowSlots.length - 1) {
+            const potentialVictim = rowSlots[myIndex + 1];
             
-            // Optional: Check if it's visually adjacent? 
-            // For now, we assume sorted order implies adjacency.
+            // Check if it's visually adjacent (optional strictly, but good for sanity)
+            // Ideally we check if its column index is adjacent, but strings make that hard.
+            // We trust the visual sort.
             if (potentialVictim) {
                  if (potentialVictim.items && potentialVictim.items.length > 0) {
-                    Alert.alert(t('general.error'), t('stockGrid.mergeError', 'Neighbor has items.'));
+                    Alert.alert(t('general.error'), "Cannot merge: Neighbor is occupied.");
                     return;
                 }
                 victimId = potentialVictim.id;
             }
         }
     } else {
-        // HEIGHT EXPANSION
-        // We need to look into the row visually below us
-        const targetRowIdx = currentRowIdx + slot.height_span; // Skip rows we already span
+        // --- HEIGHT MERGE ---
+        const currentRowIdx = uniqueRows.indexOf(slot.row);
         
+        // Target row is current index + current span
+        // e.g. If at Row 0, span 1. Target is Row 1.
+        // e.g. If at Row 0, span 2. Target is Row 2.
+        const targetRowIdx = currentRowIdx + slot.height_span;
+
         if (targetRowIdx < uniqueRows.length) {
             const targetRowLabel = uniqueRows[targetRowIdx];
             
-            // Find slot in that row with matching column (or closest visual column)
-            // We match strictly on Column Label for vertical alignment
+            // Find victim in target row with SAME Column
             const potentialVictim = shelfSlots.find(l => l.row === targetRowLabel && l.column === slot.column);
             
             if (potentialVictim) {
                  if (potentialVictim.items && potentialVictim.items.length > 0) {
-                    Alert.alert(t('general.error'), t('stockGrid.mergeError', 'Neighbor has items.'));
+                    Alert.alert(t('general.error'), "Cannot merge: Neighbor is occupied.");
                     return;
                 }
                 victimId = potentialVictim.id;
+            } else {
+                // If no victim found, we might be trying to expand into a gap?
+                // For this grid system, we require a slot to be there to "eat".
+                // Alert.alert("No neighbor", "No empty slot found directly below to merge with.");
+                // return;
             }
+        } else {
+             Alert.alert(t('general.limit'), "Bottom of shelf reached.");
+             return;
         }
     }
 
-    // --- EXECUTE ---
     if (victimId) {
-        // MERGE
+        // --- EXECUTE MERGE ---
         const newLocs = locations.filter(l => l.id !== victimId).map(l => {
             if (l.id === slotId) {
                 return {
@@ -199,30 +212,13 @@ export default function StockGridScreen() {
         ).eq('id', slotId);
 
     } else {
-        // EXPAND INTO VOID
-        const currentVal = dimension === 'width' ? slot.width_span : slot.height_span;
-        const maxVal = dimension === 'width' ? TOTAL_GRID_COLS : 10; // Allow tall stacks
-
-        if (currentVal < maxVal) {
-             const newVal = currentVal + 1;
-             setLocations(prev => prev.map(l => l.id === slotId ? { 
-                ...l, 
-                width_span: dimension === 'width' ? newVal : l.width_span,
-                height_span: dimension === 'height' ? newVal : l.height_span
-            } : l));
-
-            await supabase.from('defined_locations').update(
-                dimension === 'width' ? { width_span: newVal } : { height_span: newVal }
-            ).eq('id', slotId);
-            
-            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        } else {
-            Alert.alert(t('general.limit'), t('stockGrid.maxSize', 'Maximum size reached.'));
-        }
+        // Fallback: If no victim found but user dragged, inform them
+        // Alert.alert("Cannot Merge", "No empty slot found to merge.");
     }
   };
 
-  // --- GESTURE ---
+
+  // --- GESTURE HANDLES ---
   const ResizeHandle = ({ dimension, slotId }: { dimension: 'width' | 'height', slotId: string }) => {
     const isHorizontal = dimension === 'width';
     const pan = Gesture.Pan()
@@ -248,62 +244,47 @@ export default function StockGridScreen() {
     );
   };
 
-  // --- VISUAL GRID GENERATION (ABSOLUTE LAYOUT) ---
+  // --- VISUAL GRID CALCULATION ---
   const visualGrid = useMemo(() => {
-    // Group by Shelf
     const shelvesDict: { [key: string]: LocationSlot[] } = {};
     locations.forEach(loc => {
       if (!shelvesDict[loc.shelf]) shelvesDict[loc.shelf] = [];
       shelvesDict[loc.shelf].push(loc);
     });
 
-    const sortedShelfKeys = Object.keys(shelvesDict).sort((a, b) => 
-        a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
-    );
+    const sortedShelfKeys = Object.keys(shelvesDict).sort(naturalSort);
 
     return sortedShelfKeys.map(shelfKey => {
         const slots = shelvesDict[shelfKey];
         
-        // 1. Identify Grid Coordinates for this Shelf
-        const uniqueRows = [...new Set(slots.map(l => l.row))].sort((a,b) => (a||'').localeCompare(b||'', undefined, {numeric:true}));
-        const uniqueCols = [...new Set(slots.map(l => l.column))].sort((a,b) => (a||'').localeCompare(b||'', undefined, {numeric:true}));
+        // 1. Determine Grid Coordinates
+        const uniqueRows = [...new Set(slots.map(l => l.row))].sort(naturalSort);
+        const uniqueCols = [...new Set(slots.map(l => l.column))].sort(naturalSort);
         
-        // If empty (shouldn't happen if slots exist), default
-        if (uniqueRows.length === 0) uniqueRows.push('1');
-        if (uniqueCols.length === 0) uniqueCols.push('1');
-
-        // 2. Map slots to absolute positions
+        // 2. Map slots to Absolute Positions
         const mappedSlots = slots.map(slot => {
             const rowIdx = uniqueRows.indexOf(slot.row);
             const colIdx = uniqueCols.indexOf(slot.column);
             
-            // Calculate absolute position
-            // Note: We use the index of the column/row label. 
-            // If data is sparse (e.g. Col 1, Col 3 exist but Col 2 missing), this will visually snap them together (1 next to 3).
-            // This is usually desired for sparse grids.
-            // However, we must account for SPANS from previous items pushing things?
-            // Absolute layout ignores "pushing". It places strictly on grid lines.
-            
+            // Calculate Top/Left based on Unit Size + Gaps
             const top = (rowIdx * (BASE_HEIGHT + GAP_SIZE));
-            
-            // X position is tricky if we want true "6 column" grid alignment
-            // If we assume uniqueCols corresponds to 1..6, we can use the label?
-            // Fallback: Use index * UNIT_WIDTH.
             const left = (colIdx * (UNIT_WIDTH + GAP_SIZE));
 
             return {
                 ...slot,
                 _top: top,
                 _left: left,
+                // Higher Z-Index for spans so they float over borders
                 _zIndex: (slot.height_span > 1 || slot.width_span > 1) ? 100 : 1
             };
         });
 
-        const totalHeight = uniqueRows.length * (BASE_HEIGHT + GAP_SIZE);
+        // Exact Height Calculation
+        const totalHeight = (uniqueRows.length * BASE_HEIGHT) + ((uniqueRows.length - 1) * GAP_SIZE);
 
         return {
             shelfLabel: shelfKey,
-            totalHeight,
+            totalHeight: Math.max(totalHeight, BASE_HEIGHT), // Minimum 1 row height
             mappedSlots,
             rowCount: uniqueRows.length
         };
@@ -314,7 +295,6 @@ export default function StockGridScreen() {
   const toggleEditMode = () => {
     if (isEditMode) {
       setIsEditMode(false);
-      setPickedSlotId(null);
     } else {
       showPasscodeModal({
         title: t('stockGrid.adminAccess'),
@@ -408,12 +388,15 @@ export default function StockGridScreen() {
                 <Text style={[styles.shelfLabelText, { color: colors.text }]}>{shelf.shelfLabel}</Text>
               </View>
 
-              {/* BACKGROUND GRID LINES */}
-              {isEditMode && showGridLines && (
+              <View style={[styles.shelfContent, { height: shelf.totalHeight }]}>
+                
+                {/* BACKGROUND GRID LINES */}
+                {isEditMode && showGridLines && (
                   <View style={styles.backgroundGridOverlay} pointerEvents="none">
+                      {/* Vertical Lines */}
                       {Array.from({ length: TOTAL_GRID_COLS }).map((_, i) => (
                           <View 
-                            key={i} 
+                            key={`v-${i}`} 
                             style={[
                                 styles.gridLine, 
                                 { 
@@ -424,7 +407,7 @@ export default function StockGridScreen() {
                           />
                       ))}
                       {/* Horizontal Lines */}
-                      {Array.from({ length: shelf.rowCount }).map((_, i) => (
+                      {Array.from({ length: shelf.rowCount - 1 }).map((_, i) => (
                           <View 
                             key={`h-${i}`} 
                             style={[
@@ -437,10 +420,9 @@ export default function StockGridScreen() {
                           />
                       ))}
                   </View>
-              )}
+                )}
 
-              {/* SHELF CANVAS - Absolute Positioning */}
-              <View style={[styles.shelfContent, { height: shelf.totalHeight }]}>
+                {/* SLOTS (Absolute Positioning) */}
                 {shelf.mappedSlots.map((slot) => {
                      // Dimensions
                      const slotWidth = (UNIT_WIDTH * slot.width_span) + (GAP_SIZE * (slot.width_span - 1));
@@ -503,7 +485,6 @@ export default function StockGridScreen() {
                      );
                 })}
               </View>
-              
             </View>
           ))}
         </View>
@@ -531,7 +512,7 @@ const styles = StyleSheet.create({
   slot: { borderRadius: 6, justifyContent: 'center', alignItems: 'center', padding: 2, overflow: 'hidden' },
   
   backgroundGridOverlay: {
-      position: 'absolute', top: 10, bottom: 0, left: 0, right: 0, zIndex: 0, 
+      position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, zIndex: 0, 
   },
   gridLine: {
       position: 'absolute', top: 0, bottom: 0, width: 1, borderLeftWidth: 1, borderStyle: 'solid', opacity: 0.2,
