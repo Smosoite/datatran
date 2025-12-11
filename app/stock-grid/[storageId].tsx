@@ -32,7 +32,7 @@ type LocationSlot = {
   _zIndex?: number;
 };
 
-// Helper for Natural Sort (1, 2, 10 instead of 1, 10, 2)
+// Helper for Natural Sort (Row 1, Row 2, Row 10)
 const naturalSort = (a: string | null, b: string | null) => {
     return (a || '').localeCompare(b || '', undefined, { numeric: true, sensitivity: 'base' });
 };
@@ -46,12 +46,12 @@ export default function StockGridScreen() {
   const { storageId } = useLocalSearchParams<{ storageId: string }>();
 
   const { width: screenWidth } = useWindowDimensions(); 
-  
+   
   // --- LAYOUT CONSTANTS ---
   const TOTAL_GRID_COLS = 6; 
-  const GRID_PADDING = 8;  // Reduced padding
-  const GAP_SIZE = 2;      // Tighter gap
-  const BASE_HEIGHT = 80;  
+  const GRID_PADDING = 12; 
+  const GAP_SIZE = 2;       // Tighter gap for better "merged" look
+  const BASE_HEIGHT = 80;   
 
   // Precise Math
   const AVAILABLE_WIDTH = screenWidth - (GRID_PADDING * 2);
@@ -60,7 +60,7 @@ export default function StockGridScreen() {
 
   const [locations, setLocations] = useState<LocationSlot[]>([]);
   const [loading, setLoading] = useState(true);
-  
+   
   // --- EDIT MODE STATE ---
   const [isEditMode, setIsEditMode] = useState(false);
   const [showGridLines, setShowGridLines] = useState(true);
@@ -76,7 +76,7 @@ export default function StockGridScreen() {
           items ( id, name, quantity )
         `)
         .eq('storage_id', storageId);
-      
+       
       if (error) throw error;
 
       const formattedLocations = data.map(loc => ({
@@ -132,14 +132,14 @@ export default function StockGridScreen() {
     let victimId: string | null = null;
 
     if (dimension === 'width') {
-        // WIDTH MERGE: Look for neighbor in SAME ROW
+        // --- WIDTH MERGE ---
         const rowSlots = shelfSlots
             .filter(l => l.row === slot.row)
             .sort((a,b) => naturalSort(a.column, b.column));
             
         const myIndex = rowSlots.findIndex(l => l.id === slot.id);
         
-        // The victim is the very next slot in this row
+        // Check neighbor to the right
         if (myIndex !== -1 && myIndex < rowSlots.length - 1) {
             const potentialVictim = rowSlots[myIndex + 1];
             if (potentialVictim) {
@@ -151,21 +151,17 @@ export default function StockGridScreen() {
             }
         }
     } else {
-        // HEIGHT MERGE: Look for neighbor in SAME COLUMN
-        // We filter by column label
+        // --- HEIGHT MERGE (FIXED) ---
+        // Instead of calculating grid indices, we look for the next neighbor in the SAME COLUMN.
         const colSlots = shelfSlots
             .filter(l => l.column === slot.column)
-            .sort((a,b) => naturalSort(a.row, b.row));
-
+            .sort((a,b) => naturalSort(a.row, b.row)); // Sort Top -> Bottom
+            
         const myIndex = colSlots.findIndex(l => l.id === slot.id);
 
-        // The victim is the very next slot in this column (visually below)
+        // Check neighbor directly below
         if (myIndex !== -1 && myIndex < colSlots.length - 1) {
             const potentialVictim = colSlots[myIndex + 1];
-            
-            // Check if it is conceptually "Next". 
-            // In a sparse grid, this might jump a gap, but for merging that is usually acceptable behavior.
-            // If strict adherence to "No Gaps" is needed, we'd check row indices, but simple next-in-column is safer for UI.
             
             if (potentialVictim) {
                  if (potentialVictim.items && potentialVictim.items.length > 0) {
@@ -175,8 +171,7 @@ export default function StockGridScreen() {
                 victimId = potentialVictim.id;
             }
         } else {
-             // If we are at the bottom and try to expand
-             Alert.alert(t('general.limit'), "Bottom of column reached.");
+             Alert.alert(t('general.limit'), "Bottom of shelf reached.");
              return;
         }
     }
@@ -202,20 +197,6 @@ export default function StockGridScreen() {
             dimension === 'width' ? { width_span: slot.width_span + 1 } : { height_span: slot.height_span + 1 }
         ).eq('id', slotId);
 
-    } else {
-        // Expand into void (Only for Width if there is space on the grid but no slot defined)
-        // For Height, expanding into void is tricky because rows are defined by existence of items.
-        // We will restrict height expansion to Merging only for stability.
-        if (dimension === 'width') {
-             const maxVal = TOTAL_GRID_COLS;
-             if (slot.width_span < maxVal) {
-                 // Expand visually
-                 const newSpan = slot.width_span + 1;
-                 setLocations(prev => prev.map(l => l.id === slotId ? { ...l, width_span: newSpan } : l));
-                 await supabase.from('defined_locations').update({ width_span: newSpan }).eq('id', slotId);
-                 await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-             }
-        }
     }
   };
 
@@ -260,7 +241,6 @@ export default function StockGridScreen() {
         const slots = shelvesDict[shelfKey];
         
         // 1. Determine Grid Coordinates
-        // We MUST sort rows and columns to determine layout grid
         const uniqueRows = [...new Set(slots.map(l => l.row))].sort(naturalSort);
         const uniqueCols = [...new Set(slots.map(l => l.column))].sort(naturalSort);
         
@@ -269,6 +249,7 @@ export default function StockGridScreen() {
             const rowIdx = uniqueRows.indexOf(slot.row);
             const colIdx = uniqueCols.indexOf(slot.column);
             
+            // Calculate Top/Left based on Unit Size + Gaps
             const top = (rowIdx * (BASE_HEIGHT + GAP_SIZE));
             const left = (colIdx * (UNIT_WIDTH + GAP_SIZE));
 
@@ -276,16 +257,17 @@ export default function StockGridScreen() {
                 ...slot,
                 _top: top,
                 _left: left,
+                // Higher Z-Index for spans so they float over borders
                 _zIndex: (slot.height_span > 1 || slot.width_span > 1) ? 100 : 1
             };
         });
 
-        // Exact Height Calculation based on how many rows actually exist
-        const totalHeight = (uniqueRows.length * BASE_HEIGHT) + (Math.max(0, uniqueRows.length - 1) * GAP_SIZE);
+        // Exact Height Calculation
+        const totalHeight = (uniqueRows.length * BASE_HEIGHT) + ((uniqueRows.length - 1) * GAP_SIZE);
 
         return {
             shelfLabel: shelfKey,
-            totalHeight: Math.max(totalHeight, BASE_HEIGHT), // Minimum 1 row
+            totalHeight: Math.max(totalHeight, BASE_HEIGHT), // Minimum 1 row height
             mappedSlots,
             rowCount: uniqueRows.length
         };
@@ -296,7 +278,6 @@ export default function StockGridScreen() {
   const toggleEditMode = () => {
     if (isEditMode) {
       setIsEditMode(false);
-      setPickedSlotId(null);
     } else {
       showPasscodeModal({
         title: t('stockGrid.adminAccess'),
@@ -426,13 +407,13 @@ export default function StockGridScreen() {
 
                 {/* SLOTS (Absolute Positioning) */}
                 {shelf.mappedSlots.map((slot) => {
-                     // Dimensions
-                     const slotWidth = (UNIT_WIDTH * slot.width_span) + (GAP_SIZE * (slot.width_span - 1));
-                     const slotHeight = (BASE_HEIGHT * slot.height_span) + (GAP_SIZE * (slot.height_span - 1));
-                     const item = slot.items?.[0];
+                      // Dimensions
+                      const slotWidth = (UNIT_WIDTH * slot.width_span) + (GAP_SIZE * (slot.width_span - 1));
+                      const slotHeight = (BASE_HEIGHT * slot.height_span) + (GAP_SIZE * (slot.height_span - 1));
+                      const item = slot.items?.[0];
 
-                     return (
-                         <View 
+                      return (
+                          <View 
                             key={slot.id} 
                             style={{ 
                                 position: 'absolute',
@@ -484,7 +465,7 @@ export default function StockGridScreen() {
                                 </>
                             )}
                         </View>
-                     );
+                      );
                 })}
               </View>
             </View>
@@ -504,14 +485,17 @@ const styles = StyleSheet.create({
     padding: 16, paddingTop: 50, borderBottomWidth: 1, elevation: 2, zIndex: 10,
   },
   iconButton: { padding: 10, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-  shelfContainer: { marginBottom: 16, position: 'relative', marginTop: 12 }, // REDUCED MARGIN
+  
+  // FIXED: Reduced margins significantly to bring shelves closer
+  shelfContainer: { marginBottom: 8, position: 'relative', marginTop: 12 }, 
+  
   shelfLabelTab: {
-    position: 'absolute', left: -8, top: -10, paddingHorizontal: 10, paddingVertical: 2, borderRadius: 4, zIndex: 20,
+    position: 'absolute', left: -10, top: -12, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 4, zIndex: 20,
   },
   shelfLabelText: { fontWeight: 'bold', fontSize: 14 },
-  shelfContent: { width: '100%', position: 'relative', marginTop: 8 },
+  shelfContent: { width: '100%', position: 'relative', marginTop: 10 },
   
-  slot: { borderRadius: 4, justifyContent: 'center', alignItems: 'center', padding: 2, overflow: 'hidden' },
+  slot: { borderRadius: 6, justifyContent: 'center', alignItems: 'center', padding: 2, overflow: 'hidden' },
   
   backgroundGridOverlay: {
       position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, zIndex: 0, 
@@ -523,7 +507,7 @@ const styles = StyleSheet.create({
       position: 'absolute', left: 0, right: 0, height: 1, borderTopWidth: 1, borderStyle: 'solid', opacity: 0.2,
   },
   
-  emptyMarker: { width: 6, height: 6, borderRadius: 3 },
+  emptyMarker: { width: 8, height: 8, borderRadius: 4 },
   quantityBadge: {
     position: 'absolute', top: 4, right: 4, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, minWidth: 20, alignItems: 'center',
   },
