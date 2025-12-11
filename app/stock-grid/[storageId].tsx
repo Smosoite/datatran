@@ -226,7 +226,7 @@ export default function StockGridScreen() {
                             <>
                               <View style={[
                                 styles.quantityBadge, 
-                                { backgroundColor: slot.item.quantity > 0 ? colors.success : colors.danger }
+                                { backgroundColor: slot.item.quantity > 0 ? colors.selector : colors.danger }
                               ]}>
                                 <Text style={styles.quantityText}>{slot.item.quantity}</Text>
                               </View>
