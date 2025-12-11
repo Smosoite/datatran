@@ -23,7 +23,7 @@ export default function AddItemScreen() {
   const router = useRouter();
   const { profile } = useAuth();
   
-  // --- NEW: Rename incoming param so we can manage it in state ---
+  // Incoming param
   const { barcode: initialBarcode } = useLocalSearchParams<{ barcode?: string }>();
   
   const { colors } = useTheme();
@@ -32,7 +32,6 @@ export default function AddItemScreen() {
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState('');
   const [restockThreshold, setRestockThreshold] = useState('');
-  // --- NEW: Store barcode in state so we can clear it after first add ---
   const [itemBarcode, setItemBarcode] = useState(initialBarcode || null);
   
   const [loading, setLoading] = useState(false);
@@ -50,7 +49,6 @@ export default function AddItemScreen() {
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [locationOccupant, setLocationOccupant] = useState<string | null>(null);
 
-  // --- NEW: Handle optional pre-filling from previous screens ---
   const { warehouseId, storageId } = useLocalSearchParams<{ warehouseId?: string; storageId?: string }>();
 
   // Fetch warehouses
@@ -59,7 +57,6 @@ export default function AddItemScreen() {
       const { data } = await supabase.from('warehouses').select('id, name');
       if (data) {
         setWarehouses(data.map(w => ({ label: w.name, value: w.id })));
-        // Pre-select if passed in params
         if (warehouseId) setSelectedWarehouse(warehouseId);
       }
     };
@@ -77,7 +74,6 @@ export default function AddItemScreen() {
       const { data } = await supabase.from('storages').select('id, name').eq('warehouse_id', selectedWarehouse);
       if (data) {
         setStorages(data.map(s => ({ label: s.name, value: s.id })));
-        // Pre-select if passed in params (and matches warehouse)
         if (storageId) setSelectedStorage(storageId);
       }
     };
@@ -105,17 +101,34 @@ export default function AddItemScreen() {
     fetchLocations();
   }, [selectedStorage, t]);
   
-  // Memoized options
+  // --- Memoized Options ---
+
+  // 1. Shelf Options
   const shelfOptions = useMemo(() => [...new Set(allLocations.map(l => l.shelf))].map(s => ({ label: s, value: s })), [allLocations]);
+  
+  // 2. Row Options
   const rowOptions = useMemo(() => {
     if (!selectedShelf) return [];
     const rows = [...new Set(allLocations.filter(l => l.shelf === selectedShelf).map(l => l.row).filter(Boolean))] as string[];
     return rows.map(r => ({ label: r, value: r }));
   }, [allLocations, selectedShelf]);
+
+  // 3. Column Options (FIXED LOGIC)
   const columnOptions = useMemo(() => {
-    if (!selectedShelf || !selectedRow) return [];
-    const cols = [...new Set(allLocations.filter(l => l.shelf === selectedShelf && l.row === selectedRow).map(l => l.column).filter(Boolean))] as string[];
-    return cols.map(c => ({ label: c, value: c }));
+    if (!selectedShelf) return [];
+
+    const byShelf = allLocations.filter(l => l.shelf === selectedShelf);
+
+    if (selectedRow) {
+      // Standard Case: Filter by Selected Row
+      return [...new Set(byShelf.filter(l => l.row === selectedRow).map(l => l.column).filter(Boolean))]
+        .map(c => ({ label: c, value: c }));
+    } else {
+      // "No Row" Case: Filter for columns where row is null
+      // This allows selecting columns even if the location has no rows defined
+      return [...new Set(byShelf.filter(l => l.row === null).map(l => l.column).filter(Boolean))]
+        .map(c => ({ label: c, value: c }));
+    }
   }, [allLocations, selectedShelf, selectedRow]);
 
   // Find location ID
@@ -159,27 +172,22 @@ export default function AddItemScreen() {
         p_storage_id: selectedStorage,
         p_location_id: selectedLocationId,
         p_workgroup_id: profile.workgroup_id,
-        p_barcode: itemBarcode, // Use state, not param
+        p_barcode: itemBarcode,
       });
 
       if (error) throw error;
       
       showSuccess(t('general.success'), t('general.addSuccess'));
 
-      // --- NEW: Reset Form for Next Entry ---
+      // Reset Form
       setName('');
       setQuantity('');
       setRestockThreshold('');
-      setItemBarcode(null); // Clear barcode so it's not reused for the next item
+      setItemBarcode(null);
       
-      // We clear the specific location to prevent "Occupied" errors, 
-      // but we keep Warehouse/Storage to help rapid entry.
       setSelectedShelf(null);
       setSelectedRow(null);
       setSelectedColumn(null);
-
-      // --- NEW: DO NOT Navigate back ---
-      // router.back(); 
 
     } catch (error: any) {
       showError(t('general.error'), error.message);
@@ -195,7 +203,6 @@ export default function AddItemScreen() {
         keyboardShouldPersistTaps="handled"
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
-        {/* Helper visual to show if a barcode is attached to the current entry */}
         {itemBarcode && (
              <View style={{ position: 'absolute', left: 0, backgroundColor: colors.primaryMuted, padding: 4, borderRadius: 4 }}>
                 <FontAwesome name="barcode" size={16} color={colors.primary} />
@@ -283,7 +290,9 @@ export default function AddItemScreen() {
               }}
             />
           )}
-          {selectedRow && columnOptions.length > 0 && (
+          
+          {/* --- FIX: Show Column Picker even if no Row is selected (if columns exist) --- */}
+          {selectedShelf && columnOptions.length > 0 && (
             <DropdownPicker
               label={t('location.column')}
               placeholder={t('location.columnSelect')}
@@ -316,7 +325,6 @@ export default function AddItemScreen() {
         )}
       </Pressable>
 
-       {/* --- NEW: Close Button for when they are actually done --- */}
        <Pressable 
         style={[styles.button, { backgroundColor: 'transparent', marginTop: 10, borderWidth: 1, borderColor: colors.border }]} 
         onPress={() => router.back()}
@@ -324,7 +332,6 @@ export default function AddItemScreen() {
          <Text style={[typography.button, styles.buttonText, { color: colors.text }]}>{t('general.close', 'Done')}</Text>
       </Pressable>
       
-      {/* Spacer for scroll */}
       <View style={{ height: 50 }} />
     </ScrollView>
   );
