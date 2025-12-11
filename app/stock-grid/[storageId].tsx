@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, useWindowDimensions, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, useWindowDimensions, Alert, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../providers/ThemeProvider';
@@ -8,10 +8,9 @@ import { useAuth } from '../../providers/AuthProvider';
 import { useModal } from '../../providers/ModalProvider';
 import { showError, showSuccess } from '../../lib/toast';
 import { typography } from '../../styles/typography';
-import { Feather, MaterialIcons } from '@expo/vector-icons';
+import { Feather, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { logActivity } from '../../lib/logger';
 import * as Haptics from 'expo-haptics';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 // --- Data Types ---
 type LocationSlot = {
@@ -32,7 +31,7 @@ type LocationSlot = {
   _zIndex?: number;
 };
 
-// Helper for Natural Sort (Row 1, Row 2, Row 10)
+// Helper for Natural Sort
 const naturalSort = (a: string | null, b: string | null) => {
     return (a || '').localeCompare(b || '', undefined, { numeric: true, sensitivity: 'base' });
 };
@@ -50,8 +49,8 @@ export default function StockGridScreen() {
   // --- LAYOUT CONSTANTS ---
   const TOTAL_GRID_COLS = 6; 
   const GRID_PADDING = 12; 
-  const GAP_SIZE = 2;       // The gap inside the shelf
-  const SHELF_MARGIN = 2;   // The gap between shelves (Must match GAP_SIZE for seamless merge)
+  const GAP_SIZE = 2;       
+  const SHELF_MARGIN = 2;   
   const BASE_HEIGHT = 80;   
 
   // Precise Math
@@ -61,8 +60,6 @@ export default function StockGridScreen() {
 
   const [locations, setLocations] = useState<LocationSlot[]>([]);
   const [loading, setLoading] = useState(true);
-   
-  // --- EDIT MODE STATE ---
   const [isEditMode, setIsEditMode] = useState(false);
   const [showGridLines, setShowGridLines] = useState(true);
 
@@ -100,159 +97,162 @@ export default function StockGridScreen() {
     fetchData();
   }, [fetchData]);
 
-  // --- MERGE / RESIZE LOGIC ---
-  const handleResizeComplete = async (slotId: string, dimension: 'width' | 'height', direction: number) => {
-    const slot = locations.find(l => l.id === slotId);
-    if (!slot) return;
+  // --- MERGE LOGIC ---
+  const handleMerge = async (sourceId: string, direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT') => {
+    const source = locations.find(l => l.id === sourceId);
+    if (!source) return;
 
-    // --- SHRINKING ---
-    if (direction < 0) {
-        const newSpan = dimension === 'width' 
-            ? Math.max(1, slot.width_span - 1)
-            : Math.max(1, slot.height_span - 1);
-        
-        if (newSpan === (dimension === 'width' ? slot.width_span : slot.height_span)) return;
+    // 1. Organize Data to find Neighbors
+    const allShelves = [...new Set(locations.map(l => l.shelf))].sort(naturalSort);
+    const shelfSlots = locations.filter(l => l.shelf === source.shelf);
+    
+    // Sort Rows and Cols for Indexing
+    const uniqueRows = [...new Set(shelfSlots.map(l => l.row))].sort(naturalSort);
+    const uniqueCols = [...new Set(shelfSlots.map(l => l.column))].sort(naturalSort);
 
-        setLocations(prev => prev.map(l => l.id === slotId ? { 
-            ...l, 
-            width_span: dimension === 'width' ? newSpan : l.width_span,
-            height_span: dimension === 'height' ? newSpan : l.height_span
-        } : l));
-        
-        await supabase.from('defined_locations').update(
-            dimension === 'width' ? { width_span: newSpan } : { height_span: newSpan }
-        ).eq('id', slotId);
-        
-        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        return;
-    }
+    const currentRowIdx = uniqueRows.indexOf(source.row);
+    const currentColIdx = uniqueCols.indexOf(source.column);
 
-    // --- EXPANDING (Merge) ---
-    const shelfSlots = locations.filter(l => l.shelf === slot.shelf);
-    let victimId: string | null = null;
+    let victim: LocationSlot | undefined;
+    let newAttributes: Partial<LocationSlot> = {};
 
-    if (dimension === 'width') {
-        // Same-Shelf Width Merge
-        const rowSlots = shelfSlots
-            .filter(l => l.row === slot.row)
-            .sort((a,b) => naturalSort(a.column, b.column));
+    // 2. Identify Victim based on direction
+    if (direction === 'RIGHT') {
+        // Find slot: Same Shelf, Same Row, Next Column
+        if (currentColIdx < uniqueCols.length - 1) {
+            const nextCol = uniqueCols[currentColIdx + source.width_span]; // Skip span
+            victim = shelfSlots.find(l => l.row === source.row && l.column === nextCol);
             
-        const myIndex = rowSlots.findIndex(l => l.id === slot.id);
-        
-        if (myIndex !== -1 && myIndex < rowSlots.length - 1) {
-            const potentialVictim = rowSlots[myIndex + 1];
-            if (potentialVictim) {
-                 if (potentialVictim.items && potentialVictim.items.length > 0) {
-                    Alert.alert(t('general.error'), "Cannot merge: Neighbor is occupied.");
-                    return;
-                }
-                victimId = potentialVictim.id;
+            // Check alignment (Height must match)
+            if (victim && victim.height_span !== source.height_span) {
+                Alert.alert("Mismatch", "Cannot merge items of different heights.");
+                return;
             }
+            newAttributes = { width_span: source.width_span + (victim?.width_span || 1) };
         }
-    } else {
-        // --- HEIGHT MERGE (Cross-Shelf) ---
-        const colSlots = shelfSlots
-            .filter(l => l.column === slot.column)
-            .sort((a,b) => naturalSort(a.row, b.row));
-            
-        const myIndex = colSlots.findIndex(l => l.id === slot.id);
+    } 
+    else if (direction === 'LEFT') {
+        // Find slot: Same Shelf, Same Row, Previous Column
+        if (currentColIdx > 0) {
+            const prevCol = uniqueCols[currentColIdx - 1]; // We assume the neighbor ends right before us
+            // Actually, we need to find the neighbor whose (col_index + width_span) == my_col_index
+            // Simplification: Look for immediate neighbor index
+            victim = shelfSlots.find(l => {
+                const vColIdx = uniqueCols.indexOf(l.column);
+                return l.row === source.row && (vColIdx + l.width_span) === currentColIdx;
+            });
 
-        if (myIndex !== -1 && myIndex < colSlots.length - 1) {
-            // Merge with neighbor in SAME shelf
-            const potentialVictim = colSlots[myIndex + 1];
-            if (potentialVictim) {
-                 if (potentialVictim.items && potentialVictim.items.length > 0) {
-                    Alert.alert(t('general.error'), "Cannot merge: Neighbor is occupied.");
-                    return;
-                }
-                victimId = potentialVictim.id;
+            if (victim && victim.height_span !== source.height_span) {
+                Alert.alert("Mismatch", "Cannot merge items of different heights.");
+                return;
             }
-        } else {
-            // Merge with neighbor in NEXT shelf
-            const allShelves = [...new Set(locations.map(l => l.shelf))].sort(naturalSort);
-            const currentShelfIdx = allShelves.indexOf(slot.shelf);
-            
-            if (currentShelfIdx !== -1 && currentShelfIdx < allShelves.length - 1) {
-                const nextShelfName = allShelves[currentShelfIdx + 1];
-                
-                // Align Columns by Index
-                const currentShelfCols = [...new Set(shelfSlots.map(l => l.column))].sort(naturalSort);
-                const myColIdx = currentShelfCols.indexOf(slot.column);
-                
-                const nextShelfSlots = locations.filter(l => l.shelf === nextShelfName);
-                const nextShelfCols = [...new Set(nextShelfSlots.map(l => l.column))].sort(naturalSort);
-                
-                if (myColIdx !== -1 && myColIdx < nextShelfCols.length) {
-                    const targetCol = nextShelfCols[myColIdx];
-                    const nextShelfRows = [...new Set(nextShelfSlots.map(l => l.row))].sort(naturalSort);
-                    const targetRow = nextShelfRows[0]; // Top row of next shelf
-                    
-                    const crossShelfVictim = nextShelfSlots.find(l => l.column === targetCol && l.row === targetRow);
-                    
-                    if (crossShelfVictim) {
-                        if (crossShelfVictim.items && crossShelfVictim.items.length > 0) {
-                            Alert.alert(t('general.error'), "Cannot merge: Neighbor (next shelf) is occupied.");
-                            return;
-                        }
-                        victimId = crossShelfVictim.id;
-                    }
-                }
-            }
-        }
-        
-        if (!victimId) {
-             Alert.alert(t('general.limit'), "Bottom of shelf reached.");
-             return;
-        }
-    }
-
-    if (victimId) {
-        const newLocs = locations.filter(l => l.id !== victimId).map(l => {
-            if (l.id === slotId) {
-                return {
-                    ...l,
-                    width_span: dimension === 'width' ? l.width_span + 1 : l.width_span,
-                    height_span: dimension === 'height' ? l.height_span + 1 : l.height_span
+            // Logic: Source takes Victim's Position (Row/Col) and combines widths
+            if (victim) {
+                newAttributes = { 
+                    column: victim.column, // Move to left
+                    width_span: source.width_span + victim.width_span 
                 };
             }
+        }
+    }
+    else if (direction === 'DOWN') {
+        // A. Try Same Shelf
+        const nextRowIdx = currentRowIdx + source.height_span;
+        
+        if (nextRowIdx < uniqueRows.length) {
+            const nextRow = uniqueRows[nextRowIdx];
+            victim = shelfSlots.find(l => l.column === source.column && l.row === nextRow);
+        } else {
+            // B. Try Next Shelf (Cross-Shelf Merge)
+            const currentShelfIdx = allShelves.indexOf(source.shelf);
+            if (currentShelfIdx < allShelves.length - 1) {
+                const nextShelfName = allShelves[currentShelfIdx + 1];
+                const nextShelfSlots = locations.filter(l => l.shelf === nextShelfName);
+                
+                // Align columns by Index
+                const nextShelfCols = [...new Set(nextShelfSlots.map(l => l.column))].sort(naturalSort);
+                const nextShelfRows = [...new Set(nextShelfSlots.map(l => l.row))].sort(naturalSort);
+                
+                if (currentColIdx < nextShelfCols.length && nextShelfRows.length > 0) {
+                     const targetCol = nextShelfCols[currentColIdx];
+                     const targetRow = nextShelfRows[0]; // Top row
+                     victim = nextShelfSlots.find(l => l.column === targetCol && l.row === targetRow);
+                }
+            }
+        }
+
+        if (victim && victim.width_span !== source.width_span) {
+            Alert.alert("Mismatch", "Cannot merge items of different widths.");
+            return;
+        }
+        if (victim) {
+            newAttributes = { height_span: source.height_span + victim.height_span };
+        }
+    }
+    else if (direction === 'UP') {
+        // A. Try Same Shelf
+        if (currentRowIdx > 0) {
+             // Find neighbor whose (row_index + height_span) == my_row_index
+             victim = shelfSlots.find(l => {
+                const vRowIdx = uniqueRows.indexOf(l.row);
+                return l.column === source.column && (vRowIdx + l.height_span) === currentRowIdx;
+             });
+        } else {
+            // B. Try Previous Shelf
+            const currentShelfIdx = allShelves.indexOf(source.shelf);
+            if (currentShelfIdx > 0) {
+                const prevShelfName = allShelves[currentShelfIdx - 1];
+                const prevShelfSlots = locations.filter(l => l.shelf === prevShelfName);
+                
+                const prevShelfCols = [...new Set(prevShelfSlots.map(l => l.column))].sort(naturalSort);
+                const prevShelfRows = [...new Set(prevShelfSlots.map(l => l.row))].sort(naturalSort);
+                
+                if (currentColIdx < prevShelfCols.length && prevShelfRows.length > 0) {
+                    const targetCol = prevShelfCols[currentColIdx];
+                    const targetRow = prevShelfRows[prevShelfRows.length - 1]; // Bottom row
+                    victim = prevShelfSlots.find(l => l.column === targetCol && l.row === targetRow);
+                }
+            }
+        }
+
+        if (victim && victim.width_span !== source.width_span) {
+            Alert.alert("Mismatch", "Cannot merge items of different widths.");
+            return;
+        }
+        if (victim) {
+            // Logic: Source takes Victim's Position and Shelf
+            newAttributes = { 
+                shelf: victim.shelf,
+                row: victim.row,
+                height_span: source.height_span + victim.height_span 
+            };
+        }
+    }
+
+    // 3. Execution
+    if (victim) {
+        if (victim.items && victim.items.length > 0) {
+            Alert.alert("Occupied", "The location you are trying to merge with is occupied.");
+            return;
+        }
+
+        // Optimistic Update
+        const updatedLocations = locations.filter(l => l.id !== victim?.id).map(l => {
+            if (l.id === source.id) return { ...l, ...newAttributes };
             return l;
         });
 
-        setLocations(newLocs);
-        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        setLocations(updatedLocations);
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-        await supabase.from('defined_locations').delete().eq('id', victimId);
-        await supabase.from('defined_locations').update(
-            dimension === 'width' ? { width_span: slot.width_span + 1 } : { height_span: slot.height_span + 1 }
-        ).eq('id', slotId);
+        // Database Update
+        await supabase.from('defined_locations').delete().eq('id', victim.id);
+        await supabase.from('defined_locations').update(newAttributes).eq('id', source.id);
+    } else {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
   };
 
-  // --- GESTURE HANDLES ---
-  const ResizeHandle = ({ dimension, slotId }: { dimension: 'width' | 'height', slotId: string }) => {
-    const isHorizontal = dimension === 'width';
-    const pan = Gesture.Pan()
-        .runOnJS(true)
-        .onEnd((e) => {
-            const dragDist = isHorizontal ? e.translationX : e.translationY;
-            if (Math.abs(dragDist) > 30) {
-                const direction = dragDist > 0 ? 1 : -1;
-                handleResizeComplete(slotId, dimension, direction);
-            }
-        });
-
-    return (
-        <GestureDetector gesture={pan}>
-            <View style={[
-                styles.resizeHandle,
-                isHorizontal ? styles.resizeHandleRight : styles.resizeHandleBottom,
-                { backgroundColor: colors.primary }
-            ]}>
-                 <View style={{ width: isHorizontal ? 4 : 20, height: isHorizontal ? 20 : 4, backgroundColor: 'white', borderRadius: 2 }} />
-            </View>
-        </GestureDetector>
-    );
-  };
 
   // --- VISUAL GRID CALCULATION ---
   const visualGrid = useMemo(() => {
@@ -270,9 +270,7 @@ export default function StockGridScreen() {
         const uniqueRows = [...new Set(slots.map(l => l.row))].sort(naturalSort);
         const uniqueCols = [...new Set(slots.map(l => l.column))].sort(naturalSort);
         
-        // FIX: Calculate height based ONLY on the native rows in this shelf.
-        // We do NOT expand maxVisualRowIndex based on item spans. 
-        // This allows items to overflow the container and cover the next shelf.
+        // Calculate max visual row to allow overflow
         const maxVisualRowIndex = uniqueRows.length - 1;
 
         const mappedSlots = slots.map(slot => {
@@ -286,7 +284,6 @@ export default function StockGridScreen() {
                 ...slot,
                 _top: top,
                 _left: left,
-                // Ensure expanded items float above everything
                 _zIndex: (slot.height_span > 1 || slot.width_span > 1) ? 999 : 1
             };
         });
@@ -302,6 +299,28 @@ export default function StockGridScreen() {
         };
     });
   }, [locations, BASE_HEIGHT, GAP_SIZE, UNIT_WIDTH]);
+
+  // --- COMPONENT: Merge Handle ---
+  const MergeHandle = ({ direction, onPress }: { direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT', onPress: () => void }) => {
+    let style = {};
+    const size = 24;
+    const offset = -12; // Half size to center on line
+
+    if (direction === 'UP') style = { top: offset, left: '50%', marginLeft: -12 };
+    if (direction === 'DOWN') style = { bottom: offset, left: '50%', marginLeft: -12 };
+    if (direction === 'LEFT') style = { left: offset, top: '50%', marginTop: -12 };
+    if (direction === 'RIGHT') style = { right: offset, top: '50%', marginTop: -12 };
+
+    return (
+        <TouchableOpacity 
+            style={[styles.mergeHandle, style, { backgroundColor: colors.card, borderColor: colors.primary }]} 
+            onPress={onPress}
+            activeOpacity={0.7}
+        >
+            <MaterialCommunityIcons name="link-variant" size={14} color={colors.primary} />
+        </TouchableOpacity>
+    );
+  };
 
   // --- ACTIONS ---
   const toggleEditMode = () => {
@@ -399,8 +418,6 @@ export default function StockGridScreen() {
                 style={[
                     styles.shelfContainer, 
                     { 
-                        // The margin between shelves MUST match the internal gap
-                        // to creates a seamless continuous grid visual
                         marginBottom: SHELF_MARGIN, 
                         borderColor: colors.border 
                     }
@@ -499,8 +516,10 @@ export default function StockGridScreen() {
 
                             {isEditMode && (
                                 <>
-                                    <ResizeHandle dimension="width" slotId={slot.id} />
-                                    <ResizeHandle dimension="height" slotId={slot.id} />
+                                    <MergeHandle direction="UP" onPress={() => handleMerge(slot.id, 'UP')} />
+                                    <MergeHandle direction="DOWN" onPress={() => handleMerge(slot.id, 'DOWN')} />
+                                    <MergeHandle direction="LEFT" onPress={() => handleMerge(slot.id, 'LEFT')} />
+                                    <MergeHandle direction="RIGHT" onPress={() => handleMerge(slot.id, 'RIGHT')} />
                                 </>
                             )}
                         </View>
@@ -525,15 +544,11 @@ const styles = StyleSheet.create({
   },
   iconButton: { padding: 10, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   
-  // NOTE: This margin is handled inline in the component to use SHELF_MARGIN constant
   shelfContainer: { position: 'relative', marginTop: 12 }, 
-  
   shelfLabelTab: {
     position: 'absolute', left: -10, top: -12, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 4, zIndex: 10,
   },
   shelfLabelText: { fontWeight: 'bold', fontSize: 14 },
-  
-  // overflow: 'visible' is critical so expanded items can cross shelf boundaries
   shelfContent: { width: '100%', position: 'relative', marginTop: 10, overflow: 'visible' },
   
   slot: { borderRadius: 6, justifyContent: 'center', alignItems: 'center', padding: 2, overflow: 'hidden' },
@@ -555,8 +570,9 @@ const styles = StyleSheet.create({
   quantityText: { color: '#FFFFFF', fontSize: 10, fontWeight: 'bold' },
   itemName: { fontSize: 11, fontWeight: '600', textAlign: 'center', marginTop: 12 },
 
-  resizeHandle: { position: 'absolute', zIndex: 50, justifyContent: 'center', alignItems: 'center', borderRadius: 4, elevation: 5 },
-  resizeHandleRight: { right: -10, top: '30%', height: '40%', width: 20 },
-  resizeHandleBottom: { bottom: -10, left: '30%', width: '40%', height: 20 },
+  mergeHandle: {
+    position: 'absolute', width: 24, height: 24, borderRadius: 12, borderWidth: 1, 
+    justifyContent: 'center', alignItems: 'center', zIndex: 9999, elevation: 10
+  },
   miniDelete: { position: 'absolute', top: 2, left: 2, backgroundColor: '#DC2626', borderRadius: 10, padding: 4, opacity: 0.8, zIndex: 60 },
 });
