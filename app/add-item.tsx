@@ -22,13 +22,19 @@ export default function AddItemScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const { profile } = useAuth();
-  const { barcode } = useLocalSearchParams<{ barcode?: string }>();
+  
+  // --- NEW: Rename incoming param so we can manage it in state ---
+  const { barcode: initialBarcode } = useLocalSearchParams<{ barcode?: string }>();
+  
   const { colors } = useTheme();
 
   // Form state
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState('');
   const [restockThreshold, setRestockThreshold] = useState('');
+  // --- NEW: Store barcode in state so we can clear it after first add ---
+  const [itemBarcode, setItemBarcode] = useState(initialBarcode || null);
+  
   const [loading, setLoading] = useState(false);
 
   // State for location selections
@@ -44,14 +50,21 @@ export default function AddItemScreen() {
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [locationOccupant, setLocationOccupant] = useState<string | null>(null);
 
+  // --- NEW: Handle optional pre-filling from previous screens ---
+  const { warehouseId, storageId } = useLocalSearchParams<{ warehouseId?: string; storageId?: string }>();
+
   // Fetch warehouses
   useEffect(() => {
     const fetchWarehouses = async () => {
       const { data } = await supabase.from('warehouses').select('id, name');
-      if (data) setWarehouses(data.map(w => ({ label: w.name, value: w.id })));
+      if (data) {
+        setWarehouses(data.map(w => ({ label: w.name, value: w.id })));
+        // Pre-select if passed in params
+        if (warehouseId) setSelectedWarehouse(warehouseId);
+      }
     };
     fetchWarehouses();
-  }, []);
+  }, [warehouseId]);
 
   // Fetch storages
   useEffect(() => {
@@ -62,10 +75,14 @@ export default function AddItemScreen() {
     }
     const fetchStorages = async () => {
       const { data } = await supabase.from('storages').select('id, name').eq('warehouse_id', selectedWarehouse);
-      if (data) setStorages(data.map(s => ({ label: s.name, value: s.id })));
+      if (data) {
+        setStorages(data.map(s => ({ label: s.name, value: s.id })));
+        // Pre-select if passed in params (and matches warehouse)
+        if (storageId) setSelectedStorage(storageId);
+      }
     };
     fetchStorages();
-  }, [selectedWarehouse]);
+  }, [selectedWarehouse, storageId]);
 
   // Fetch locations
   useEffect(() => {
@@ -88,7 +105,6 @@ export default function AddItemScreen() {
     fetchLocations();
   }, [selectedStorage, t]);
   
-
   // Memoized options
   const shelfOptions = useMemo(() => [...new Set(allLocations.map(l => l.shelf))].map(s => ({ label: s, value: s })), [allLocations]);
   const rowOptions = useMemo(() => {
@@ -128,10 +144,8 @@ export default function AddItemScreen() {
     setLocationOccupant(occupant ? occupant.name : null);
   }, [selectedLocationId, allLocations]);
   
-  // --- FIXED FUNCTION ---
   const handleAddItem = async () => {
     if (!name.trim() || !quantity || !restockThreshold || !selectedWarehouse || !selectedStorage) {
-      // FIX: Removed invalid 'error.message' reference
       showError(t('general.error'), t('general.fillFields'));
       return;
     }
@@ -145,14 +159,28 @@ export default function AddItemScreen() {
         p_storage_id: selectedStorage,
         p_location_id: selectedLocationId,
         p_workgroup_id: profile.workgroup_id,
-        p_barcode: barcode || null,
+        p_barcode: itemBarcode, // Use state, not param
       });
 
       if (error) throw error;
       
-      // FIX: Success path logic was trying to access error.message on a null error
       showSuccess(t('general.success'), t('general.addSuccess'));
-      router.back();
+
+      // --- NEW: Reset Form for Next Entry ---
+      setName('');
+      setQuantity('');
+      setRestockThreshold('');
+      setItemBarcode(null); // Clear barcode so it's not reused for the next item
+      
+      // We clear the specific location to prevent "Occupied" errors, 
+      // but we keep Warehouse/Storage to help rapid entry.
+      setSelectedShelf(null);
+      setSelectedRow(null);
+      setSelectedColumn(null);
+
+      // --- NEW: DO NOT Navigate back ---
+      // router.back(); 
+
     } catch (error: any) {
       showError(t('general.error'), error.message);
     } finally {
@@ -166,7 +194,15 @@ export default function AddItemScreen() {
         contentContainerStyle={styles.contentContainer}
         keyboardShouldPersistTaps="handled"
     >
-      <Text style={[typography.h1, styles.header, { color: colors.text }]}>{t('item.addHeader')}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+        {/* Helper visual to show if a barcode is attached to the current entry */}
+        {itemBarcode && (
+             <View style={{ position: 'absolute', left: 0, backgroundColor: colors.primaryMuted, padding: 4, borderRadius: 4 }}>
+                <FontAwesome name="barcode" size={16} color={colors.primary} />
+             </View>
+        )}
+        <Text style={[typography.h1, { color: colors.text }]}>{t('item.addHeader')}</Text>
+      </View>
 
       <DropdownPicker
         label={t('warehouse.title')}
@@ -197,13 +233,29 @@ export default function AddItemScreen() {
       )}
 
       <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('item.name')}</Text>
-      <TextInput style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} value={name} onChangeText={setName} />
+      <TextInput 
+        style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} 
+        value={name} 
+        onChangeText={setName} 
+        placeholder="e.g. Copper Wire Spool"
+        placeholderTextColor={colors.subtext}
+      />
 
       <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('item.quantity')}</Text>
-      <TextInput style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} value={quantity} onChangeText={setQuantity} keyboardType="numeric" />
+      <TextInput 
+        style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} 
+        value={quantity} 
+        onChangeText={setQuantity} 
+        keyboardType="numeric" 
+      />
 
       <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('item.restockThreshold')}</Text>
-      <TextInput style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} value={restockThreshold} onChangeText={setRestockThreshold} keyboardType="numeric" />
+      <TextInput 
+        style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} 
+        value={restockThreshold} 
+        onChangeText={setRestockThreshold} 
+        keyboardType="numeric" 
+      />
 
       {selectedStorage && shelfOptions.length > 0 && (
         <>
@@ -263,13 +315,23 @@ export default function AddItemScreen() {
           <Text style={[typography.button, styles.buttonText, { color: colors.text || '#fff' }]}>{t('item.addButton')}</Text>
         )}
       </Pressable>
+
+       {/* --- NEW: Close Button for when they are actually done --- */}
+       <Pressable 
+        style={[styles.button, { backgroundColor: 'transparent', marginTop: 10, borderWidth: 1, borderColor: colors.border }]} 
+        onPress={() => router.back()}
+      >
+         <Text style={[typography.button, styles.buttonText, { color: colors.text }]}>{t('general.close', 'Done')}</Text>
+      </Pressable>
+      
+      {/* Spacer for scroll */}
+      <View style={{ height: 50 }} />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
     contentContainer: { padding: 20 },
-    header: { fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
     sectionHeader: { fontWeight: '600', marginTop: 20, marginBottom: 15, borderBottomWidth: 1, paddingBottom: 5 },
     label: { marginBottom: 8, fontWeight: '500' },
     input: { borderWidth: 1, borderRadius: 8, padding: 12, marginBottom: 20 },
