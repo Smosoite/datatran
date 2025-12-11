@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, useWindowDimensions, Alert, Vibration } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../providers/ThemeProvider';
@@ -8,7 +8,7 @@ import { useAuth } from '../../providers/AuthProvider';
 import { useModal } from '../../providers/ModalProvider';
 import { showError, showSuccess } from '../../lib/toast';
 import { typography } from '../../styles/typography';
-import { FontAwesome, Feather, MaterialIcons } from '@expo/vector-icons';
+import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { logActivity } from '../../lib/logger';
 import * as Haptics from 'expo-haptics';
 
@@ -18,7 +18,8 @@ type LocationSlot = {
   shelf: string;
   row: string | null;
   column: string | null;
-  width_span: number; // NEW: Controls the width (1-6)
+  width_span: number; 
+  height_span: number; // NEW: Controls height
   items: {
     id: string;
     name: string;
@@ -26,41 +27,34 @@ type LocationSlot = {
   }[] | null;
 };
 
-// We organize the grid by Shelf -> Row -> Items
-type GridRow = {
-  rowLabel: string;
-  slots: LocationSlot[];
-};
-
-type GridShelf = {
-  shelfLabel: string;
-  rows: GridRow[];
-};
-
 export default function StockGridScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const { colors } = useTheme();
   const { showPasscodeModal, showQuantityModal } = useModal();
-  const { workgroup, setStockGridLocked } = useAuth();
+  const { workgroup } = useAuth();
   const { storageId } = useLocalSearchParams<{ storageId: string }>();
 
   const { width: screenWidth } = useWindowDimensions(); 
   
-  // --- CONSTANTS ---
-  const TOTAL_GRID_COLS = 6; // The grid is divided into 6 units width
-  const GRID_PADDING = 12;
-  const GAP_SIZE = 8;
+  // --- LAYOUT CONSTANTS ---
+  const TOTAL_GRID_COLS = 6; 
+  const GRID_PADDING = 10; // Slightly reduced padding
+  const GAP_SIZE = 6;      // Slightly tighter gap
+  const BASE_HEIGHT = 80;  // 1x Height Unit
+
+  // Precise Math to fill screen
   const AVAILABLE_WIDTH = screenWidth - (GRID_PADDING * 2);
-  const UNIT_WIDTH = (AVAILABLE_WIDTH - (GAP_SIZE * (TOTAL_GRID_COLS - 1))) / TOTAL_GRID_COLS;
+  const TOTAL_GAPS_WIDTH = GAP_SIZE * (TOTAL_GRID_COLS - 1);
+  const UNIT_WIDTH = (AVAILABLE_WIDTH - TOTAL_GAPS_WIDTH) / TOTAL_GRID_COLS;
 
   const [locations, setLocations] = useState<LocationSlot[]>([]);
   const [loading, setLoading] = useState(true);
   
   // --- EDIT MODE STATE ---
   const [isEditMode, setIsEditMode] = useState(false);
-  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null); // For resizing
-  const [pickedSlotId, setPickedSlotId] = useState<string | null>(null); // For moving
+  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
+  const [pickedSlotId, setPickedSlotId] = useState<string | null>(null);
 
   // --- Data Fetching ---
   const fetchData = useCallback(async () => {
@@ -70,17 +64,17 @@ export default function StockGridScreen() {
       const { data, error } = await supabase
         .from('defined_locations')
         .select(`
-          id, shelf, row, column, width_span,
+          id, shelf, row, column, width_span, height_span,
           items ( id, name, quantity )
         `)
         .eq('storage_id', storageId);
       
       if (error) throw error;
 
-      // Map and default width_span to 1 if null
       const formattedLocations = data.map(loc => ({
         ...loc,
         width_span: loc.width_span || 1,
+        height_span: loc.height_span || 1, // Default to 1 if null
         items: loc.items || [],
       }));
 
@@ -98,9 +92,6 @@ export default function StockGridScreen() {
   }, [fetchData]);
 
   // --- Visual Grid Logic ---
-  // We group by Shelf -> Row. 
-  // Note: We don't strictly sort by Column anymore to allow "Drag and Drop" ordering
-  // But for now, we still respect the row container.
   const visualGrid = useMemo(() => {
     const shelvesDict: { [key: string]: { [key: string]: LocationSlot[] } } = {};
 
@@ -114,14 +105,12 @@ export default function StockGridScreen() {
       shelvesDict[s][r].push(loc);
     });
 
-    // Sort Shelves and Rows alphanumerically
     return Object.keys(shelvesDict).sort((a, b) => 
         a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
     ).map(shelfKey => {
         const sortedRows = Object.keys(shelvesDict[shelfKey]).sort((a, b) => 
             a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
         ).map(rowKey => {
-            // Sort slots within the row by their current column order
             const slots = shelvesDict[shelfKey][rowKey].sort((a, b) => {
                 const colA = a.column || '0';
                 const colB = b.column || '0';
@@ -135,15 +124,12 @@ export default function StockGridScreen() {
 
   // --- ACTIONS ---
 
-  // 1. Toggle Edit Mode
   const toggleEditMode = () => {
     if (isEditMode) {
-      // Exit Edit Mode
       setIsEditMode(false);
       setSelectedSlotId(null);
       setPickedSlotId(null);
     } else {
-      // Enter Edit Mode (Auth Check)
       showPasscodeModal({
         title: t('stockGrid.adminAccess', 'Admin Access'),
         message: t('stockGrid.enterPasscode', 'Enter Admin Passcode to Edit Grid'),
@@ -159,39 +145,35 @@ export default function StockGridScreen() {
     }
   };
 
-  // 2. Resize Slot
-  const handleResize = async (slot: LocationSlot, change: number) => {
-    const newSpan = Math.max(1, Math.min(TOTAL_GRID_COLS, slot.width_span + change));
-    if (newSpan === slot.width_span) return;
-
-    // Optimistic Update
-    setLocations(prev => prev.map(l => l.id === slot.id ? { ...l, width_span: newSpan } : l));
-
-    // DB Update
-    const { error } = await supabase
-      .from('defined_locations')
-      .update({ width_span: newSpan })
-      .eq('id', slot.id);
-
-    if (error) {
-      showError(t('general.error'), error.message);
-      fetchData(); // Revert
+  // --- NEW: Handle Resize for both Dimensions ---
+  const handleResize = async (slot: LocationSlot, dimension: 'width' | 'height', change: number) => {
+    let newVal = 1;
+    
+    if (dimension === 'width') {
+        newVal = Math.max(1, Math.min(TOTAL_GRID_COLS, slot.width_span + change));
+        if (newVal === slot.width_span) return;
+        setLocations(prev => prev.map(l => l.id === slot.id ? { ...l, width_span: newVal } : l));
+        // DB Update
+        await supabase.from('defined_locations').update({ width_span: newVal }).eq('id', slot.id);
+    } else {
+        newVal = Math.max(1, Math.min(4, slot.height_span + change)); // Max height 4x for sanity
+        if (newVal === slot.height_span) return;
+        setLocations(prev => prev.map(l => l.id === slot.id ? { ...l, height_span: newVal } : l));
+        // DB Update
+        await supabase.from('defined_locations').update({ height_span: newVal }).eq('id', slot.id);
     }
   };
 
-  // 3. Move Logic (Pick and Place)
   const handleSlotPress = (slot: LocationSlot) => {
     if (!isEditMode) {
-      // Normal Mode: View Contents / Edit Item
       const item = slot.items?.[0];
       if (item) {
         showQuantityModal({
-          title: t('stockGrid.manageItem', 'Manage Item'),
-          message: `${item.name}\nQty: ${item.quantity}`,
+          title: item.name,
+          message: `${t('stockGrid.currentQty')}: ${item.quantity}`,
           confirmText: t('general.remove', 'Remove Stock'),
           cancelText: t('general.cancel'),
           onSubmit: async (qty) => {
-             // ... (Existing logic for removing items) ...
              const newQuantity = item.quantity - qty;
              if (newQuantity < 0) return showError(t('general.error'));
              
@@ -209,23 +191,17 @@ export default function StockGridScreen() {
              fetchData();
           }
         });
-      } else {
-          // Empty slot interaction?
-          // Maybe navigate to Add Item pre-filled?
       }
       return;
     }
 
-    // --- EDIT MODE INTERACTIONS ---
     if (pickedSlotId) {
-       // PLACE ACTION: Swap the picked slot with this slot
        if (pickedSlotId === slot.id) {
-         setPickedSlotId(null); // Cancel pick
+         setPickedSlotId(null); 
          return;
        }
        handleSwapSlots(pickedSlotId, slot.id);
     } else {
-       // SELECT ACTION: Show resize controls
        setSelectedSlotId(slot.id === selectedSlotId ? null : slot.id);
     }
   };
@@ -234,21 +210,15 @@ export default function StockGridScreen() {
     if (!isEditMode) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     setPickedSlotId(slot.id);
-    setSelectedSlotId(null); // Clear selection when picking
-    showSuccess(t('stockGrid.picked', 'Slot Picked'), t('stockGrid.pickedMsg', 'Tap another slot to swap positions.'));
+    setSelectedSlotId(null); 
   };
 
   const handleSwapSlots = async (id1: string, id2: string) => {
-     // We need to swap the `column` and `row` and `shelf` values of these two locations
-     // This is a bit complex because Supabase unique constraints might yell if we aren't careful.
-     // For simplicity, we will just swap their CONTENT properties (Shelf, Row, Column)
-     
      const loc1 = locations.find(l => l.id === id1);
      const loc2 = locations.find(l => l.id === id2);
-     
      if (!loc1 || !loc2) return;
 
-     // Optimistic
+     // Optimistic Swap
      const newLocs = locations.map(l => {
         if (l.id === id1) return { ...l, shelf: loc2.shelf, row: loc2.row, column: loc2.column };
         if (l.id === id2) return { ...l, shelf: loc1.shelf, row: loc1.row, column: loc1.column };
@@ -257,22 +227,10 @@ export default function StockGridScreen() {
      setLocations(newLocs);
      setPickedSlotId(null);
 
-     // DB Update
-     // We do this serially to avoid unique constraint collisions if any (though swapping is usually safe if ID is PK)
-     const { error: err1 } = await supabase.from('defined_locations').update({
-        shelf: loc2.shelf, row: loc2.row, column: loc2.column
-     }).eq('id', id1);
+     await supabase.from('defined_locations').update({ shelf: loc2.shelf, row: loc2.row, column: loc2.column }).eq('id', id1);
+     await supabase.from('defined_locations').update({ shelf: loc1.shelf, row: loc1.row, column: loc1.column }).eq('id', id2);
      
-     const { error: err2 } = await supabase.from('defined_locations').update({
-        shelf: loc1.shelf, row: loc1.row, column: loc1.column
-     }).eq('id', id2);
-
-     if (err1 || err2) {
-         showError(t('general.error'), 'Swap failed. Refreshing...');
-         fetchData();
-     } else {
-         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-     }
+     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
   const handleDeleteLocation = (id: string) => {
@@ -298,19 +256,16 @@ export default function StockGridScreen() {
       <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <View>
              <Text style={[typography.h2, { color: colors.text }]}>{t('stockGrid.title')}</Text>
-             {isEditMode && <Text style={[typography.caption, { color: colors.primary }]}>{t('stockGrid.editing', 'EDITING LAYOUT')}</Text>}
+             {isEditMode && <Text style={[typography.caption, { color: colors.primary, fontWeight: 'bold' }]}>{t('stockGrid.editing', 'EDITING LAYOUT')}</Text>}
         </View>
         
         <View style={{ flexDirection: 'row', gap: 10 }}>
-            {/* Edit Mode Toggle */}
             <Pressable 
                 style={[styles.iconButton, { backgroundColor: isEditMode ? colors.primary : colors.card, borderColor: colors.border, borderWidth: 1 }]} 
                 onPress={toggleEditMode}
             >
                 <Feather name={isEditMode ? "check" : "edit-2"} size={20} color={isEditMode ? colors.primaryText : colors.text} />
             </Pressable>
-
-            {/* Close Button */}
             <Pressable style={[styles.iconButton, { backgroundColor: colors.danger }]} onPress={() => router.back()}>
                 <Feather name="x" size={20} color="white" />
             </Pressable>
@@ -323,7 +278,6 @@ export default function StockGridScreen() {
           {visualGrid.map((shelf) => (
             <View key={shelf.shelfLabel} style={[styles.shelfContainer, { borderColor: colors.border }]}>
               
-              {/* Shelf Label */}
               <View style={[styles.shelfLabelTab, { backgroundColor: colors.border }]}>
                 <Text style={[styles.shelfLabelText, { color: colors.text }]}>{shelf.shelfLabel}</Text>
               </View>
@@ -331,14 +285,18 @@ export default function StockGridScreen() {
               <View style={styles.shelfContent}>
                 {shelf.rows.map((row) => (
                     <View key={row.rowLabel} style={styles.rowWrapper}>
-                         {/* Row Label (Optional, good for debug) */}
-                         {/* <Text style={{fontSize: 10, color: colors.subtext, marginBottom: 4}}>{row.rowLabel}</Text> */}
-                         
-                         <View style={styles.gridContainer}>
+                         <View style={[styles.gridContainer, { gap: GAP_SIZE }]}>
                             {row.slots.map((slot) => {
-                                // Calculate dynamic width based on span
-                                // We use a little gap math to make sure it aligns perfectly
-                                const slotWidth = (UNIT_WIDTH * slot.width_span) + (GAP_SIZE * (slot.width_span - 1));
+                                // --- DIMENSION CALCULATIONS ---
+                                const wSpan = slot.width_span || 1;
+                                const hSpan = slot.height_span || 1;
+                                
+                                // Width: unit * span + gaps * (span-1)
+                                const slotWidth = (UNIT_WIDTH * wSpan) + (GAP_SIZE * (wSpan - 1));
+                                
+                                // Height: unit * span + gaps * (span-1)
+                                const slotHeight = (BASE_HEIGHT * hSpan) + (GAP_SIZE * (hSpan - 1));
+
                                 const item = slot.items?.[0];
                                 const isSelected = selectedSlotId === slot.id;
                                 const isPicked = pickedSlotId === slot.id;
@@ -353,7 +311,7 @@ export default function StockGridScreen() {
                                             styles.slot,
                                             { 
                                                 width: slotWidth,
-                                                height: 80, // Fixed height for consistency
+                                                height: slotHeight, // Dynamic Height
                                                 backgroundColor: item ? colors.card : 'transparent',
                                                 borderColor: isSelected || isPicked ? colors.primary : colors.border,
                                                 borderStyle: item ? 'solid' : 'dashed',
@@ -365,18 +323,36 @@ export default function StockGridScreen() {
                                         {isEditMode && isSelected ? (
                                             // --- EDIT CONTROLS ---
                                             <View style={styles.editControls}>
+                                                
+                                                {/* Width Controls */}
                                                 <View style={styles.resizeRow}>
-                                                    <Pressable onPress={() => handleResize(slot, -1)} style={styles.resizeBtn}>
-                                                        <Feather name="minus" size={16} color={colors.text} />
+                                                    <Text style={[typography.caption, { color: colors.subtext, fontSize: 10, width: 40 }]}>Width:</Text>
+                                                    <Pressable onPress={() => handleResize(slot, 'width', -1)} style={styles.resizeBtn}>
+                                                        <Feather name="minus" size={14} color={colors.text} />
                                                     </Pressable>
-                                                    <Text style={[typography.caption, { color: colors.text }]}>{slot.width_span}x</Text>
-                                                    <Pressable onPress={() => handleResize(slot, 1)} style={styles.resizeBtn}>
-                                                        <Feather name="plus" size={16} color={colors.text} />
+                                                    <Text style={[typography.caption, { color: colors.text, marginHorizontal: 4 }]}>{wSpan}</Text>
+                                                    <Pressable onPress={() => handleResize(slot, 'width', 1)} style={styles.resizeBtn}>
+                                                        <Feather name="plus" size={14} color={colors.text} />
                                                     </Pressable>
                                                 </View>
+
+                                                {/* Height Controls (NEW) */}
+                                                <View style={styles.resizeRow}>
+                                                    <Text style={[typography.caption, { color: colors.subtext, fontSize: 10, width: 40 }]}>Height:</Text>
+                                                    <Pressable onPress={() => handleResize(slot, 'height', -1)} style={styles.resizeBtn}>
+                                                        <Feather name="minus" size={14} color={colors.text} />
+                                                    </Pressable>
+                                                    <Text style={[typography.caption, { color: colors.text, marginHorizontal: 4 }]}>{hSpan}</Text>
+                                                    <Pressable onPress={() => handleResize(slot, 'height', 1)} style={styles.resizeBtn}>
+                                                        <Feather name="plus" size={14} color={colors.text} />
+                                                    </Pressable>
+                                                </View>
+
+                                                {/* Delete */}
                                                 <Pressable onPress={() => handleDeleteLocation(slot.id)} style={styles.deleteBtn}>
                                                      <Feather name="trash-2" size={14} color="white" />
                                                 </Pressable>
+
                                             </View>
                                         ) : (
                                             // --- NORMAL CONTENT ---
@@ -393,12 +369,6 @@ export default function StockGridScreen() {
                                                 ) : (
                                                     <View style={[styles.emptyMarker, { backgroundColor: colors.border }]} />
                                                 )}
-                                                {/* Edit Indicator */}
-                                                {isEditMode && (
-                                                    <View style={{ position: 'absolute', bottom: 2, right: 2 }}>
-                                                        <MaterialIcons name="drag-handle" size={12} color={colors.subtext} />
-                                                    </View>
-                                                )}
                                             </>
                                         )}
                                     </Pressable>
@@ -414,10 +384,10 @@ export default function StockGridScreen() {
         </View>
       </ScrollView>
 
-      {/* Picked State Floating Instructions */}
+      {/* Picked State Instructions */}
       {pickedSlotId && (
           <View style={[styles.floatingBanner, { backgroundColor: colors.primary }]}>
-              <Text style={[typography.button, { color: colors.primaryText }]}>{t('stockGrid.tapToSwap', 'Tap destination to SWAP')}</Text>
+              <Text style={[typography.button, { color: colors.primaryText }]}>{t('stockGrid.tapToSwap', 'Tap to SWAP')}</Text>
               <Pressable onPress={() => setPickedSlotId(null)}>
                   <Feather name="x-circle" size={24} color={colors.primaryText} style={{ marginLeft: 10 }} />
               </Pressable>
@@ -462,22 +432,21 @@ const styles = StyleSheet.create({
   shelfLabelText: { fontWeight: 'bold', fontSize: 14 },
   shelfContent: { paddingHorizontal: 0, paddingTop: 10 },
   shelfFloor: { height: 8, width: '100%', borderRadius: 4, marginTop: 4, opacity: 0.3 },
-  
   rowWrapper: { marginBottom: 8 },
+  
   gridContainer: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 8, // GAP_SIZE
+      // gap: GAP_SIZE is handled inline to use constant
   },
   slot: {
     borderRadius: 6,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 4,
+    padding: 2,
     overflow: 'hidden',
   },
   
-  // Content Styles
   emptyMarker: { width: 8, height: 8, borderRadius: 4 },
   quantityBadge: {
     position: 'absolute',
@@ -492,7 +461,6 @@ const styles = StyleSheet.create({
   quantityText: { color: '#FFFFFF', fontSize: 10, fontWeight: 'bold' },
   itemName: { fontSize: 11, fontWeight: '600', textAlign: 'center', marginTop: 12 },
 
-  // Edit Mode Styles
   editControls: {
       flex: 1,
       justifyContent: 'center',
@@ -502,8 +470,7 @@ const styles = StyleSheet.create({
   resizeRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
-      marginBottom: 6,
+      marginBottom: 4,
   },
   resizeBtn: {
       padding: 4,
@@ -511,9 +478,10 @@ const styles = StyleSheet.create({
       borderRadius: 4,
   },
   deleteBtn: {
-      backgroundColor: '#DC2626', // Danger
-      padding: 6,
+      backgroundColor: '#DC2626',
+      padding: 4,
       borderRadius: 4,
+      marginTop: 4
   },
   
   floatingBanner: {
