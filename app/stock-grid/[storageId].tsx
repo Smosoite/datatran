@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, useWindowDimensions, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../providers/ThemeProvider';
@@ -12,7 +12,7 @@ import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { logActivity } from '../../lib/logger';
 import * as Haptics from 'expo-haptics';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
+import Animated, { runOnJS } from 'react-native-reanimated';
 
 // --- Data Types ---
 type LocationSlot = {
@@ -41,21 +41,22 @@ export default function StockGridScreen() {
   
   // --- LAYOUT CONSTANTS ---
   const TOTAL_GRID_COLS = 6; 
-  const GRID_PADDING = 12; 
-  const GAP_SIZE = 8;      
-  const BASE_HEIGHT = 80;  
+  const GRID_PADDING = 12; // Outer container padding
+  const GAP_SIZE = 4;      // Gap between slots
+  const BASE_HEIGHT = 80;  // 1x Height
 
-  // Precise Math to fill screen
-  // (Available Width - Total Gap Space) / Number of Columns
+  // Precise Math to fill screen perfectly
+  // We calculate exact pixel width for 1 unit based on screen width
   const AVAILABLE_WIDTH = screenWidth - (GRID_PADDING * 2);
-  const UNIT_WIDTH = (AVAILABLE_WIDTH - (GAP_SIZE * (TOTAL_GRID_COLS - 1))) / TOTAL_GRID_COLS;
+  const TOTAL_GAPS = GAP_SIZE * (TOTAL_GRID_COLS - 1);
+  const UNIT_WIDTH = (AVAILABLE_WIDTH - TOTAL_GAPS) / TOTAL_GRID_COLS;
 
   const [locations, setLocations] = useState<LocationSlot[]>([]);
   const [loading, setLoading] = useState(true);
   
   // --- EDIT MODE STATE ---
   const [isEditMode, setIsEditMode] = useState(false);
-  const [showGridLines, setShowGridLines] = useState(false); // Toggle for Column Lines
+  const [showGridLines, setShowGridLines] = useState(true); // Default to true for visibility
   const [pickedSlotId, setPickedSlotId] = useState<string | null>(null);
 
   // --- Data Fetching ---
@@ -93,17 +94,173 @@ export default function StockGridScreen() {
     fetchData();
   }, [fetchData]);
 
-  // --- Visual Grid Logic ---
+  // --- MERGE / RESIZE LOGIC ---
+  const handleResizeComplete = async (slotId: string, dimension: 'width' | 'height', direction: number) => {
+    // direction: 1 (expand), -1 (shrink)
+    const slot = locations.find(l => l.id === slotId);
+    if (!slot) return;
+
+    if (direction < 0) {
+        // SHRINKING: Safe operation, just reduce span (min 1)
+        const newSpan = dimension === 'width' 
+            ? Math.max(1, slot.width_span - 1)
+            : Math.max(1, slot.height_span - 1);
+        
+        if (newSpan === (dimension === 'width' ? slot.width_span : slot.height_span)) return;
+
+        // Optimistic Update
+        setLocations(prev => prev.map(l => l.id === slotId ? { 
+            ...l, 
+            width_span: dimension === 'width' ? newSpan : l.width_span,
+            height_span: dimension === 'height' ? newSpan : l.height_span
+        } : l));
+        
+        // DB Update
+        await supabase.from('defined_locations').update(
+            dimension === 'width' ? { width_span: newSpan } : { height_span: newSpan }
+        ).eq('id', slotId);
+        
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        return;
+    }
+
+    // EXPANDING: Destructive operation (Merge)
+    // We need to find the neighbor that will be consumed
+    let victimId: string | null = null;
+    
+    if (dimension === 'width') {
+        // Find neighbor to the right
+        // Logic: Same Shelf, Same Row, Column index seems hard to track with strings...
+        // Better: Find the slot that occupies the visual space to the right
+        // Since we are sorted, we can try to look for slots in the same row
+        // But columns are loose strings.
+        // Let's rely on the sort order from visualGrid logic? No, state is flat.
+        // We will filter strictly by matching shelf/row string values.
+        
+        const sameRow = locations.filter(l => l.shelf === slot.shelf && l.row === slot.row && l.id !== slot.id);
+        // We assume visual order matches the sort order of column strings
+        // This is tricky if column names are random, but assuming "1, 2, 3" or "A, B, C"
+        const sortedRow = sameRow.sort((a, b) => (a.column || '').localeCompare(b.column || '', undefined, { numeric: true }));
+        
+        // Find slot immediately "after" current slot
+        // Ideally we check if `victim.column > slot.column`
+        const neighbors = sortedRow.filter(l => (l.column || '').localeCompare(slot.column || '', undefined, { numeric: true }) > 0);
+        const victim = neighbors[0]; // The closest one to the right
+
+        if (victim) {
+            // Safety Check: Is it Occupied?
+            if (victim.items && victim.items.length > 0) {
+                Alert.alert(t('general.error'), t('stockGrid.mergeError', 'Cannot merge: Neighbor has items.'));
+                return;
+            }
+            victimId = victim.id;
+        }
+    } else {
+        // HEIGHT EXPANSION
+        // Find slot in the same column of the NEXT row
+        // 1. Get all rows in this shelf
+        const shelfSlots = locations.filter(l => l.shelf === slot.shelf);
+        const rows = [...new Set(shelfSlots.map(l => l.row))].sort((a,b) => (a||'').localeCompare(b||'', undefined, {numeric:true}));
+        
+        const currentRowIndex = rows.indexOf(slot.row);
+        if (currentRowIndex < rows.length - 1) {
+            const nextRowName = rows[currentRowIndex + 1];
+            // Find slot in next row with same column (or close approximation)
+            const victim = shelfSlots.find(l => l.row === nextRowName && l.column === slot.column);
+            
+            if (victim) {
+                if (victim.items && victim.items.length > 0) {
+                    Alert.alert(t('general.error'), t('stockGrid.mergeError', 'Cannot merge: Neighbor has items.'));
+                    return;
+                }
+                victimId = victim.id;
+            }
+        }
+    }
+
+    if (victimId) {
+        // PERFORM MERGE
+        // 1. Delete Victim locally
+        const newLocs = locations.filter(l => l.id !== victimId).map(l => {
+            if (l.id === slotId) {
+                return {
+                    ...l,
+                    width_span: dimension === 'width' ? l.width_span + 1 : l.width_span,
+                    height_span: dimension === 'height' ? l.height_span + 1 : l.height_span
+                };
+            }
+            return l;
+        });
+
+        setLocations(newLocs);
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+
+        // 2. DB Operations
+        await supabase.from('defined_locations').delete().eq('id', victimId);
+        await supabase.from('defined_locations').update(
+            dimension === 'width' ? { width_span: slot.width_span + 1 } : { height_span: slot.height_span + 1 }
+        ).eq('id', slotId);
+
+    } else {
+        // No victim found (End of row/col?), just expand if space allows?
+        // For strict grid, we only allow expansion if we consume someone (to keep grid 6-wide)
+        // Or if we are just visually expanding into empty space (but logic prevents that without defined empty slots)
+        Alert.alert("Limit Reached", "No empty slot to merge with.");
+    }
+  };
+
+
+  // --- GESTURE COMPONENT ---
+  const ResizeHandle = ({ 
+    dimension, 
+    slotId
+  }: { 
+    dimension: 'width' | 'height', 
+    slotId: string
+  }) => {
+    const isHorizontal = dimension === 'width';
+    
+    const pan = Gesture.Pan()
+        .runOnJS(true)
+        .onEnd((e) => {
+            const dragDist = isHorizontal ? e.translationX : e.translationY;
+            // Threshold to trigger action (30px)
+            if (Math.abs(dragDist) > 30) {
+                const direction = dragDist > 0 ? 1 : -1;
+                handleResizeComplete(slotId, dimension, direction);
+            }
+        });
+
+    return (
+        <GestureDetector gesture={pan}>
+            <View 
+                style={[
+                    styles.resizeHandle,
+                    isHorizontal ? styles.resizeHandleRight : styles.resizeHandleBottom,
+                    { backgroundColor: colors.primary }
+                ]}
+            >
+                {/* Visual indicator handle */}
+                <View style={{ 
+                    width: isHorizontal ? 4 : 20, 
+                    height: isHorizontal ? 20 : 4, 
+                    backgroundColor: 'white', 
+                    borderRadius: 2 
+                }} />
+            </View>
+        </GestureDetector>
+    );
+  };
+
+  // --- VISUAL GRID GROUPING ---
   const visualGrid = useMemo(() => {
     const shelvesDict: { [key: string]: { [key: string]: LocationSlot[] } } = {};
 
     locations.forEach(loc => {
       const s = loc.shelf;
       const r = loc.row || 'General'; 
-      
       if (!shelvesDict[s]) shelvesDict[s] = {};
       if (!shelvesDict[s][r]) shelvesDict[s][r] = [];
-      
       shelvesDict[s][r].push(loc);
     });
 
@@ -124,8 +281,7 @@ export default function StockGridScreen() {
     });
   }, [locations]);
 
-  // --- ACTIONS ---
-
+  // --- INTERACTIONS ---
   const toggleEditMode = () => {
     if (isEditMode) {
       setIsEditMode(false);
@@ -133,97 +289,18 @@ export default function StockGridScreen() {
     } else {
       showPasscodeModal({
         title: t('stockGrid.adminAccess', 'Admin Access'),
-        message: t('stockGrid.enterPasscode', 'Enter Admin Passcode to Edit Grid'),
+        message: t('stockGrid.enterPasscode', 'Enter Admin Passcode'),
         onSubmit: (passcode) => {
           if (passcode === workgroup?.admin_passcode) {
             setIsEditMode(true);
-            showSuccess(t('stockGrid.editModeEnabled', 'Edit Mode Enabled'));
+            showSuccess(t('stockGrid.editModeEnabled'));
           } else {
-            showError(t('stockGrid.invalidPasscode', 'Invalid Passcode'));
+            showError(t('stockGrid.invalidPasscode'));
           }
         },
       });
     }
   };
-
-  const handleResizeComplete = async (slotId: string, dimension: 'width' | 'height', newSpan: number) => {
-    // 1. Update Local State
-    setLocations(prev => prev.map(l => {
-        if (l.id !== slotId) return l;
-        return { 
-            ...l, 
-            width_span: dimension === 'width' ? newSpan : l.width_span,
-            height_span: dimension === 'height' ? newSpan : l.height_span
-        };
-    }));
-
-    // 2. Trigger Haptic
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    // 3. Persist to DB
-    const updatePayload = dimension === 'width' ? { width_span: newSpan } : { height_span: newSpan };
-    await supabase.from('defined_locations').update(updatePayload).eq('id', slotId);
-  };
-
-  // --- GESTURE COMPONENTS ---
-  // We define these inline to capture the item context, but memoize if perf issues arise
-  const ResizeHandle = ({ 
-    dimension, 
-    currentSpan, 
-    slotId,
-    unitSize 
-  }: { 
-    dimension: 'width' | 'height', 
-    currentSpan: number, 
-    slotId: string,
-    unitSize: number 
-  }) => {
-    const isHorizontal = dimension === 'width';
-    
-    // We use a simplified gesture that tracks translation
-    // We run the logic on JS thread at the end to trigger state update
-    const pan = Gesture.Pan()
-        .runOnJS(true)
-        .onUpdate((e) => {
-             // Optional: You could add live feedback here with Reanimated shared values
-             // But for grid snapping, updating on 'End' is usually cleaner UX
-        })
-        .onEnd((e) => {
-            const dragDist = isHorizontal ? e.translationX : e.translationY;
-            // Calculate how many "units" we dragged
-            // We use a threshold of 50% of a unit to snap to the next one
-            const unitsMoved = Math.round(dragDist / (unitSize + GAP_SIZE));
-            
-            if (unitsMoved !== 0) {
-                const maxSpan = isHorizontal ? 6 : 4; 
-                const newSpan = Math.max(1, Math.min(maxSpan, currentSpan + unitsMoved));
-                
-                if (newSpan !== currentSpan) {
-                    handleResizeComplete(slotId, dimension, newSpan);
-                }
-            }
-        });
-
-    return (
-        <GestureDetector gesture={pan}>
-            <View 
-                style={[
-                    styles.resizeHandle,
-                    isHorizontal ? styles.resizeHandleRight : styles.resizeHandleBottom,
-                    { backgroundColor: colors.primary }
-                ]}
-            >
-                <MaterialIcons 
-                    name={isHorizontal ? "drag-handle" : "drag-handle"} 
-                    size={16} 
-                    color="white" 
-                    style={{ transform: [{ rotate: isHorizontal ? '90deg' : '0deg' }] }}
-                />
-            </View>
-        </GestureDetector>
-    );
-  };
-
 
   const handleSlotPress = (slot: LocationSlot) => {
     if (!isEditMode) {
@@ -232,77 +309,20 @@ export default function StockGridScreen() {
         showQuantityModal({
           title: item.name,
           message: `${t('stockGrid.currentQty')}: ${item.quantity}`,
-          confirmText: t('general.remove', 'Remove Stock'),
+          confirmText: t('general.remove'),
           cancelText: t('general.cancel'),
           onSubmit: async (qty) => {
              const newQuantity = item.quantity - qty;
              if (newQuantity < 0) return showError(t('general.error'));
-             
              await supabase.from('items').update({ quantity: newQuantity }).eq('id', item.id);
-             if (workgroup?.id) {
-                logActivity({
-                  workgroup_id: workgroup.id, 
-                  item_id: item.id, 
-                  item_name: item.name, 
-                  action: 'REMOVE', 
-                  change_amount: -qty, 
-                  final_quantity: newQuantity
-                });
-             }
+             if (workgroup?.id) logActivity({ workgroup_id: workgroup.id, item_id: item.id, item_name: item.name, action: 'REMOVE', change_amount: -qty, final_quantity: newQuantity });
              fetchData();
           }
         });
       }
       return;
     }
-
-    if (pickedSlotId) {
-       if (pickedSlotId === slot.id) {
-         setPickedSlotId(null); 
-         return;
-       }
-       handleSwapSlots(pickedSlotId, slot.id);
-    } else {
-       // In drag mode, tapping just selects/deselects for clarity, 
-       // but resizing is done via handles now.
-    }
-  };
-
-  const handleLongPress = (slot: LocationSlot) => {
-    if (!isEditMode) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    setPickedSlotId(slot.id);
-  };
-
-  const handleSwapSlots = async (id1: string, id2: string) => {
-     const loc1 = locations.find(l => l.id === id1);
-     const loc2 = locations.find(l => l.id === id2);
-     if (!loc1 || !loc2) return;
-
-     const newLocs = locations.map(l => {
-        if (l.id === id1) return { ...l, shelf: loc2.shelf, row: loc2.row, column: loc2.column };
-        if (l.id === id2) return { ...l, shelf: loc1.shelf, row: loc1.row, column: loc1.column };
-        return l;
-     });
-     setLocations(newLocs);
-     setPickedSlotId(null);
-
-     await supabase.from('defined_locations').update({ shelf: loc2.shelf, row: loc2.row, column: loc2.column }).eq('id', id1);
-     await supabase.from('defined_locations').update({ shelf: loc1.shelf, row: loc1.row, column: loc1.column }).eq('id', id2);
-     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  };
-
-  const handleDeleteLocation = (id: string) => {
-      showPasscodeModal({
-          title: t('general.confirm', 'Confirm Delete'),
-          message: t('stockGrid.deleteMsg', 'Delete this location?'),
-          onSubmit: async (passcode) => {
-              if (passcode === workgroup?.admin_passcode) {
-                  await supabase.from('defined_locations').delete().eq('id', id);
-                  fetchData();
-              }
-          }
-      })
+    // Edit Mode: just selection logic if needed, currently handling via drag
   };
 
   if (loading) return <ActivityIndicator style={styles.centered} size="large" color={colors.primary} />;
@@ -310,15 +330,13 @@ export default function StockGridScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       
-      {/* --- HEADER --- */}
+      {/* HEADER */}
       <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <View>
              <Text style={[typography.h2, { color: colors.text }]}>{t('stockGrid.title')}</Text>
-             {isEditMode && <Text style={[typography.caption, { color: colors.primary, fontWeight: 'bold' }]}>{t('stockGrid.editing', 'EDITING LAYOUT')}</Text>}
+             {isEditMode && <Text style={[typography.caption, { color: colors.primary, fontWeight: 'bold' }]}>EDITING LAYOUT</Text>}
         </View>
-        
         <View style={{ flexDirection: 'row', gap: 10 }}>
-            {/* Toggle Grid Lines (Only visible in Edit Mode) */}
             {isEditMode && (
                 <Pressable 
                     style={[styles.iconButton, { backgroundColor: showGridLines ? colors.selector : colors.card, borderColor: colors.border, borderWidth: 1 }]} 
@@ -327,23 +345,21 @@ export default function StockGridScreen() {
                     <MaterialIcons name="grid-on" size={20} color={showGridLines ? 'white' : colors.text} />
                 </Pressable>
             )}
-
             <Pressable 
                 style={[styles.iconButton, { backgroundColor: isEditMode ? colors.primary : colors.card, borderColor: colors.border, borderWidth: 1 }]} 
                 onPress={toggleEditMode}
             >
                 <Feather name={isEditMode ? "check" : "edit-2"} size={20} color={isEditMode ? colors.primaryText : colors.text} />
             </Pressable>
-            
             <Pressable style={[styles.iconButton, { backgroundColor: colors.danger }]} onPress={() => router.back()}>
                 <Feather name="x" size={20} color="white" />
             </Pressable>
         </View>
       </View>
 
-      {/* --- GRID --- */}
-      <ScrollView contentContainerStyle={[styles.scrollContent, { padding: GRID_PADDING }]}>
-        <View style={styles.rackFrame}>
+      {/* SCROLLABLE GRID */}
+      <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+        <View style={{ padding: GRID_PADDING }}>
           {visualGrid.map((shelf) => (
             <View key={shelf.shelfLabel} style={[styles.shelfContainer, { borderColor: colors.border }]}>
               
@@ -351,57 +367,40 @@ export default function StockGridScreen() {
                 <Text style={[styles.shelfLabelText, { color: colors.text }]}>{shelf.shelfLabel}</Text>
               </View>
 
+              {/* BACKGROUND GRID LINES (Per Shelf) */}
+              {isEditMode && showGridLines && (
+                  <View style={styles.backgroundGridOverlay}>
+                      {Array.from({ length: TOTAL_GRID_COLS }).map((_, i) => (
+                          <View key={i} style={[styles.gridLine, { borderColor: colors.border, left: (i * (UNIT_WIDTH + GAP_SIZE)) + (UNIT_WIDTH / 2) }]} />
+                      ))}
+                  </View>
+              )}
+
               <View style={styles.shelfContent}>
                 {shelf.rows.map((row) => (
                     <View key={row.rowLabel} style={styles.rowWrapper}>
-                         {/* --- BACKGROUND GRID LINES --- */}
-                         {isEditMode && showGridLines && (
-                             <View style={styles.backgroundGrid}>
-                                 {Array.from({ length: TOTAL_GRID_COLS }).map((_, i) => (
-                                     <View 
-                                        key={i} 
-                                        style={[
-                                            styles.backgroundGridCol, 
-                                            { 
-                                                width: UNIT_WIDTH, 
-                                                marginRight: i === TOTAL_GRID_COLS - 1 ? 0 : GAP_SIZE,
-                                                borderColor: colors.border 
-                                            }
-                                        ]} 
-                                     />
-                                 ))}
-                             </View>
-                         )}
-
                          <View style={[styles.gridContainer, { gap: GAP_SIZE }]}>
                             {row.slots.map((slot) => {
-                                // --- DIMENSIONS ---
+                                // CALC DIMENSIONS
                                 const wSpan = slot.width_span || 1;
                                 const hSpan = slot.height_span || 1;
-                                
-                                // Calculation includes the gaps spanned
                                 const slotWidth = (UNIT_WIDTH * wSpan) + (GAP_SIZE * (wSpan - 1));
                                 const slotHeight = (BASE_HEIGHT * hSpan) + (GAP_SIZE * (hSpan - 1));
-
                                 const item = slot.items?.[0];
-                                const isPicked = pickedSlotId === slot.id;
 
                                 return (
-                                    <View key={slot.id} style={{ position: 'relative' }}>
+                                    <View key={slot.id} style={{ position: 'relative', width: slotWidth, height: slotHeight }}>
                                         <Pressable
                                             onPress={() => handleSlotPress(slot)}
-                                            onLongPress={() => handleLongPress(slot)}
-                                            delayLongPress={300}
                                             style={[
                                                 styles.slot,
                                                 { 
-                                                    width: slotWidth,
-                                                    height: slotHeight,
+                                                    width: '100%',
+                                                    height: '100%',
                                                     backgroundColor: item ? colors.card : 'rgba(255,255,255,0.05)',
-                                                    borderColor: isPicked ? colors.primary : colors.border,
+                                                    borderColor: colors.border,
                                                     borderStyle: item ? 'solid' : 'dashed',
-                                                    borderWidth: isPicked ? 2 : 1,
-                                                    opacity: isPicked ? 0.5 : 1
+                                                    borderWidth: 1,
                                                 }
                                             ]}
                                         >
@@ -417,35 +416,13 @@ export default function StockGridScreen() {
                                             ) : (
                                                 <View style={[styles.emptyMarker, { backgroundColor: colors.border }]} />
                                             )}
-
-                                            {/* Delete Button (Small overlay in corner for Edit Mode) */}
-                                            {isEditMode && !item && (
-                                                <Pressable 
-                                                    style={styles.miniDelete}
-                                                    onPress={() => handleDeleteLocation(slot.id)}
-                                                >
-                                                    <Feather name="x" size={10} color="white" />
-                                                </Pressable>
-                                            )}
                                         </Pressable>
 
-                                        {/* --- RESIZE HANDLES (Overlay) --- */}
-                                        {isEditMode && !isPicked && (
+                                        {/* RESIZE HANDLES (EDIT MODE ONLY) */}
+                                        {isEditMode && (
                                             <>
-                                                {/* Width Handle (Right) */}
-                                                <ResizeHandle 
-                                                    dimension="width" 
-                                                    currentSpan={wSpan} 
-                                                    slotId={slot.id} 
-                                                    unitSize={UNIT_WIDTH} 
-                                                />
-                                                {/* Height Handle (Bottom) */}
-                                                <ResizeHandle 
-                                                    dimension="height" 
-                                                    currentSpan={hSpan} 
-                                                    slotId={slot.id} 
-                                                    unitSize={BASE_HEIGHT} 
-                                                />
+                                                <ResizeHandle dimension="width" slotId={slot.id} />
+                                                <ResizeHandle dimension="height" slotId={slot.id} />
                                             </>
                                         )}
                                     </View>
@@ -460,16 +437,6 @@ export default function StockGridScreen() {
           ))}
         </View>
       </ScrollView>
-
-      {/* Picked State Instructions */}
-      {pickedSlotId && (
-          <View style={[styles.floatingBanner, { backgroundColor: colors.primary }]}>
-              <Text style={[typography.button, { color: colors.primaryText }]}>{t('stockGrid.tapToSwap', 'Tap to SWAP')}</Text>
-              <Pressable onPress={() => setPickedSlotId(null)}>
-                  <Feather name="x-circle" size={24} color={colors.primaryText} style={{ marginLeft: 10 }} />
-              </Pressable>
-          </View>
-      )}
 
     </View>
   );
@@ -494,9 +461,7 @@ const styles = StyleSheet.create({
       justifyContent: 'center',
       alignItems: 'center',
   },
-  scrollContent: { paddingBottom: 50 },
-  rackFrame: { paddingVertical: 10 },
-  shelfContainer: { marginBottom: 24, position: 'relative', marginTop: 10 },
+  shelfContainer: { marginBottom: 24, position: 'relative', marginTop: 20 },
   shelfLabelTab: {
     position: 'absolute',
     left: -10,
@@ -504,32 +469,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 4,
-    zIndex: 5,
+    zIndex: 20,
   },
   shelfLabelText: { fontWeight: 'bold', fontSize: 14 },
-  shelfContent: { paddingHorizontal: 0, paddingTop: 10 },
+  shelfContent: { paddingHorizontal: 0, paddingTop: 10, zIndex: 10 },
   shelfFloor: { height: 8, width: '100%', borderRadius: 4, marginTop: 4, opacity: 0.3 },
-  rowWrapper: { marginBottom: 8, position: 'relative' },
+  rowWrapper: { marginBottom: 8 },
   
-  // Background Grid Lines
-  backgroundGrid: {
-      position: 'absolute',
-      top: 0, bottom: 0, left: 0, right: 0,
-      flexDirection: 'row',
-      zIndex: -1,
-  },
-  backgroundGridCol: {
-      borderWidth: 1,
-      borderStyle: 'dashed',
-      height: '100%',
-      opacity: 0.2,
-      borderRadius: 4
-  },
-
+  // New Grid System
   gridContainer: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      // gap provided inline
   },
   slot: {
     borderRadius: 6,
@@ -537,6 +487,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 2,
     overflow: 'hidden',
+  },
+  
+  // Background Grid Overlay
+  backgroundGridOverlay: {
+      position: 'absolute',
+      top: 0, bottom: 0, left: 0, right: 0,
+      zIndex: 0, // Behind content
+      flexDirection: 'row',
+  },
+  gridLine: {
+      position: 'absolute',
+      top: 0, bottom: 0,
+      width: 1,
+      borderLeftWidth: 1,
+      borderStyle: 'solid', // Solid lines for visibility
+      opacity: 0.2,
   },
   
   emptyMarker: { width: 8, height: 8, borderRadius: 4 },
@@ -556,52 +522,22 @@ const styles = StyleSheet.create({
   // Handles
   resizeHandle: {
       position: 'absolute',
+      zIndex: 50,
       justifyContent: 'center',
       alignItems: 'center',
-      zIndex: 10,
-      borderRadius: 10,
-      elevation: 3,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.2,
-      shadowRadius: 1,
+      borderRadius: 4,
+      elevation: 5,
   },
   resizeHandleRight: {
-      right: -6,
-      top: '35%',
-      height: '30%',
-      width: 14,
+      right: -10, // Stick out a bit
+      top: '30%',
+      height: '40%',
+      width: 20,
   },
   resizeHandleBottom: {
-      bottom: -6,
-      left: '35%',
-      width: '30%',
-      height: 14,
+      bottom: -10,
+      left: '30%',
+      width: '40%',
+      height: 20,
   },
-  
-  miniDelete: {
-      position: 'absolute',
-      top: 2,
-      left: 2,
-      backgroundColor: '#DC2626',
-      borderRadius: 10,
-      padding: 4,
-      opacity: 0.8
-  },
-  
-  floatingBanner: {
-      position: 'absolute',
-      bottom: 30,
-      alignSelf: 'center',
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 12,
-      paddingHorizontal: 24,
-      borderRadius: 30,
-      elevation: 5,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.25,
-      shadowRadius: 3.84, 
-  }
 });
