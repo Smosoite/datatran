@@ -96,7 +96,7 @@ export default function StockGridScreen() {
     const slot = locations.find(l => l.id === slotId);
     if (!slot) return;
 
-    // --- SHRINKING ---
+    // --- SHRINKING (Safe) ---
     if (direction < 0) {
         const newSpan = dimension === 'width' 
             ? Math.max(1, slot.width_span - 1)
@@ -118,55 +118,67 @@ export default function StockGridScreen() {
         return;
     }
 
-    // --- EXPANDING ---
+    // --- EXPANDING (Merge) ---
     let victimId: string | null = null;
     
+    // 1. Identify Context (Shelf Rows/Cols)
+    const shelfSlots = locations.filter(l => l.shelf === slot.shelf);
+    
+    // Sort unique Rows and Columns to establish grid coordinates
+    const uniqueRows = [...new Set(shelfSlots.map(l => l.row))].sort((a,b) => (a||'').localeCompare(b||'', undefined, {numeric:true}));
+    const uniqueCols = [...new Set(shelfSlots.map(l => l.column))].sort((a,b) => (a||'').localeCompare(b||'', undefined, {numeric:true}));
+
+    const currentRowIdx = uniqueRows.indexOf(slot.row);
+    const currentColIdx = uniqueCols.indexOf(slot.column);
+
     if (dimension === 'width') {
-        // WIDTH EXPANSION (Same Row)
-        const sameRow = locations.filter(l => l.shelf === slot.shelf && l.row === slot.row && l.id !== slot.id);
-        const sortedRow = sameRow.sort((a, b) => (a.column || '').localeCompare(b.column || '', undefined, { numeric: true }));
-        const neighbors = sortedRow.filter(l => (l.column || '').localeCompare(slot.column || '', undefined, { numeric: true }) > 0);
-        const victim = neighbors[0]; 
-
-        if (victim) {
-            if (victim.items && victim.items.length > 0) {
-                Alert.alert(t('general.error'), t('stockGrid.mergeError', 'Neighbor has items.'));
-                return;
-            }
-            victimId = victim.id;
-        }
-    } else {
-        // HEIGHT EXPANSION (Cross Row)
-        // 1. Find all rows in this shelf to determine order
-        const shelfSlots = locations.filter(l => l.shelf === slot.shelf);
-        const rows = [...new Set(shelfSlots.map(l => l.row))].sort((a,b) => (a||'').localeCompare(b||'', undefined, {numeric:true}));
+        // Look for neighbor in: Same Row, Next Column (accounting for current span)
+        // Note: Logic is tricky with variable spans. We look for a slot that STARTS where we end.
+        // Simplified: Look for the slot with the *next* index in the sorted list for this row.
         
-        // 2. Find "Next Row"
-        // Note: slot.height_span might already be > 1. 
-        // We need to look at (Current Row Index + Current Height Span) to find the *next* row to consume.
-        const currentRowIndex = rows.indexOf(slot.row);
-        const nextRowIndex = currentRowIndex + slot.height_span;
-
-        if (nextRowIndex < rows.length) {
-            const nextRowLabel = rows[nextRowIndex];
+        // Filter slots in this row
+        const rowSlots = shelfSlots.filter(l => l.row === slot.row).sort((a,b) => (a.column||'').localeCompare(b.column||'', undefined, {numeric:true}));
+        const myIndexInRow = rowSlots.findIndex(l => l.id === slot.id);
+        
+        // The victim is the very next slot in the visual list
+        if (myIndexInRow !== -1 && myIndexInRow < rowSlots.length - 1) {
+            const potentialVictim = rowSlots[myIndexInRow + 1];
             
-            // 3. Find the slot in that row that aligns with our column
-            // We match strictly on 'column' string. 
-            const victim = shelfSlots.find(l => l.row === nextRowLabel && l.column === slot.column);
-            
-            if (victim) {
-                if (victim.items && victim.items.length > 0) {
+            // Optional: Check if it's visually adjacent? 
+            // For now, we assume sorted order implies adjacency.
+            if (potentialVictim) {
+                 if (potentialVictim.items && potentialVictim.items.length > 0) {
                     Alert.alert(t('general.error'), t('stockGrid.mergeError', 'Neighbor has items.'));
                     return;
                 }
-                victimId = victim.id;
+                victimId = potentialVictim.id;
+            }
+        }
+    } else {
+        // HEIGHT EXPANSION
+        // We need to look into the row visually below us
+        const targetRowIdx = currentRowIdx + slot.height_span; // Skip rows we already span
+        
+        if (targetRowIdx < uniqueRows.length) {
+            const targetRowLabel = uniqueRows[targetRowIdx];
+            
+            // Find slot in that row with matching column (or closest visual column)
+            // We match strictly on Column Label for vertical alignment
+            const potentialVictim = shelfSlots.find(l => l.row === targetRowLabel && l.column === slot.column);
+            
+            if (potentialVictim) {
+                 if (potentialVictim.items && potentialVictim.items.length > 0) {
+                    Alert.alert(t('general.error'), t('stockGrid.mergeError', 'Neighbor has items.'));
+                    return;
+                }
+                victimId = potentialVictim.id;
             }
         }
     }
 
-    // --- EXECUTE UPDATE ---
+    // --- EXECUTE ---
     if (victimId) {
-        // Case A: Merge with Victim
+        // MERGE
         const newLocs = locations.filter(l => l.id !== victimId).map(l => {
             if (l.id === slotId) {
                 return {
@@ -187,13 +199,12 @@ export default function StockGridScreen() {
         ).eq('id', slotId);
 
     } else {
-        // Case B: Expand into Void
+        // EXPAND INTO VOID
         const currentVal = dimension === 'width' ? slot.width_span : slot.height_span;
-        const maxVal = dimension === 'width' ? TOTAL_GRID_COLS : 6; 
+        const maxVal = dimension === 'width' ? TOTAL_GRID_COLS : 10; // Allow tall stacks
 
         if (currentVal < maxVal) {
              const newVal = currentVal + 1;
-             
              setLocations(prev => prev.map(l => l.id === slotId ? { 
                 ...l, 
                 width_span: dimension === 'width' ? newVal : l.width_span,
@@ -211,17 +222,9 @@ export default function StockGridScreen() {
     }
   };
 
-
-  // --- GESTURE COMPONENT ---
-  const ResizeHandle = ({ 
-    dimension, 
-    slotId
-  }: { 
-    dimension: 'width' | 'height', 
-    slotId: string
-  }) => {
+  // --- GESTURE ---
+  const ResizeHandle = ({ dimension, slotId }: { dimension: 'width' | 'height', slotId: string }) => {
     const isHorizontal = dimension === 'width';
-    
     const pan = Gesture.Pan()
         .runOnJS(true)
         .onEnd((e) => {
@@ -234,51 +237,78 @@ export default function StockGridScreen() {
 
     return (
         <GestureDetector gesture={pan}>
-            <View 
-                style={[
-                    styles.resizeHandle,
-                    isHorizontal ? styles.resizeHandleRight : styles.resizeHandleBottom,
-                    { backgroundColor: colors.primary }
-                ]}
-            >
-                <View style={{ 
-                    width: isHorizontal ? 4 : 20, 
-                    height: isHorizontal ? 20 : 4, 
-                    backgroundColor: 'white', 
-                    borderRadius: 2 
-                }} />
+            <View style={[
+                styles.resizeHandle,
+                isHorizontal ? styles.resizeHandleRight : styles.resizeHandleBottom,
+                { backgroundColor: colors.primary }
+            ]}>
+                 <View style={{ width: isHorizontal ? 4 : 20, height: isHorizontal ? 20 : 4, backgroundColor: 'white', borderRadius: 2 }} />
             </View>
         </GestureDetector>
     );
   };
 
+  // --- VISUAL GRID GENERATION (ABSOLUTE LAYOUT) ---
   const visualGrid = useMemo(() => {
-    const shelvesDict: { [key: string]: { [key: string]: LocationSlot[] } } = {};
-
+    // Group by Shelf
+    const shelvesDict: { [key: string]: LocationSlot[] } = {};
     locations.forEach(loc => {
-      const s = loc.shelf;
-      const r = loc.row || 'General'; 
-      if (!shelvesDict[s]) shelvesDict[s] = {};
-      if (!shelvesDict[s][r]) shelvesDict[s][r] = [];
-      shelvesDict[s][r].push(loc);
+      if (!shelvesDict[loc.shelf]) shelvesDict[loc.shelf] = [];
+      shelvesDict[loc.shelf].push(loc);
     });
 
-    return Object.keys(shelvesDict).sort((a, b) => 
+    const sortedShelfKeys = Object.keys(shelvesDict).sort((a, b) => 
         a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
-    ).map(shelfKey => {
-        const sortedRows = Object.keys(shelvesDict[shelfKey]).sort((a, b) => 
-            a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
-        ).map(rowKey => {
-            const slots = shelvesDict[shelfKey][rowKey].sort((a, b) => {
-                const colA = a.column || '0';
-                const colB = b.column || '0';
-                return colA.localeCompare(colB, undefined, { numeric: true, sensitivity: 'base' });
-            });
-            return { rowLabel: rowKey, slots };
+    );
+
+    return sortedShelfKeys.map(shelfKey => {
+        const slots = shelvesDict[shelfKey];
+        
+        // 1. Identify Grid Coordinates for this Shelf
+        const uniqueRows = [...new Set(slots.map(l => l.row))].sort((a,b) => (a||'').localeCompare(b||'', undefined, {numeric:true}));
+        const uniqueCols = [...new Set(slots.map(l => l.column))].sort((a,b) => (a||'').localeCompare(b||'', undefined, {numeric:true}));
+        
+        // If empty (shouldn't happen if slots exist), default
+        if (uniqueRows.length === 0) uniqueRows.push('1');
+        if (uniqueCols.length === 0) uniqueCols.push('1');
+
+        // 2. Map slots to absolute positions
+        const mappedSlots = slots.map(slot => {
+            const rowIdx = uniqueRows.indexOf(slot.row);
+            const colIdx = uniqueCols.indexOf(slot.column);
+            
+            // Calculate absolute position
+            // Note: We use the index of the column/row label. 
+            // If data is sparse (e.g. Col 1, Col 3 exist but Col 2 missing), this will visually snap them together (1 next to 3).
+            // This is usually desired for sparse grids.
+            // However, we must account for SPANS from previous items pushing things?
+            // Absolute layout ignores "pushing". It places strictly on grid lines.
+            
+            const top = (rowIdx * (BASE_HEIGHT + GAP_SIZE));
+            
+            // X position is tricky if we want true "6 column" grid alignment
+            // If we assume uniqueCols corresponds to 1..6, we can use the label?
+            // Fallback: Use index * UNIT_WIDTH.
+            const left = (colIdx * (UNIT_WIDTH + GAP_SIZE));
+
+            return {
+                ...slot,
+                _top: top,
+                _left: left,
+                _zIndex: (slot.height_span > 1 || slot.width_span > 1) ? 100 : 1
+            };
         });
-        return { shelfLabel: shelfKey, rows: sortedRows };
+
+        const totalHeight = uniqueRows.length * (BASE_HEIGHT + GAP_SIZE);
+
+        return {
+            shelfLabel: shelfKey,
+            totalHeight,
+            mappedSlots,
+            rowCount: uniqueRows.length
+        };
     });
-  }, [locations]);
+  }, [locations, BASE_HEIGHT, GAP_SIZE, UNIT_WIDTH]);
 
   // --- ACTIONS ---
   const toggleEditMode = () => {
@@ -287,8 +317,8 @@ export default function StockGridScreen() {
       setPickedSlotId(null);
     } else {
       showPasscodeModal({
-        title: t('stockGrid.adminAccess', 'Admin Access'),
-        message: t('stockGrid.enterPasscode', 'Enter Admin Passcode'),
+        title: t('stockGrid.adminAccess'),
+        message: t('stockGrid.enterPasscode'),
         onSubmit: (passcode) => {
           if (passcode === workgroup?.admin_passcode) {
             setIsEditMode(true);
@@ -326,7 +356,7 @@ export default function StockGridScreen() {
   const handleDeleteLocation = (id: string) => {
      showPasscodeModal({
         title: t('general.confirm'),
-        message: t('stockGrid.deleteMsg', 'Delete location?'),
+        message: t('stockGrid.deleteMsg'),
         onSubmit: async (passcode) => {
             if (passcode === workgroup?.admin_passcode) {
                 await supabase.from('defined_locations').delete().eq('id', id);
@@ -388,7 +418,20 @@ export default function StockGridScreen() {
                                 styles.gridLine, 
                                 { 
                                     borderColor: colors.text, 
-                                    left: (i * (UNIT_WIDTH + GAP_SIZE)) + UNIT_WIDTH + (GAP_SIZE / 2) - 0.5 
+                                    left: (i * (UNIT_WIDTH + GAP_SIZE)) + UNIT_WIDTH + (GAP_SIZE / 2) 
+                                }
+                            ]} 
+                          />
+                      ))}
+                      {/* Horizontal Lines */}
+                      {Array.from({ length: shelf.rowCount }).map((_, i) => (
+                          <View 
+                            key={`h-${i}`} 
+                            style={[
+                                styles.gridLineHorizontal, 
+                                { 
+                                    borderColor: colors.text, 
+                                    top: (i * (BASE_HEIGHT + GAP_SIZE)) + BASE_HEIGHT + (GAP_SIZE / 2) 
                                 }
                             ]} 
                           />
@@ -396,79 +439,71 @@ export default function StockGridScreen() {
                   </View>
               )}
 
-              <View style={styles.shelfContent}>
-                {shelf.rows.map((row) => (
-                    <View key={row.rowLabel} style={styles.rowWrapper}>
-                         <View style={[styles.gridContainer, { gap: GAP_SIZE }]}>
-                            {row.slots.map((slot) => {
-                                // CALC DIMENSIONS
-                                const wSpan = slot.width_span || 1;
-                                const hSpan = slot.height_span || 1;
-                                const slotWidth = (UNIT_WIDTH * wSpan) + (GAP_SIZE * (wSpan - 1));
-                                const slotHeight = (BASE_HEIGHT * hSpan) + (GAP_SIZE * (hSpan - 1));
-                                const item = slot.items?.[0];
+              {/* SHELF CANVAS - Absolute Positioning */}
+              <View style={[styles.shelfContent, { height: shelf.totalHeight }]}>
+                {shelf.mappedSlots.map((slot) => {
+                     // Dimensions
+                     const slotWidth = (UNIT_WIDTH * slot.width_span) + (GAP_SIZE * (slot.width_span - 1));
+                     const slotHeight = (BASE_HEIGHT * slot.height_span) + (GAP_SIZE * (slot.height_span - 1));
+                     const item = slot.items?.[0];
 
-                                return (
-                                    <View 
-                                      key={slot.id} 
-                                      style={{ 
-                                          position: 'relative', 
-                                          width: slotWidth, 
-                                          height: slotHeight,
-                                          zIndex: hSpan > 1 ? 100 : 1 // Bring tall items to front so they overlap row below
-                                      }}
-                                    >
-                                        <Pressable
-                                            onPress={() => handleSlotPress(slot)}
-                                            style={[
-                                                styles.slot,
-                                                { 
-                                                    width: '100%',
-                                                    height: '100%',
-                                                    backgroundColor: item ? colors.card : 'rgba(128,128,128,0.1)',
-                                                    borderColor: colors.border,
-                                                    borderStyle: item ? 'solid' : 'dashed',
-                                                    borderWidth: 1,
-                                                }
-                                            ]}
-                                        >
-                                            {item ? (
-                                                <>
-                                                    <View style={[styles.quantityBadge, { backgroundColor: item.quantity > 0 ? colors.success : colors.danger }]}>
-                                                        <Text style={styles.quantityText}>{item.quantity}</Text>
-                                                    </View>
-                                                    <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={2}>
-                                                        {item.name}
-                                                    </Text>
-                                                </>
-                                            ) : (
-                                                <View style={[styles.emptyMarker, { backgroundColor: colors.border }]} />
-                                            )}
+                     return (
+                         <View 
+                            key={slot.id} 
+                            style={{ 
+                                position: 'absolute',
+                                top: slot._top,
+                                left: slot._left,
+                                width: slotWidth, 
+                                height: slotHeight,
+                                zIndex: slot._zIndex 
+                            }}
+                        >
+                            <Pressable
+                                onPress={() => handleSlotPress(slot)}
+                                style={[
+                                    styles.slot,
+                                    { 
+                                        width: '100%',
+                                        height: '100%',
+                                        backgroundColor: item ? colors.card : 'rgba(128,128,128,0.1)',
+                                        borderColor: colors.border,
+                                        borderStyle: item ? 'solid' : 'dashed',
+                                        borderWidth: 1,
+                                    }
+                                ]}
+                            >
+                                {item ? (
+                                    <>
+                                        <View style={[styles.quantityBadge, { backgroundColor: item.quantity > 0 ? colors.success : colors.danger }]}>
+                                            <Text style={styles.quantityText}>{item.quantity}</Text>
+                                        </View>
+                                        <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={2}>
+                                            {item.name}
+                                        </Text>
+                                    </>
+                                ) : (
+                                    <View style={[styles.emptyMarker, { backgroundColor: colors.border }]} />
+                                )}
 
-                                            {isEditMode && !item && (
-                                                <Pressable 
-                                                    style={styles.miniDelete}
-                                                    onPress={() => handleDeleteLocation(slot.id)}
-                                                >
-                                                    <Feather name="x" size={10} color="white" />
-                                                </Pressable>
-                                            )}
-                                        </Pressable>
+                                {isEditMode && !item && (
+                                    <Pressable style={styles.miniDelete} onPress={() => handleDeleteLocation(slot.id)}>
+                                        <Feather name="x" size={10} color="white" />
+                                    </Pressable>
+                                )}
+                            </Pressable>
 
-                                        {isEditMode && (
-                                            <>
-                                                <ResizeHandle dimension="width" slotId={slot.id} />
-                                                <ResizeHandle dimension="height" slotId={slot.id} />
-                                            </>
-                                        )}
-                                    </View>
-                                );
-                            })}
-                         </View>
-                    </View>
-                ))}
+                            {isEditMode && (
+                                <>
+                                    <ResizeHandle dimension="width" slotId={slot.id} />
+                                    <ResizeHandle dimension="height" slotId={slot.id} />
+                                </>
+                            )}
+                        </View>
+                     );
+                })}
               </View>
-              <View style={[styles.shelfFloor, { backgroundColor: colors.subtext }]} />
+              
             </View>
           ))}
         </View>
@@ -482,105 +517,38 @@ const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   container: { flex: 1 },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    paddingTop: 50,
-    borderBottomWidth: 1,
-    elevation: 2,
-    zIndex: 10,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    padding: 16, paddingTop: 50, borderBottomWidth: 1, elevation: 2, zIndex: 10,
   },
-  iconButton: {
-      padding: 10,
-      borderRadius: 8,
-      justifyContent: 'center',
-      alignItems: 'center',
-  },
+  iconButton: { padding: 10, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   shelfContainer: { marginBottom: 24, position: 'relative', marginTop: 20 },
   shelfLabelTab: {
-    position: 'absolute',
-    left: -10,
-    top: -12,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 4,
-    zIndex: 20,
+    position: 'absolute', left: -10, top: -12, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 4, zIndex: 20,
   },
   shelfLabelText: { fontWeight: 'bold', fontSize: 14 },
-  shelfContent: { paddingHorizontal: 0, paddingTop: 10, position: 'relative' }, // relative for grid overlay
-  shelfFloor: { height: 8, width: '100%', borderRadius: 4, marginTop: 4, opacity: 0.3 },
-  rowWrapper: { marginBottom: 8 },
+  shelfContent: { width: '100%', position: 'relative', marginTop: 10 },
   
-  gridContainer: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-  },
-  slot: {
-    borderRadius: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 2,
-    overflow: 'hidden',
-  },
+  slot: { borderRadius: 6, justifyContent: 'center', alignItems: 'center', padding: 2, overflow: 'hidden' },
   
   backgroundGridOverlay: {
-      position: 'absolute',
-      top: 0, bottom: 0, left: 0, right: 0,
-      zIndex: 0, 
-      flexDirection: 'row',
+      position: 'absolute', top: 10, bottom: 0, left: 0, right: 0, zIndex: 0, 
   },
   gridLine: {
-      position: 'absolute',
-      top: 0, bottom: 0,
-      width: 1,
-      borderLeftWidth: 1,
-      borderStyle: 'solid', 
-      opacity: 0.2,
+      position: 'absolute', top: 0, bottom: 0, width: 1, borderLeftWidth: 1, borderStyle: 'solid', opacity: 0.2,
+  },
+  gridLineHorizontal: {
+      position: 'absolute', left: 0, right: 0, height: 1, borderTopWidth: 1, borderStyle: 'solid', opacity: 0.2,
   },
   
   emptyMarker: { width: 8, height: 8, borderRadius: 4 },
   quantityBadge: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
-    minWidth: 20,
-    alignItems: 'center',
+    position: 'absolute', top: 4, right: 4, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, minWidth: 20, alignItems: 'center',
   },
   quantityText: { color: '#FFFFFF', fontSize: 10, fontWeight: 'bold' },
   itemName: { fontSize: 11, fontWeight: '600', textAlign: 'center', marginTop: 12 },
 
-  resizeHandle: {
-      position: 'absolute',
-      zIndex: 50,
-      justifyContent: 'center',
-      alignItems: 'center',
-      borderRadius: 4,
-      elevation: 5,
-  },
-  resizeHandleRight: {
-      right: -10, 
-      top: '30%',
-      height: '40%',
-      width: 20,
-  },
-  resizeHandleBottom: {
-      bottom: -10,
-      left: '30%',
-      width: '40%',
-      height: 20,
-  },
-  miniDelete: {
-      position: 'absolute',
-      top: 2,
-      left: 2,
-      backgroundColor: '#DC2626',
-      borderRadius: 10,
-      padding: 4,
-      opacity: 0.8,
-      zIndex: 60
-  },
+  resizeHandle: { position: 'absolute', zIndex: 50, justifyContent: 'center', alignItems: 'center', borderRadius: 4, elevation: 5 },
+  resizeHandleRight: { right: -10, top: '30%', height: '40%', width: 20 },
+  resizeHandleBottom: { bottom: -10, left: '30%', width: '40%', height: 20 },
+  miniDelete: { position: 'absolute', top: 2, left: 2, backgroundColor: '#DC2626', borderRadius: 10, padding: 4, opacity: 0.8, zIndex: 60 },
 });
