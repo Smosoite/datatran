@@ -122,33 +122,41 @@ export default function StockGridScreen() {
     let victimId: string | null = null;
     
     if (dimension === 'width') {
-        // Find visual neighbors in the same row
+        // WIDTH EXPANSION (Same Row)
         const sameRow = locations.filter(l => l.shelf === slot.shelf && l.row === slot.row && l.id !== slot.id);
         const sortedRow = sameRow.sort((a, b) => (a.column || '').localeCompare(b.column || '', undefined, { numeric: true }));
-        
-        // Find slot immediately to the "right" based on sort order
         const neighbors = sortedRow.filter(l => (l.column || '').localeCompare(slot.column || '', undefined, { numeric: true }) > 0);
         const victim = neighbors[0]; 
 
         if (victim) {
             if (victim.items && victim.items.length > 0) {
-                Alert.alert(t('general.error'), t('stockGrid.mergeError', 'Cannot merge: Neighbor has items.'));
+                Alert.alert(t('general.error'), t('stockGrid.mergeError', 'Neighbor has items.'));
                 return;
             }
             victimId = victim.id;
         }
     } else {
-        // Height Logic
+        // HEIGHT EXPANSION (Cross Row)
+        // 1. Find all rows in this shelf to determine order
         const shelfSlots = locations.filter(l => l.shelf === slot.shelf);
         const rows = [...new Set(shelfSlots.map(l => l.row))].sort((a,b) => (a||'').localeCompare(b||'', undefined, {numeric:true}));
-        const currentRowIndex = rows.indexOf(slot.row);
         
-        if (currentRowIndex < rows.length - 1) {
-            const nextRowName = rows[currentRowIndex + 1];
-            const victim = shelfSlots.find(l => l.row === nextRowName && l.column === slot.column);
+        // 2. Find "Next Row"
+        // Note: slot.height_span might already be > 1. 
+        // We need to look at (Current Row Index + Current Height Span) to find the *next* row to consume.
+        const currentRowIndex = rows.indexOf(slot.row);
+        const nextRowIndex = currentRowIndex + slot.height_span;
+
+        if (nextRowIndex < rows.length) {
+            const nextRowLabel = rows[nextRowIndex];
+            
+            // 3. Find the slot in that row that aligns with our column
+            // We match strictly on 'column' string. 
+            const victim = shelfSlots.find(l => l.row === nextRowLabel && l.column === slot.column);
+            
             if (victim) {
                 if (victim.items && victim.items.length > 0) {
-                    Alert.alert(t('general.error'), t('stockGrid.mergeError', 'Cannot merge: Neighbor has items.'));
+                    Alert.alert(t('general.error'), t('stockGrid.mergeError', 'Neighbor has items.'));
                     return;
                 }
                 victimId = victim.id;
@@ -179,8 +187,7 @@ export default function StockGridScreen() {
         ).eq('id', slotId);
 
     } else {
-        // Case B: Expand into Void (Empty Space)
-        // If no neighbor exists, but we are within limits (e.g. 6 cols wide), allow expansion.
+        // Case B: Expand into Void
         const currentVal = dimension === 'width' ? slot.width_span : slot.height_span;
         const maxVal = dimension === 'width' ? TOTAL_GRID_COLS : 6; 
 
@@ -199,7 +206,7 @@ export default function StockGridScreen() {
             
             await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         } else {
-            Alert.alert(t('general.limit', 'Limit Reached'), t('stockGrid.maxSize', 'Maximum size reached.'));
+            Alert.alert(t('general.limit'), t('stockGrid.maxSize', 'Maximum size reached.'));
         }
     }
   };
@@ -371,10 +378,8 @@ export default function StockGridScreen() {
                 <Text style={[styles.shelfLabelText, { color: colors.text }]}>{shelf.shelfLabel}</Text>
               </View>
 
-              <View style={styles.shelfContent}>
-                
-                {/* --- BACKGROUND GRID LINES (Moved inside relative container) --- */}
-                {isEditMode && showGridLines && (
+              {/* BACKGROUND GRID LINES */}
+              {isEditMode && showGridLines && (
                   <View style={styles.backgroundGridOverlay} pointerEvents="none">
                       {Array.from({ length: TOTAL_GRID_COLS }).map((_, i) => (
                           <View 
@@ -382,15 +387,16 @@ export default function StockGridScreen() {
                             style={[
                                 styles.gridLine, 
                                 { 
-                                    borderColor: colors.text, // High contrast
-                                    left: (i * (UNIT_WIDTH + GAP_SIZE)) + UNIT_WIDTH + (GAP_SIZE / 2) - 0.5 // Center in gap
+                                    borderColor: colors.text, 
+                                    left: (i * (UNIT_WIDTH + GAP_SIZE)) + UNIT_WIDTH + (GAP_SIZE / 2) - 0.5 
                                 }
                             ]} 
                           />
                       ))}
                   </View>
-                )}
+              )}
 
+              <View style={styles.shelfContent}>
                 {shelf.rows.map((row) => (
                     <View key={row.rowLabel} style={styles.rowWrapper}>
                          <View style={[styles.gridContainer, { gap: GAP_SIZE }]}>
@@ -403,7 +409,15 @@ export default function StockGridScreen() {
                                 const item = slot.items?.[0];
 
                                 return (
-                                    <View key={slot.id} style={{ position: 'relative', width: slotWidth, height: slotHeight }}>
+                                    <View 
+                                      key={slot.id} 
+                                      style={{ 
+                                          position: 'relative', 
+                                          width: slotWidth, 
+                                          height: slotHeight,
+                                          zIndex: hSpan > 1 ? 100 : 1 // Bring tall items to front so they overlap row below
+                                      }}
+                                    >
                                         <Pressable
                                             onPress={() => handleSlotPress(slot)}
                                             style={[
@@ -510,17 +524,18 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   
-  // Background Grid Overlay
   backgroundGridOverlay: {
       position: 'absolute',
       top: 0, bottom: 0, left: 0, right: 0,
       zIndex: 0, 
+      flexDirection: 'row',
   },
   gridLine: {
       position: 'absolute',
       top: 0, bottom: 0,
       width: 1,
       borderLeftWidth: 1,
+      borderStyle: 'solid', 
       opacity: 0.2,
   },
   
