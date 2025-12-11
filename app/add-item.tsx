@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable, Alert, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../providers/AuthProvider';
@@ -44,16 +44,16 @@ export default function AddItemScreen() {
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [locationOccupant, setLocationOccupant] = useState<string | null>(null);
 
-  // Fetch warehouses for the top-level dropdown
+  // Fetch warehouses
   useEffect(() => {
     const fetchWarehouses = async () => {
-      const { data, error } = await supabase.from('warehouses').select('id, name');
+      const { data } = await supabase.from('warehouses').select('id, name');
       if (data) setWarehouses(data.map(w => ({ label: w.name, value: w.id })));
     };
     fetchWarehouses();
   }, []);
 
-  // Fetch storages when a warehouse is selected
+  // Fetch storages
   useEffect(() => {
     if (!selectedWarehouse) {
       setStorages([]);
@@ -61,13 +61,13 @@ export default function AddItemScreen() {
       return;
     }
     const fetchStorages = async () => {
-      const { data, error } = await supabase.from('storages').select('id, name').eq('warehouse_id', selectedWarehouse);
+      const { data } = await supabase.from('storages').select('id, name').eq('warehouse_id', selectedWarehouse);
       if (data) setStorages(data.map(s => ({ label: s.name, value: s.id })));
     };
     fetchStorages();
   }, [selectedWarehouse]);
 
-  // Fetch specific location slots (shelf/row/col) when a storage unit is selected
+  // Fetch locations
   useEffect(() => {
     const fetchLocations = async () => {
       if (!selectedStorage) {
@@ -78,9 +78,9 @@ export default function AddItemScreen() {
         .from('defined_locations')
         .select('id, shelf, row, column, items ( name )')
         .eq('storage_id', selectedStorage);
+      
       if (error) {
-          console.error("Error fetching locations:", error);
-          showError(error.message);(t('general.error'), t('general.locationError'));
+          showError(t('general.error'), t('general.locationError'));
       } else {
         setAllLocations(data || []);
       }
@@ -89,7 +89,7 @@ export default function AddItemScreen() {
   }, [selectedStorage, t]);
   
 
-  // Memoized options for the location dropdowns
+  // Memoized options
   const shelfOptions = useMemo(() => [...new Set(allLocations.map(l => l.shelf))].map(s => ({ label: s, value: s })), [allLocations]);
   const rowOptions = useMemo(() => {
     if (!selectedShelf) return [];
@@ -102,7 +102,7 @@ export default function AddItemScreen() {
     return cols.map(c => ({ label: c, value: c }));
   }, [allLocations, selectedShelf, selectedRow]);
 
-  // Effect to find the final location ID based on selections
+  // Find location ID
   useEffect(() => {
     if (!selectedShelf) {
         setSelectedLocationId(null);
@@ -117,19 +117,22 @@ export default function AddItemScreen() {
     setSelectedLocationId(finalLocation ? finalLocation.id : null);
   }, [selectedShelf, selectedRow, selectedColumn, allLocations]);
 
+  // Check occupant
   useEffect(() => {
-  if (!selectedLocationId) {
-    setLocationOccupant(null);
-    return;
-  }
-  const finalLocation = allLocations.find(l => l.id === selectedLocationId);
-  const occupant = finalLocation?.items?.[0];
-  setLocationOccupant(occupant ? occupant.name : null);
-}, [selectedLocationId, allLocations]);
+    if (!selectedLocationId) {
+      setLocationOccupant(null);
+      return;
+    }
+    const finalLocation = allLocations.find(l => l.id === selectedLocationId);
+    const occupant = finalLocation?.items?.[0];
+    setLocationOccupant(occupant ? occupant.name : null);
+  }, [selectedLocationId, allLocations]);
   
+  // --- FIXED FUNCTION ---
   const handleAddItem = async () => {
     if (!name.trim() || !quantity || !restockThreshold || !selectedWarehouse || !selectedStorage) {
-      showError(error.message);(t('general.error'), t('general.fillFields'));
+      // FIX: Removed invalid 'error.message' reference
+      showError(t('general.error'), t('general.fillFields'));
       return;
     }
     setLoading(true);
@@ -146,15 +149,16 @@ export default function AddItemScreen() {
       });
 
       if (error) throw error;
-      showSuccess(error.message);(t('general.success'), t('general.addSuccess'));
+      
+      // FIX: Success path logic was trying to access error.message on a null error
+      showSuccess(t('general.success'), t('general.addSuccess'));
       router.back();
     } catch (error: any) {
-      showError(error.message);(t('general.error'), error.message);
+      showError(t('general.error'), error.message);
     } finally {
       setLoading(false);
     }
   };
-
 
   return (
     <ScrollView 
@@ -237,7 +241,6 @@ export default function AddItemScreen() {
             />
           )}
 
-          {/* --- FIX: Display warning if location is occupied -- */}
           {locationOccupant && (
             <View style={styles.warningContainer}>
               <FontAwesome name="warning" size={16} color={colors.danger} />
@@ -249,7 +252,6 @@ export default function AddItemScreen() {
         </>
       )}
       
-      {/* --- FIX: The complete "Add Item" button is restored here --- */}
       <Pressable 
         style={[styles.button, { backgroundColor: colors.primary }]} 
         onPress={handleAddItem} 
@@ -273,12 +275,12 @@ const styles = StyleSheet.create({
     input: { borderWidth: 1, borderRadius: 8, padding: 12, marginBottom: 20 },
     button: { padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 20 },
     buttonText: { fontWeight: 'bold' },
-      warningContainer: {
+    warningContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         padding: 10,
         borderRadius: 8,
-        backgroundColor: 'rgba(220, 53, 69, 0.1)', // A muted danger background
+        backgroundColor: 'rgba(220, 53, 69, 0.1)',
         marginBottom: 20,
     },
     warningText: {
