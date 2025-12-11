@@ -215,7 +215,7 @@ export default function StockGridScreen() {
                             { 
                               width: dynamicItemWidth,
                               margin: ITEM_MARGIN,
-                              backgroundColor: slot.item ? colors.card : 'transparent',
+                              backgroundColor: slot.item ? colors.selector : 'transparent',
                               borderColor: colors.border 
                             },
                             slot.item ? styles.slotOccupied : styles.slotEmpty
