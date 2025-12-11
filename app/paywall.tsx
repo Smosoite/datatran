@@ -12,9 +12,10 @@ type PlanType = 'personal' | 'company';
 type Interval = 'month' | 'year';
 
 const COMPANY_TIERS = [
-  { users: 5, price: 299 },
-  { users: 10, price: 499 },
-  { users: 20, price: 899 },
+  { users: 1, price: 299 },
+  { users: 5, price: 499 },
+  { users: 10, price: 899 },
+  { users: 25, price: 1999 },
   { users: 50, price: 1999 },
 ];
 
