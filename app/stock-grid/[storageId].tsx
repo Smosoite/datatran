@@ -14,10 +14,12 @@ import * as Haptics from 'expo-haptics';
 
 // --- Data Types ---
 type LocationSlot = {
-  id: string;
+  id: string; // The specific grid cell ID
+  master_id: string; // The ID of the "Logical" location (if merged, multiple slots share this)
   shelf: string;
-  row: string | null;
-  column: string | null;
+  row: string;
+  column: string;
+  // Visual props
   width_span: number; 
   height_span: number;
   items: {
@@ -28,7 +30,6 @@ type LocationSlot = {
   // Computed for layout
   _top?: number;
   _left?: number;
-  _zIndex?: number;
 };
 
 // Helper for Natural Sort
@@ -49,8 +50,7 @@ export default function StockGridScreen() {
   // --- LAYOUT CONSTANTS ---
   const TOTAL_GRID_COLS = 6; 
   const GRID_PADDING = 12; 
-  const GAP_SIZE = 2;       
-  const SHELF_MARGIN = 2;   
+  const GAP_SIZE = 4;       // Gap between cells
   const BASE_HEIGHT = 80;   
 
   // Precise Math
@@ -70,15 +70,17 @@ export default function StockGridScreen() {
       const { data, error } = await supabase
         .from('defined_locations')
         .select(`
-          id, shelf, row, column, width_span, height_span,
+          id, shelf, row, column, width_span, height_span, master_id,
           items ( id, name, quantity )
         `)
         .eq('storage_id', storageId);
        
       if (error) throw error;
 
+      // Initialize: If master_id is missing, it is its own master
       const formattedLocations = data.map(loc => ({
         ...loc,
+        master_id: loc.master_id || loc.id, 
         width_span: loc.width_span || 1,
         height_span: loc.height_span || 1,
         items: loc.items || [],
@@ -98,158 +100,120 @@ export default function StockGridScreen() {
   }, [fetchData]);
 
   // --- MERGE LOGIC ---
-  const handleMerge = async (sourceId: string, direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT') => {
-    const source = locations.find(l => l.id === sourceId);
-    if (!source) return;
-
-    // 1. Organize Data to find Neighbors
-    const allShelves = [...new Set(locations.map(l => l.shelf))].sort(naturalSort);
-    const shelfSlots = locations.filter(l => l.shelf === source.shelf);
+  const handleMerge = async (sourceSlot: LocationSlot, direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT') => {
     
-    // Sort Rows and Cols for Indexing
-    const uniqueRows = [...new Set(shelfSlots.map(l => l.row))].sort(naturalSort);
+    // 1. Find the specific neighbor cell visually adjacent to this cell
+    // We search the entire dataset because neighbors might be on different shelves visually
+    
+    // Sort shelves to know order
+    const allShelves = [...new Set(locations.map(l => l.shelf))].sort(naturalSort);
+    const currentShelfIdx = allShelves.indexOf(sourceSlot.shelf);
+
+    let neighbor: LocationSlot | undefined;
+
+    const shelfSlots = locations.filter(l => l.shelf === sourceSlot.shelf);
     const uniqueCols = [...new Set(shelfSlots.map(l => l.column))].sort(naturalSort);
+    const uniqueRows = [...new Set(shelfSlots.map(l => l.row))].sort(naturalSort);
+    
+    const colIdx = uniqueCols.indexOf(sourceSlot.column);
+    const rowIdx = uniqueRows.indexOf(sourceSlot.row);
 
-    const currentRowIdx = uniqueRows.indexOf(source.row);
-    const currentColIdx = uniqueCols.indexOf(source.column);
-
-    let victim: LocationSlot | undefined;
-    let newAttributes: Partial<LocationSlot> = {};
-
-    // 2. Identify Victim based on direction
     if (direction === 'RIGHT') {
-        // Find slot: Same Shelf, Same Row, Next Column
-        if (currentColIdx < uniqueCols.length - 1) {
-            const nextCol = uniqueCols[currentColIdx + source.width_span]; // Skip span
-            victim = shelfSlots.find(l => l.row === source.row && l.column === nextCol);
+        if (colIdx < uniqueCols.length - 1) {
+            const nextCol = uniqueCols[colIdx + 1];
+            neighbor = shelfSlots.find(l => l.row === sourceSlot.row && l.column === nextCol);
+        }
+    } else if (direction === 'LEFT') {
+        if (colIdx > 0) {
+            const prevCol = uniqueCols[colIdx - 1];
+            neighbor = shelfSlots.find(l => l.row === sourceSlot.row && l.column === prevCol);
+        }
+    } else if (direction === 'DOWN') {
+        if (rowIdx < uniqueRows.length - 1) {
+            // Same shelf down
+            const nextRow = uniqueRows[rowIdx + 1];
+            neighbor = shelfSlots.find(l => l.column === sourceSlot.column && l.row === nextRow);
+        } else if (currentShelfIdx < allShelves.length - 1) {
+            // Next shelf top row
+            const nextShelf = allShelves[currentShelfIdx + 1];
+            const nextShelfSlots = locations.filter(l => l.shelf === nextShelf);
+            const nextShelfRows = [...new Set(nextShelfSlots.map(l => l.row))].sort(naturalSort);
+            const nextShelfCols = [...new Set(nextShelfSlots.map(l => l.column))].sort(naturalSort);
             
-            // Check alignment (Height must match)
-            if (victim && victim.height_span !== source.height_span) {
-                Alert.alert("Mismatch", "Cannot merge items of different heights.");
-                return;
+            // Map column index to column name in next shelf
+            if (colIdx < nextShelfCols.length && nextShelfRows.length > 0) {
+                const targetCol = nextShelfCols[colIdx];
+                const targetRow = nextShelfRows[0];
+                neighbor = nextShelfSlots.find(l => l.column === targetCol && l.row === targetRow);
             }
-            newAttributes = { width_span: source.width_span + (victim?.width_span || 1) };
         }
-    } 
-    else if (direction === 'LEFT') {
-        // Find slot: Same Shelf, Same Row, Previous Column
-        if (currentColIdx > 0) {
-            const prevCol = uniqueCols[currentColIdx - 1]; // We assume the neighbor ends right before us
-            // Actually, we need to find the neighbor whose (col_index + width_span) == my_col_index
-            // Simplification: Look for immediate neighbor index
-            victim = shelfSlots.find(l => {
-                const vColIdx = uniqueCols.indexOf(l.column);
-                return l.row === source.row && (vColIdx + l.width_span) === currentColIdx;
-            });
-
-            if (victim && victim.height_span !== source.height_span) {
-                Alert.alert("Mismatch", "Cannot merge items of different heights.");
-                return;
-            }
-            // Logic: Source takes Victim's Position (Row/Col) and combines widths
-            if (victim) {
-                newAttributes = { 
-                    column: victim.column, // Move to left
-                    width_span: source.width_span + victim.width_span 
-                };
+    } else if (direction === 'UP') {
+        if (rowIdx > 0) {
+            // Same shelf up
+            const prevRow = uniqueRows[rowIdx - 1];
+            neighbor = shelfSlots.find(l => l.column === sourceSlot.column && l.row === prevRow);
+        } else if (currentShelfIdx > 0) {
+            // Prev shelf bottom row
+            const prevShelf = allShelves[currentShelfIdx - 1];
+            const prevShelfSlots = locations.filter(l => l.shelf === prevShelf);
+            const prevShelfRows = [...new Set(prevShelfSlots.map(l => l.row))].sort(naturalSort);
+            const prevShelfCols = [...new Set(prevShelfSlots.map(l => l.column))].sort(naturalSort);
+            
+            if (colIdx < prevShelfCols.length && prevShelfRows.length > 0) {
+                const targetCol = prevShelfCols[colIdx];
+                const targetRow = prevShelfRows[prevShelfRows.length - 1];
+                neighbor = prevShelfSlots.find(l => l.column === targetCol && l.row === targetRow);
             }
         }
     }
-    else if (direction === 'DOWN') {
-        // A. Try Same Shelf
-        const nextRowIdx = currentRowIdx + source.height_span;
-        
-        if (nextRowIdx < uniqueRows.length) {
-            const nextRow = uniqueRows[nextRowIdx];
-            victim = shelfSlots.find(l => l.column === source.column && l.row === nextRow);
-        } else {
-            // B. Try Next Shelf (Cross-Shelf Merge)
-            const currentShelfIdx = allShelves.indexOf(source.shelf);
-            if (currentShelfIdx < allShelves.length - 1) {
-                const nextShelfName = allShelves[currentShelfIdx + 1];
-                const nextShelfSlots = locations.filter(l => l.shelf === nextShelfName);
-                
-                // Align columns by Index
-                const nextShelfCols = [...new Set(nextShelfSlots.map(l => l.column))].sort(naturalSort);
-                const nextShelfRows = [...new Set(nextShelfSlots.map(l => l.row))].sort(naturalSort);
-                
-                if (currentColIdx < nextShelfCols.length && nextShelfRows.length > 0) {
-                     const targetCol = nextShelfCols[currentColIdx];
-                     const targetRow = nextShelfRows[0]; // Top row
-                     victim = nextShelfSlots.find(l => l.column === targetCol && l.row === targetRow);
-                }
-            }
-        }
 
-        if (victim && victim.width_span !== source.width_span) {
-            Alert.alert("Mismatch", "Cannot merge items of different widths.");
-            return;
-        }
-        if (victim) {
-            newAttributes = { height_span: source.height_span + victim.height_span };
-        }
-    }
-    else if (direction === 'UP') {
-        // A. Try Same Shelf
-        if (currentRowIdx > 0) {
-             // Find neighbor whose (row_index + height_span) == my_row_index
-             victim = shelfSlots.find(l => {
-                const vRowIdx = uniqueRows.indexOf(l.row);
-                return l.column === source.column && (vRowIdx + l.height_span) === currentRowIdx;
-             });
-        } else {
-            // B. Try Previous Shelf
-            const currentShelfIdx = allShelves.indexOf(source.shelf);
-            if (currentShelfIdx > 0) {
-                const prevShelfName = allShelves[currentShelfIdx - 1];
-                const prevShelfSlots = locations.filter(l => l.shelf === prevShelfName);
-                
-                const prevShelfCols = [...new Set(prevShelfSlots.map(l => l.column))].sort(naturalSort);
-                const prevShelfRows = [...new Set(prevShelfSlots.map(l => l.row))].sort(naturalSort);
-                
-                if (currentColIdx < prevShelfCols.length && prevShelfRows.length > 0) {
-                    const targetCol = prevShelfCols[currentColIdx];
-                    const targetRow = prevShelfRows[prevShelfRows.length - 1]; // Bottom row
-                    victim = prevShelfSlots.find(l => l.column === targetCol && l.row === targetRow);
-                }
-            }
-        }
-
-        if (victim && victim.width_span !== source.width_span) {
-            Alert.alert("Mismatch", "Cannot merge items of different widths.");
-            return;
-        }
-        if (victim) {
-            // Logic: Source takes Victim's Position and Shelf
-            newAttributes = { 
-                shelf: victim.shelf,
-                row: victim.row,
-                height_span: source.height_span + victim.height_span 
-            };
-        }
+    if (!neighbor) {
+        Alert.alert("Error", "No location found in that direction.");
+        return;
     }
 
-    // 3. Execution
-    if (victim) {
-        if (victim.items && victim.items.length > 0) {
-            Alert.alert("Occupied", "The location you are trying to merge with is occupied.");
-            return;
+    // Check if they are already merged
+    if (neighbor.master_id === sourceSlot.master_id) {
+        Alert.alert("Already Merged", "These locations are already part of the same unit.");
+        return;
+    }
+
+    // Check if occupied (Merging occupied slots is complex, usually blocked)
+    const neighborItems = locations.filter(l => l.master_id === neighbor!.master_id).flatMap(l => l.items || []);
+    const sourceItems = locations.filter(l => l.master_id === sourceSlot.master_id).flatMap(l => l.items || []);
+
+    if (neighborItems.length > 0 && sourceItems.length > 0) {
+        Alert.alert("Occupied", "Both locations contain items. Empty one before merging.");
+        return;
+    }
+
+    // --- PERFORM MERGE ---
+    // We define the Source's Master ID as the winner.
+    // Everyone currently pointing to Neighbor's Master ID updates to Source's Master ID.
+    
+    const winningId = sourceSlot.master_id;
+    const losingId = neighbor.master_id;
+
+    // Local Update
+    setLocations(prev => prev.map(l => {
+        if (l.master_id === losingId) {
+            return { ...l, master_id: winningId };
         }
+        return l;
+    }));
 
-        // Optimistic Update
-        const updatedLocations = locations.filter(l => l.id !== victim?.id).map(l => {
-            if (l.id === source.id) return { ...l, ...newAttributes };
-            return l;
-        });
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-        setLocations(updatedLocations);
-        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // DB Update
+    // 1. Update all cells that had the losing ID to have the winning ID
+    const { error } = await supabase
+        .from('defined_locations')
+        .update({ master_id: winningId })
+        .eq('master_id', losingId);
 
-        // Database Update
-        await supabase.from('defined_locations').delete().eq('id', victim.id);
-        await supabase.from('defined_locations').update(newAttributes).eq('id', source.id);
-    } else {
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    if (error) {
+        showError("Merge failed", error.message);
+        fetchData(); // Revert
     }
   };
 
@@ -266,50 +230,39 @@ export default function StockGridScreen() {
 
     return sortedShelfKeys.map(shelfKey => {
         const slots = shelvesDict[shelfKey];
-        
         const uniqueRows = [...new Set(slots.map(l => l.row))].sort(naturalSort);
         const uniqueCols = [...new Set(slots.map(l => l.column))].sort(naturalSort);
         
-        // Calculate max visual row to allow overflow
-        const maxVisualRowIndex = uniqueRows.length - 1;
-
         const mappedSlots = slots.map(slot => {
             const rowIdx = uniqueRows.indexOf(slot.row);
             const colIdx = uniqueCols.indexOf(slot.column);
-
             const top = (rowIdx * (BASE_HEIGHT + GAP_SIZE));
             const left = (colIdx * (UNIT_WIDTH + GAP_SIZE));
 
-            return {
-                ...slot,
-                _top: top,
-                _left: left,
-                _zIndex: (slot.height_span > 1 || slot.width_span > 1) ? 999 : 1
-            };
+            return { ...slot, _top: top, _left: left };
         });
 
-        const visualRowCount = maxVisualRowIndex + 1;
-        const totalHeight = (visualRowCount * BASE_HEIGHT) + ((visualRowCount - 1) * GAP_SIZE);
+        const rowCount = uniqueRows.length;
+        const totalHeight = (rowCount * BASE_HEIGHT) + ((rowCount - 1) * GAP_SIZE);
 
         return {
             shelfLabel: shelfKey,
             totalHeight: Math.max(totalHeight, BASE_HEIGHT),
             mappedSlots,
-            rowCount: visualRowCount
+            rowCount
         };
     });
   }, [locations, BASE_HEIGHT, GAP_SIZE, UNIT_WIDTH]);
 
+
   // --- COMPONENT: Merge Handle ---
   const MergeHandle = ({ direction, onPress }: { direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT', onPress: () => void }) => {
     let style = {};
-    const size = 24;
-    const offset = -12; // Half size to center on line
-
-    if (direction === 'UP') style = { top: offset, left: '50%', marginLeft: -12 };
-    if (direction === 'DOWN') style = { bottom: offset, left: '50%', marginLeft: -12 };
-    if (direction === 'LEFT') style = { left: offset, top: '50%', marginTop: -12 };
-    if (direction === 'RIGHT') style = { right: offset, top: '50%', marginTop: -12 };
+    const offset = -10; 
+    if (direction === 'UP') style = { top: offset, left: '50%', marginLeft: -10 };
+    if (direction === 'DOWN') style = { bottom: offset, left: '50%', marginLeft: -10 };
+    if (direction === 'LEFT') style = { left: offset, top: '50%', marginTop: -10 };
+    if (direction === 'RIGHT') style = { right: offset, top: '50%', marginTop: -10 };
 
     return (
         <TouchableOpacity 
@@ -317,9 +270,140 @@ export default function StockGridScreen() {
             onPress={onPress}
             activeOpacity={0.7}
         >
-            <MaterialCommunityIcons name="link-variant" size={14} color={colors.primary} />
+            <MaterialCommunityIcons name="link-variant" size={12} color={colors.primary} />
         </TouchableOpacity>
     );
+  };
+
+  // --- COMPONENT: Slot ---
+  const SlotComponent = ({ slot, allLocations, shelfLabel }: { slot: LocationSlot, allLocations: LocationSlot[], shelfLabel: string }) => {
+      
+      // Check borders
+      // We look for neighbors in the global list to handle cross-shelf visually
+      // However, for the drawing within a shelf container, we are positioned relatively.
+      // But the gap filler needs to know if the neighbor shares the master_id.
+      
+      // Helper to find specific neighbor by indices to check master_id
+      const getNeighborMaster = (dir: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT') => {
+          // Note: This logic duplicates handleMerge finding logic slightly but is for display
+          // Simplified for same-shelf checks primarily for borders
+          const shelfLocs = allLocations.filter(l => l.shelf === shelfLabel);
+          const cols = [...new Set(shelfLocs.map(l => l.column))].sort(naturalSort);
+          const rows = [...new Set(shelfLocs.map(l => l.row))].sort(naturalSort);
+          const rIdx = rows.indexOf(slot.row);
+          const cIdx = cols.indexOf(slot.column);
+          
+          if (dir === 'RIGHT' && cIdx < cols.length - 1) return shelfLocs.find(l => l.row === slot.row && l.column === cols[cIdx+1])?.master_id;
+          if (dir === 'LEFT' && cIdx > 0) return shelfLocs.find(l => l.row === slot.row && l.column === cols[cIdx-1])?.master_id;
+          if (dir === 'DOWN' && rIdx < rows.length - 1) return shelfLocs.find(l => l.column === slot.column && l.row === rows[rIdx+1])?.master_id;
+          if (dir === 'UP' && rIdx > 0) return shelfLocs.find(l => l.column === slot.column && l.row === rows[rIdx-1])?.master_id;
+          
+          // Cross shelf visual checks for borders (Optional, but makes it look contiguous)
+          if (dir === 'DOWN' || dir === 'UP') {
+              const shelves = [...new Set(allLocations.map(l => l.shelf))].sort(naturalSort);
+              const sIdx = shelves.indexOf(shelfLabel);
+              
+              if (dir === 'DOWN' && sIdx < shelves.length - 1) {
+                  const nextShelfLocs = allLocations.filter(l => l.shelf === shelves[sIdx+1]);
+                  const nextCols = [...new Set(nextShelfLocs.map(l => l.column))].sort(naturalSort);
+                  const nextRows = [...new Set(nextShelfLocs.map(l => l.row))].sort(naturalSort);
+                  if (cIdx < nextCols.length && nextRows.length > 0) {
+                      return nextShelfLocs.find(l => l.column === nextCols[cIdx] && l.row === nextRows[0])?.master_id;
+                  }
+              }
+              if (dir === 'UP' && sIdx > 0) {
+                   const prevShelfLocs = allLocations.filter(l => l.shelf === shelves[sIdx-1]);
+                   const prevCols = [...new Set(prevShelfLocs.map(l => l.column))].sort(naturalSort);
+                   const prevRows = [...new Set(prevShelfLocs.map(l => l.row))].sort(naturalSort);
+                   if (cIdx < prevCols.length && prevRows.length > 0) {
+                       return prevShelfLocs.find(l => l.column === prevCols[cIdx] && l.row === prevRows[prevRows.length-1])?.master_id;
+                   }
+              }
+          }
+          return null;
+      };
+
+      const isMergedRight = getNeighborMaster('RIGHT') === slot.master_id;
+      const isMergedLeft = getNeighborMaster('LEFT') === slot.master_id;
+      const isMergedDown = getNeighborMaster('DOWN') === slot.master_id;
+      const isMergedUp = getNeighborMaster('UP') === slot.master_id;
+
+      // Only show content (Name/Qty) if this is the "Top-Left-most" cell of the merged group
+      // or simply: determine a representative. 
+      // Simple logic: Is this the first one in the list when sorted?
+      const groupMembers = allLocations.filter(l => l.master_id === slot.master_id);
+      // Sort by shelf, then row, then column
+      const sortedGroup = groupMembers.sort((a,b) => {
+          if (a.shelf !== b.shelf) return naturalSort(a.shelf, b.shelf);
+          if (a.row !== b.row) return naturalSort(a.row, b.row);
+          return naturalSort(a.column, b.column);
+      });
+      const isLeader = sortedGroup[0].id === slot.id;
+      const masterItem = slot.items?.[0] || sortedGroup.flatMap(g => g.items || [])[0];
+
+      return (
+        <View style={{
+            position: 'absolute',
+            top: slot._top,
+            left: slot._left,
+            width: UNIT_WIDTH,
+            height: BASE_HEIGHT,
+            zIndex: isLeader ? 10 : 1 // Leader higher z to show text above
+        }}>
+            {/* The Actual Cell Box */}
+            <Pressable
+                onPress={() => handleSlotPress(slot)}
+                style={[
+                    styles.slotBase,
+                    { 
+                        backgroundColor: masterItem ? colors.card : 'rgba(128,128,128,0.1)',
+                        borderColor: colors.border,
+                        borderStyle: masterItem ? 'solid' : 'dashed',
+                        // Hide borders if merged
+                        borderRightWidth: isMergedRight ? 0 : 1,
+                        borderLeftWidth: isMergedLeft ? 0 : 1,
+                        borderTopWidth: isMergedUp ? 0 : 1,
+                        borderBottomWidth: isMergedDown ? 0 : 1,
+                    }
+                ]}
+            >
+                {/* Gap Fillers: Extending the background color into the padding area */}
+                {isMergedRight && <View style={[styles.gapFillerRight, { backgroundColor: masterItem ? colors.card : 'rgba(128,128,128,0.1)' }]} />}
+                {isMergedDown && <View style={[styles.gapFillerDown, { backgroundColor: masterItem ? colors.card : 'rgba(128,128,128,0.1)' }]} />}
+                
+                {/* Content - Only show on leader */}
+                {isLeader && masterItem && (
+                    <View style={styles.contentContainer}>
+                        <View style={[styles.quantityBadge, { backgroundColor: masterItem.quantity > 0 ? colors.success : colors.danger }]}>
+                            <Text style={styles.quantityText}>{masterItem.quantity}</Text>
+                        </View>
+                        <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={2}>
+                            {masterItem.name}
+                        </Text>
+                    </View>
+                )}
+                 {isLeader && !masterItem && (
+                    <View style={[styles.emptyMarker, { backgroundColor: colors.border }]} />
+                )}
+
+                 {isEditMode && isLeader && !masterItem && (
+                    <Pressable style={styles.miniDelete} onPress={() => handleDeleteLocation(slot.id)}>
+                        <Feather name="x" size={10} color="white" />
+                    </Pressable>
+                )}
+            </Pressable>
+
+            {/* Edit Handles - Show on every cell to allow expanding any edge */}
+            {isEditMode && (
+                <>
+                    {!isMergedUp && <MergeHandle direction="UP" onPress={() => handleMerge(slot, 'UP')} />}
+                    {!isMergedDown && <MergeHandle direction="DOWN" onPress={() => handleMerge(slot, 'DOWN')} />}
+                    {!isMergedLeft && <MergeHandle direction="LEFT" onPress={() => handleMerge(slot, 'LEFT')} />}
+                    {!isMergedRight && <MergeHandle direction="RIGHT" onPress={() => handleMerge(slot, 'RIGHT')} />}
+                </>
+            )}
+        </View>
+      );
   };
 
   // --- ACTIONS ---
@@ -344,7 +428,10 @@ export default function StockGridScreen() {
 
   const handleSlotPress = (slot: LocationSlot) => {
     if (!isEditMode) {
-      const item = slot.items?.[0];
+      // Find the master item
+      const groupMembers = locations.filter(l => l.master_id === slot.master_id);
+      const item = groupMembers.flatMap(g => g.items || [])[0];
+
       if (item) {
         showQuantityModal({
           title: item.name,
@@ -370,6 +457,8 @@ export default function StockGridScreen() {
         message: t('stockGrid.deleteMsg'),
         onSubmit: async (passcode) => {
             if (passcode === workgroup?.admin_passcode) {
+                // If deleting a merged group, we might want to just reset them to individual?
+                // For now, let's just delete the record.
                 await supabase.from('defined_locations').delete().eq('id', id);
                 fetchData();
             }
@@ -415,116 +504,40 @@ export default function StockGridScreen() {
           {visualGrid.map((shelf) => (
             <View 
                 key={shelf.shelfLabel} 
-                style={[
-                    styles.shelfContainer, 
-                    { 
-                        marginBottom: SHELF_MARGIN, 
-                        borderColor: colors.border 
-                    }
-                ]}
+                style={[styles.shelfContainer, { marginBottom: GAP_SIZE, borderColor: colors.border }]}
             >
-              
               <View style={[styles.shelfLabelTab, { backgroundColor: colors.border }]}>
                 <Text style={[styles.shelfLabelText, { color: colors.text }]}>{shelf.shelfLabel}</Text>
               </View>
 
               <View style={[styles.shelfContent, { height: shelf.totalHeight }]}>
-                
                 {/* BACKGROUND GRID LINES */}
                 {isEditMode && showGridLines && (
                   <View style={styles.backgroundGridOverlay} pointerEvents="none">
-                      {/* Vertical Lines */}
                       {Array.from({ length: TOTAL_GRID_COLS }).map((_, i) => (
                           <View 
                             key={`v-${i}`} 
-                            style={[
-                                styles.gridLine, 
-                                { 
-                                    borderColor: colors.text, 
-                                    left: (i * (UNIT_WIDTH + GAP_SIZE)) + UNIT_WIDTH + (GAP_SIZE / 2) 
-                                }
-                            ]} 
+                            style={[ styles.gridLine, { borderColor: colors.text, left: (i * (UNIT_WIDTH + GAP_SIZE)) + UNIT_WIDTH + (GAP_SIZE / 2) } ]} 
                           />
                       ))}
-                      {/* Horizontal Lines */}
                       {Array.from({ length: shelf.rowCount - 1 }).map((_, i) => (
                           <View 
                             key={`h-${i}`} 
-                            style={[
-                                styles.gridLineHorizontal, 
-                                { 
-                                    borderColor: colors.text, 
-                                    top: (i * (BASE_HEIGHT + GAP_SIZE)) + BASE_HEIGHT + (GAP_SIZE / 2) 
-                                }
-                            ]} 
+                            style={[ styles.gridLineHorizontal, { borderColor: colors.text, top: (i * (BASE_HEIGHT + GAP_SIZE)) + BASE_HEIGHT + (GAP_SIZE / 2) } ]} 
                           />
                       ))}
                   </View>
                 )}
 
                 {/* SLOTS */}
-                {shelf.mappedSlots.map((slot) => {
-                      const slotWidth = (UNIT_WIDTH * slot.width_span) + (GAP_SIZE * (slot.width_span - 1));
-                      const slotHeight = (BASE_HEIGHT * slot.height_span) + (GAP_SIZE * (slot.height_span - 1));
-                      const item = slot.items?.[0];
-
-                      return (
-                          <View 
-                            key={slot.id} 
-                            style={{ 
-                                position: 'absolute',
-                                top: slot._top,
-                                left: slot._left,
-                                width: slotWidth, 
-                                height: slotHeight,
-                                zIndex: slot._zIndex 
-                            }}
-                        >
-                            <Pressable
-                                onPress={() => handleSlotPress(slot)}
-                                style={[
-                                    styles.slot,
-                                    { 
-                                        width: '100%',
-                                        height: '100%',
-                                        backgroundColor: item ? colors.card : 'rgba(128,128,128,0.1)',
-                                        borderColor: colors.border,
-                                        borderStyle: item ? 'solid' : 'dashed',
-                                        borderWidth: 1,
-                                    }
-                                ]}
-                            >
-                                {item ? (
-                                    <>
-                                        <View style={[styles.quantityBadge, { backgroundColor: item.quantity > 0 ? colors.success : colors.danger }]}>
-                                            <Text style={styles.quantityText}>{item.quantity}</Text>
-                                        </View>
-                                        <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={2}>
-                                            {item.name}
-                                        </Text>
-                                    </>
-                                ) : (
-                                    <View style={[styles.emptyMarker, { backgroundColor: colors.border }]} />
-                                )}
-
-                                {isEditMode && !item && (
-                                    <Pressable style={styles.miniDelete} onPress={() => handleDeleteLocation(slot.id)}>
-                                        <Feather name="x" size={10} color="white" />
-                                    </Pressable>
-                                )}
-                            </Pressable>
-
-                            {isEditMode && (
-                                <>
-                                    <MergeHandle direction="UP" onPress={() => handleMerge(slot.id, 'UP')} />
-                                    <MergeHandle direction="DOWN" onPress={() => handleMerge(slot.id, 'DOWN')} />
-                                    <MergeHandle direction="LEFT" onPress={() => handleMerge(slot.id, 'LEFT')} />
-                                    <MergeHandle direction="RIGHT" onPress={() => handleMerge(slot.id, 'RIGHT')} />
-                                </>
-                            )}
-                        </View>
-                      );
-                })}
+                {shelf.mappedSlots.map((slot) => (
+                    <SlotComponent 
+                        key={slot.id} 
+                        slot={slot} 
+                        allLocations={locations} 
+                        shelfLabel={shelf.shelfLabel} 
+                    />
+                ))}
               </View>
             </View>
           ))}
@@ -549,10 +562,37 @@ const styles = StyleSheet.create({
     position: 'absolute', left: -10, top: -12, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 4, zIndex: 10,
   },
   shelfLabelText: { fontWeight: 'bold', fontSize: 14 },
+  // Overflow visible allows the gap filler to extend outside the shelf container to connect to the next shelf
   shelfContent: { width: '100%', position: 'relative', marginTop: 10, overflow: 'visible' },
   
-  slot: { borderRadius: 6, justifyContent: 'center', alignItems: 'center', padding: 2, overflow: 'hidden' },
+  slotBase: {
+      width: '100%', height: '100%',
+      justifyContent: 'center', alignItems: 'center',
+      borderRadius: 4, 
+      borderWidth: 1,
+      overflow: 'visible' // Important for gap fillers
+  },
+
+  // These extend the color of the box into the gap area
+  gapFillerRight: {
+      position: 'absolute',
+      right: -6, // GAP_SIZE + border compensation
+      top: 0,
+      bottom: 0,
+      width: 6,
+      zIndex: 1
+  },
+  gapFillerDown: {
+      position: 'absolute',
+      bottom: -6, // GAP_SIZE + border compensation
+      left: 0,
+      right: 0,
+      height: 6,
+      zIndex: 1
+  },
   
+  contentContainer: { alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' },
+
   backgroundGridOverlay: {
       position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, zIndex: 0, 
   },
@@ -568,10 +608,10 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 4, right: 4, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, minWidth: 20, alignItems: 'center',
   },
   quantityText: { color: '#FFFFFF', fontSize: 10, fontWeight: 'bold' },
-  itemName: { fontSize: 11, fontWeight: '600', textAlign: 'center', marginTop: 12 },
+  itemName: { fontSize: 11, fontWeight: '600', textAlign: 'center', marginTop: 12, paddingHorizontal: 2 },
 
   mergeHandle: {
-    position: 'absolute', width: 24, height: 24, borderRadius: 12, borderWidth: 1, 
+    position: 'absolute', width: 20, height: 20, borderRadius: 10, borderWidth: 1, 
     justifyContent: 'center', alignItems: 'center', zIndex: 9999, elevation: 10
   },
   miniDelete: { position: 'absolute', top: 2, left: 2, backgroundColor: '#DC2626', borderRadius: 10, padding: 4, opacity: 0.8, zIndex: 60 },
