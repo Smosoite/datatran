@@ -50,7 +50,8 @@ export default function StockGridScreen() {
   // --- LAYOUT CONSTANTS ---
   const TOTAL_GRID_COLS = 6; 
   const GRID_PADDING = 12; 
-  const GAP_SIZE = 2;       // Tighter gap
+  const GAP_SIZE = 2;       // The gap inside the shelf
+  const SHELF_MARGIN = 2;   // The gap between shelves (Must match GAP_SIZE for seamless merge)
   const BASE_HEIGHT = 80;   
 
   // Precise Math
@@ -99,7 +100,7 @@ export default function StockGridScreen() {
     fetchData();
   }, [fetchData]);
 
-  // --- MERGE / RESIZE LOGIC (FIXED) ---
+  // --- MERGE / RESIZE LOGIC ---
   const handleResizeComplete = async (slotId: string, dimension: 'width' | 'height', direction: number) => {
     const slot = locations.find(l => l.id === slotId);
     if (!slot) return;
@@ -131,7 +132,7 @@ export default function StockGridScreen() {
     let victimId: string | null = null;
 
     if (dimension === 'width') {
-        // Width Merge Logic (Same Shelf)
+        // Same-Shelf Width Merge
         const rowSlots = shelfSlots
             .filter(l => l.row === slot.row)
             .sort((a,b) => naturalSort(a.column, b.column));
@@ -149,9 +150,7 @@ export default function StockGridScreen() {
             }
         }
     } else {
-        // --- HEIGHT MERGE (CROSS-SHELF ENABLED) ---
-        
-        // 1. Check Neighbors in Current Shelf
+        // --- HEIGHT MERGE (Cross-Shelf) ---
         const colSlots = shelfSlots
             .filter(l => l.column === slot.column)
             .sort((a,b) => naturalSort(a.row, b.row));
@@ -159,7 +158,7 @@ export default function StockGridScreen() {
         const myIndex = colSlots.findIndex(l => l.id === slot.id);
 
         if (myIndex !== -1 && myIndex < colSlots.length - 1) {
-            // Found a neighbor in same shelf
+            // Merge with neighbor in SAME shelf
             const potentialVictim = colSlots[myIndex + 1];
             if (potentialVictim) {
                  if (potentialVictim.items && potentialVictim.items.length > 0) {
@@ -169,22 +168,20 @@ export default function StockGridScreen() {
                 victimId = potentialVictim.id;
             }
         } else {
-            // 2. Check Next Shelf (Cross-Shelf Merge)
+            // Merge with neighbor in NEXT shelf
             const allShelves = [...new Set(locations.map(l => l.shelf))].sort(naturalSort);
             const currentShelfIdx = allShelves.indexOf(slot.shelf);
             
-            // Is there a shelf below?
             if (currentShelfIdx !== -1 && currentShelfIdx < allShelves.length - 1) {
                 const nextShelfName = allShelves[currentShelfIdx + 1];
                 
-                // Find matching column index
+                // Align Columns by Index
                 const currentShelfCols = [...new Set(shelfSlots.map(l => l.column))].sort(naturalSort);
                 const myColIdx = currentShelfCols.indexOf(slot.column);
                 
                 const nextShelfSlots = locations.filter(l => l.shelf === nextShelfName);
                 const nextShelfCols = [...new Set(nextShelfSlots.map(l => l.column))].sort(naturalSort);
                 
-                // If the shelf below has a column at the same index
                 if (myColIdx !== -1 && myColIdx < nextShelfCols.length) {
                     const targetCol = nextShelfCols[myColIdx];
                     const nextShelfRows = [...new Set(nextShelfSlots.map(l => l.row))].sort(naturalSort);
@@ -210,7 +207,6 @@ export default function StockGridScreen() {
     }
 
     if (victimId) {
-        // Perform Merge
         const newLocs = locations.filter(l => l.id !== victimId).map(l => {
             if (l.id === slotId) {
                 return {
@@ -274,16 +270,14 @@ export default function StockGridScreen() {
         const uniqueRows = [...new Set(slots.map(l => l.row))].sort(naturalSort);
         const uniqueCols = [...new Set(slots.map(l => l.column))].sort(naturalSort);
         
-        // Calculate max visual row to support expansions
-        let maxVisualRowIndex = uniqueRows.length - 1;
+        // FIX: Calculate height based ONLY on the native rows in this shelf.
+        // We do NOT expand maxVisualRowIndex based on item spans. 
+        // This allows items to overflow the container and cover the next shelf.
+        const maxVisualRowIndex = uniqueRows.length - 1;
 
         const mappedSlots = slots.map(slot => {
             const rowIdx = uniqueRows.indexOf(slot.row);
             const colIdx = uniqueCols.indexOf(slot.column);
-            
-            // Check if span exceeds known rows
-            const endRowIdx = rowIdx + slot.height_span - 1;
-            if (endRowIdx > maxVisualRowIndex) maxVisualRowIndex = endRowIdx;
 
             const top = (rowIdx * (BASE_HEIGHT + GAP_SIZE));
             const left = (colIdx * (UNIT_WIDTH + GAP_SIZE));
@@ -292,11 +286,11 @@ export default function StockGridScreen() {
                 ...slot,
                 _top: top,
                 _left: left,
-                _zIndex: (slot.height_span > 1 || slot.width_span > 1) ? 100 : 1
+                // Ensure expanded items float above everything
+                _zIndex: (slot.height_span > 1 || slot.width_span > 1) ? 999 : 1
             };
         });
 
-        // Use calculated max row for total height
         const visualRowCount = maxVisualRowIndex + 1;
         const totalHeight = (visualRowCount * BASE_HEIGHT) + ((visualRowCount - 1) * GAP_SIZE);
 
@@ -400,7 +394,18 @@ export default function StockGridScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
         <View style={{ padding: GRID_PADDING }}>
           {visualGrid.map((shelf) => (
-            <View key={shelf.shelfLabel} style={[styles.shelfContainer, { borderColor: colors.border }]}>
+            <View 
+                key={shelf.shelfLabel} 
+                style={[
+                    styles.shelfContainer, 
+                    { 
+                        // The margin between shelves MUST match the internal gap
+                        // to creates a seamless continuous grid visual
+                        marginBottom: SHELF_MARGIN, 
+                        borderColor: colors.border 
+                    }
+                ]}
+            >
               
               <View style={[styles.shelfLabelTab, { backgroundColor: colors.border }]}>
                 <Text style={[styles.shelfLabelText, { color: colors.text }]}>{shelf.shelfLabel}</Text>
@@ -520,14 +525,16 @@ const styles = StyleSheet.create({
   },
   iconButton: { padding: 10, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   
-  // Tighter shelf spacing
-  shelfContainer: { marginBottom: 8, position: 'relative', marginTop: 12 }, 
+  // NOTE: This margin is handled inline in the component to use SHELF_MARGIN constant
+  shelfContainer: { position: 'relative', marginTop: 12 }, 
   
   shelfLabelTab: {
-    position: 'absolute', left: -10, top: -12, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 4, zIndex: 20,
+    position: 'absolute', left: -10, top: -12, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 4, zIndex: 10,
   },
   shelfLabelText: { fontWeight: 'bold', fontSize: 14 },
-  shelfContent: { width: '100%', position: 'relative', marginTop: 10 },
+  
+  // overflow: 'visible' is critical so expanded items can cross shelf boundaries
+  shelfContent: { width: '100%', position: 'relative', marginTop: 10, overflow: 'visible' },
   
   slot: { borderRadius: 6, justifyContent: 'center', alignItems: 'center', padding: 2, overflow: 'hidden' },
   
