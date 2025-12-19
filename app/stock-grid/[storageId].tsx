@@ -15,7 +15,7 @@ import * as Haptics from 'expo-haptics';
 // --- Data Types ---
 type LocationSlot = {
   id: string; 
-  master_id: string; // Now required, as it exists in DB
+  master_id: string; 
   shelf: string;
   row: string;
   column: string;
@@ -65,7 +65,6 @@ export default function StockGridScreen() {
     if (!storageId) return;
     setLoading(true);
     try {
-      // PERMANENT FIX: We now select master_id properly from the DB
       const { data, error } = await supabase
         .from('defined_locations')
         .select(`
@@ -83,7 +82,6 @@ export default function StockGridScreen() {
 
       const formattedLocations = data.map(loc => ({
         ...loc,
-        // Fallback: if DB update was missed, default to self, but ideally this comes from DB
         master_id: loc.master_id || loc.id, 
         width_span: loc.width_span || 1,
         height_span: loc.height_span || 1,
@@ -198,8 +196,6 @@ export default function StockGridScreen() {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     // 2. Database Update
-    // FIX: We search for rows where master_id is the losingId OR the row's ID is the losingId.
-    // This handles cases where master_id might still be NULL in the database.
     const { error } = await supabase
         .from('defined_locations')
         .update({ master_id: winningId })
@@ -253,19 +249,33 @@ export default function StockGridScreen() {
   // --- COMPONENT: Merge Handle ---
   const MergeHandle = ({ direction, onPress }: { direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT', onPress: () => void }) => {
     let style = {};
-    const offset = -10; 
-    if (direction === 'UP') style = { top: offset, left: '50%', marginLeft: -10 };
-    if (direction === 'DOWN') style = { bottom: offset, left: '50%', marginLeft: -10 };
-    if (direction === 'LEFT') style = { left: offset, top: '50%', marginTop: -10 };
-    if (direction === 'RIGHT') style = { right: offset, top: '50%', marginTop: -10 };
+    // Center the handle on the line. 24px width means -12px offset
+    const offset = -12; 
+    
+    if (direction === 'UP') style = { top: offset, left: '50%', marginLeft: -12 };
+    if (direction === 'DOWN') style = { bottom: offset, left: '50%', marginLeft: -12 };
+    if (direction === 'LEFT') style = { left: offset, top: '50%', marginTop: -12 };
+    if (direction === 'RIGHT') style = { right: offset, top: '50%', marginTop: -12 };
+
+    const isVerticalMerge = direction === 'UP' || direction === 'DOWN';
 
     return (
         <TouchableOpacity 
-            style={[styles.mergeHandle, style, { backgroundColor: colors.card, borderColor: colors.primary }]} 
+            style={[styles.mergeHandle, style, { backgroundColor: colors.card }]} 
             onPress={onPress}
             activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-            <MaterialCommunityIcons name="link-variant" size={12} color={colors.primary} />
+            <MaterialCommunityIcons 
+                name="equal" 
+                size={18} 
+                color={colors.primary} 
+                style={{ 
+                    // Rotate 90deg for vertical merge so it looks like || connecting up/down
+                    // Keep 0deg for horizontal merge so it looks like = connecting left/right
+                    transform: [{ rotate: isVerticalMerge ? '90deg' : '0deg' }]
+                }}
+            />
         </TouchableOpacity>
     );
   };
@@ -574,8 +584,9 @@ const styles = StyleSheet.create({
   itemName: { fontSize: 11, fontWeight: '600', textAlign: 'center', marginTop: 12, paddingHorizontal: 2 },
 
   mergeHandle: {
-    position: 'absolute', width: 20, height: 20, borderRadius: 10, borderWidth: 1, 
-    justifyContent: 'center', alignItems: 'center', zIndex: 9999, elevation: 10
+    position: 'absolute', width: 24, height: 24, 
+    justifyContent: 'center', alignItems: 'center', zIndex: 9999,
+    // Removed border and radius for the "clean lines" look
   },
   miniDelete: { position: 'absolute', top: 2, left: 2, backgroundColor: '#DC2626', borderRadius: 10, padding: 4, opacity: 0.8, zIndex: 60 },
 });
