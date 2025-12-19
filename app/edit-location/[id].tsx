@@ -91,7 +91,7 @@ export default function EditLocationScreen() {
       <TextInput style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} value={container} onChangeText={setContainer} />
       
       {/* --- FIX: Improved button with loading indicator --- */}
-      <Pressable style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleUpdate} disabled={updating}>
+      <Pressable style={[styles.button, { backgroundColor: colors.selector }]} onPress={handleUpdate} disabled={updating}>
         {updating ? (
           <ActivityIndicator color={colors.text || '#fff'} />
         ) : (
