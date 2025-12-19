@@ -1,12 +1,12 @@
 import { useTranslation } from 'react-i18next';
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../providers/AuthProvider';
 import { useTheme } from '../providers/ThemeProvider';
 import { DropdownPicker } from '../components/dropdownPicker';
-import { FontAwesome } from '@expo/vector-icons';
+import { FontAwesome, MaterialCommunityIcons } from '@expo/vector-icons';
 import { showError, showSuccess } from '../lib/toast';
 import { typography } from '../styles/typography';
 
@@ -22,10 +22,10 @@ export default function AddItemScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const { profile } = useAuth();
-  
+   
   // Incoming param
   const { barcode: initialBarcode } = useLocalSearchParams<{ barcode?: string }>();
-  
+   
   const { colors } = useTheme();
 
   // Form state
@@ -33,21 +33,20 @@ export default function AddItemScreen() {
   const [quantity, setQuantity] = useState('');
   const [restockThreshold, setRestockThreshold] = useState('');
   const [itemBarcode, setItemBarcode] = useState(initialBarcode || null);
-  
+   
   const [loading, setLoading] = useState(false);
 
   // State for location selections
   const [warehouses, setWarehouses] = useState<{ label: string; value: string }[]>([]);
   const [storages, setStorages] = useState<{ label: string; value: string }[]>([]);
   const [allLocations, setAllLocations] = useState<DefinedLocation[]>([]);
-  
+   
   const [selectedWarehouse, setSelectedWarehouse] = useState<string | null>(null);
   const [selectedStorage, setSelectedStorage] = useState<string | null>(null);
+  
+  // CHANGED: We now select a Shelf, then pick multiple specific IDs
   const [selectedShelf, setSelectedShelf] = useState<string | null>(null);
-  const [selectedRow, setSelectedRow] = useState<string | null>(null);
-  const [selectedColumn, setSelectedColumn] = useState<string | null>(null);
-  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
-  const [locationOccupant, setLocationOccupant] = useState<string | null>(null);
+  const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>([]);
 
   const { warehouseId, storageId } = useLocalSearchParams<{ warehouseId?: string; storageId?: string }>();
 
@@ -91,7 +90,7 @@ export default function AddItemScreen() {
         .from('defined_locations')
         .select('id, shelf, row, column, items ( name )')
         .eq('storage_id', selectedStorage);
-      
+       
       if (error) {
           showError(t('general.error'), t('general.locationError'));
       } else {
@@ -100,84 +99,91 @@ export default function AddItemScreen() {
     };
     fetchLocations();
   }, [selectedStorage, t]);
-  
+   
   // --- Memoized Options ---
 
   // 1. Shelf Options
-  const shelfOptions = useMemo(() => [...new Set(allLocations.map(l => l.shelf))].map(s => ({ label: s, value: s })), [allLocations]);
-  
-  // 2. Row Options
-  const rowOptions = useMemo(() => {
-    if (!selectedShelf) return [];
-    const rows = [...new Set(allLocations.filter(l => l.shelf === selectedShelf).map(l => l.row).filter(Boolean))] as string[];
-    return rows.map(r => ({ label: r, value: r }));
+  const shelfOptions = useMemo(() => {
+      // Natural sort for shelves if possible, otherwise simple sort
+      const shelves = [...new Set(allLocations.map(l => l.shelf))].sort((a,b) => a.localeCompare(b, undefined, { numeric: true }));
+      return shelves.map(s => ({ label: s, value: s }));
+  }, [allLocations]);
+
+  // 2. Filter locations for the Grid View based on selected Shelf
+  const shelfLocations = useMemo(() => {
+      if (!selectedShelf) return [];
+      
+      return allLocations
+        .filter(l => l.shelf === selectedShelf)
+        .sort((a, b) => {
+            // Sort by row then column for display
+            const rowDiff = (a.row || '').localeCompare(b.row || '', undefined, { numeric: true });
+            if (rowDiff !== 0) return rowDiff;
+            return (a.column || '').localeCompare(b.column || '', undefined, { numeric: true });
+        });
   }, [allLocations, selectedShelf]);
 
-  // 3. Column Options (FIXED LOGIC)
-  const columnOptions = useMemo(() => {
-    if (!selectedShelf) return [];
+  // --- Handlers ---
 
-    const byShelf = allLocations.filter(l => l.shelf === selectedShelf);
+  const toggleLocationSelection = (id: string) => {
+      setSelectedLocationIds(prev => {
+          if (prev.includes(id)) {
+              return prev.filter(x => x !== id);
+          } else {
+              return [...prev, id];
+          }
+      });
+  };
 
-    if (selectedRow) {
-      // Standard Case: Filter by Selected Row
-      return [...new Set(byShelf.filter(l => l.row === selectedRow).map(l => l.column).filter(Boolean))]
-        .map(c => ({ label: c, value: c }));
-    } else {
-      // "No Row" Case: Filter for columns where row is null
-      // This allows selecting columns even if the location has no rows defined
-      return [...new Set(byShelf.filter(l => l.row === null).map(l => l.column).filter(Boolean))]
-        .map(c => ({ label: c, value: c }));
-    }
-  }, [allLocations, selectedShelf, selectedRow]);
+  const selectAllOnShelf = () => {
+      const availableIds = shelfLocations
+        .filter(l => !l.items || l.items.length === 0) // Only empty ones
+        .map(l => l.id);
+      setSelectedLocationIds(availableIds);
+  };
 
-  // Find location ID
-  useEffect(() => {
-    if (!selectedShelf) {
-        setSelectedLocationId(null);
-        return;
-    }
-    const findLogic = (l: DefinedLocation) => 
-        l.shelf === selectedShelf && 
-        (l.row || null) === selectedRow && 
-        (l.column || null) === selectedColumn;
-
-    const finalLocation = allLocations.find(findLogic);
-    setSelectedLocationId(finalLocation ? finalLocation.id : null);
-  }, [selectedShelf, selectedRow, selectedColumn, allLocations]);
-
-  // Check occupant
-  useEffect(() => {
-    if (!selectedLocationId) {
-      setLocationOccupant(null);
-      return;
-    }
-    const finalLocation = allLocations.find(l => l.id === selectedLocationId);
-    const occupant = finalLocation?.items?.[0];
-    setLocationOccupant(occupant ? occupant.name : null);
-  }, [selectedLocationId, allLocations]);
-  
+  const clearSelection = () => {
+      setSelectedLocationIds([]);
+  };
+   
   const handleAddItem = async () => {
     if (!name.trim() || !quantity || !restockThreshold || !selectedWarehouse || !selectedStorage) {
       showError(t('general.error'), t('general.fillFields'));
       return;
     }
+
+    if (selectedLocationIds.length === 0) {
+        showError(t('general.error'), "Please select at least one location slot.");
+        return;
+    }
+
     setLoading(true);
     try {
-      const { error } = await supabase.rpc('add_new_item', {
-        p_name: name.trim(),
-        p_quantity: parseInt(quantity, 10),
-        p_restock_threshold: parseInt(restockThreshold, 10),
-        p_warehouse_id: selectedWarehouse,
-        p_storage_id: selectedStorage,
-        p_location_id: selectedLocationId,
-        p_workgroup_id: profile.workgroup_id,
-        p_barcode: itemBarcode,
+      // Loop through all selected locations and create an item for each
+      // We use Promise.all to run them in parallel for speed
+      const promises = selectedLocationIds.map(locId => {
+          return supabase.rpc('add_new_item', {
+            p_name: name.trim(),
+            p_quantity: parseInt(quantity, 10), // This quantity applies to EACH location
+            p_restock_threshold: parseInt(restockThreshold, 10),
+            p_warehouse_id: selectedWarehouse,
+            p_storage_id: selectedStorage,
+            p_location_id: locId,
+            p_workgroup_id: profile.workgroup_id,
+            p_barcode: itemBarcode,
+          });
       });
 
-      if (error) throw error;
-      
-      showSuccess(t('general.success'), t('general.addSuccess'));
+      const results = await Promise.all(promises);
+
+      // Check for errors
+      const failed = results.filter(r => r.error);
+      if (failed.length > 0) {
+          console.error(failed);
+          throw new Error(`Failed to add items to ${failed.length} locations.`);
+      }
+       
+      showSuccess(t('general.success'), `Added item to ${selectedLocationIds.length} location(s).`);
 
       // Reset Form
       setName('');
@@ -185,9 +191,8 @@ export default function AddItemScreen() {
       setRestockThreshold('');
       setItemBarcode(null);
       
-      setSelectedShelf(null);
-      setSelectedRow(null);
-      setSelectedColumn(null);
+      // Keep storage/shelf selected, but clear specific slots
+      setSelectedLocationIds([]);
 
     } catch (error: any) {
       showError(t('general.error'), error.message);
@@ -220,8 +225,7 @@ export default function AddItemScreen() {
           setSelectedWarehouse(value);
           setSelectedStorage(null);
           setSelectedShelf(null);
-          setSelectedRow(null);
-          setSelectedColumn(null);
+          setSelectedLocationIds([]);
         }}
       />
       {selectedWarehouse && (
@@ -233,8 +237,7 @@ export default function AddItemScreen() {
           onValueChange={(value) => {
             setSelectedStorage(value);
             setSelectedShelf(null);
-            setSelectedRow(null);
-            setSelectedColumn(null);
+            setSelectedLocationIds([]);
           }}
         />
       )}
@@ -254,6 +257,8 @@ export default function AddItemScreen() {
         value={quantity} 
         onChangeText={setQuantity} 
         keyboardType="numeric" 
+        placeholder="Qty per location"
+        placeholderTextColor={colors.subtext}
       />
 
       <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('item.restockThreshold')}</Text>
@@ -274,54 +279,96 @@ export default function AddItemScreen() {
             selectedValue={selectedShelf}
             onValueChange={(value) => {
               setSelectedShelf(value);
-              setSelectedRow(null);
-              setSelectedColumn(null);
+              setSelectedLocationIds([]); // Clear selection when switching shelf
             }}
           />
-          {selectedShelf && rowOptions.length > 0 && (
-            <DropdownPicker
-              label={t('location.row')}
-              placeholder={t('location.rowSelect')}
-              options={rowOptions}
-              selectedValue={selectedRow}
-              onValueChange={(value) => {
-                setSelectedRow(value);
-                setSelectedColumn(null); 
-              }}
-            />
-          )}
-          
-          {/* --- FIX: Show Column Picker even if no Row is selected (if columns exist) --- */}
-          {selectedShelf && columnOptions.length > 0 && (
-            <DropdownPicker
-              label={t('location.column')}
-              placeholder={t('location.columnSelect')}
-              options={columnOptions}
-              selectedValue={selectedColumn}
-              onValueChange={setSelectedColumn}
-            />
-          )}
 
-          {locationOccupant && (
-            <View style={styles.warningContainer}>
-              <FontAwesome name="warning" size={16} color={colors.danger} />
-              <Text style={[typography.h3, styles.warningText, { color: colors.danger }]}>
-                {t('item.locationOccupied', { itemName: locationOccupant })}
-              </Text>
-            </View>
-          )}
+            {/* --- MULTI-SELECT GRID --- */}
+            {selectedShelf && (
+                <View style={styles.gridContainer}>
+                    <View style={styles.gridControls}>
+                        <Text style={[typography.caption, { color: colors.text }]}>
+                            Selected: {selectedLocationIds.length}
+                        </Text>
+                        <View style={{ flexDirection: 'row', gap: 10 }}>
+                            <Pressable onPress={selectAllOnShelf}>
+                                <Text style={{ color: colors.primary, fontSize: 12, fontWeight: 'bold' }}>Select All Empty</Text>
+                            </Pressable>
+                            <Pressable onPress={clearSelection}>
+                                <Text style={{ color: colors.danger, fontSize: 12, fontWeight: 'bold' }}>Clear</Text>
+                            </Pressable>
+                        </View>
+                    </View>
+
+                    <View style={styles.slotsGrid}>
+                        {shelfLocations.map((loc) => {
+                            const isOccupied = loc.items && loc.items.length > 0;
+                            const isSelected = selectedLocationIds.includes(loc.id);
+                            
+                            return (
+                                <Pressable
+                                    key={loc.id}
+                                    onPress={() => toggleLocationSelection(loc.id)}
+                                    disabled={isOccupied}
+                                    style={[
+                                        styles.slotButton,
+                                        { 
+                                            borderColor: colors.border,
+                                            backgroundColor: isOccupied 
+                                                ? 'rgba(128,128,128,0.1)' // Greyed out if occupied
+                                                : isSelected 
+                                                    ? colors.primary // Filled if selected
+                                                    : colors.card // Empty if available
+                                        }
+                                    ]}
+                                >
+                                    <Text style={[
+                                        styles.slotText, 
+                                        { 
+                                            color: isOccupied 
+                                                ? colors.subtext 
+                                                : isSelected 
+                                                    ? '#FFF' 
+                                                    : colors.text 
+                                        }
+                                    ]}>
+                                        {/* Display logic: Row-Column, or just Column if Row is null */}
+                                        {loc.row ? `${loc.row}-` : ''}{loc.column}
+                                    </Text>
+                                    {isOccupied && (
+                                        <MaterialCommunityIcons 
+                                            name="lock" 
+                                            size={10} 
+                                            color={colors.subtext} 
+                                            style={{ position: 'absolute', top: 2, right: 2 }}
+                                        />
+                                    )}
+                                </Pressable>
+                            );
+                        })}
+                        {shelfLocations.length === 0 && (
+                             <Text style={{ color: colors.subtext, fontStyle: 'italic' }}>No slots defined for this shelf.</Text>
+                        )}
+                    </View>
+                </View>
+            )}
         </>
       )}
-      
+       
       <Pressable 
-        style={[styles.button, { backgroundColor: colors.primary }]} 
+        style={[styles.button, { backgroundColor: colors.primary, opacity: (loading || selectedLocationIds.length === 0) ? 0.6 : 1 }]} 
         onPress={handleAddItem} 
-        disabled={loading || !!locationOccupant}
+        disabled={loading || selectedLocationIds.length === 0}
       >
         {loading ? (
           <ActivityIndicator color={colors.text || '#fff'} />
         ) : (
-          <Text style={[typography.button, styles.buttonText, { color: colors.text || '#fff' }]}>{t('item.addButton')}</Text>
+          <Text style={[typography.button, styles.buttonText, { color: colors.text || '#fff' }]}>
+              {selectedLocationIds.length > 1 
+                ? `${t('item.addButton')} to (${selectedLocationIds.length}) locations`
+                : t('item.addButton')
+              }
+          </Text>
         )}
       </Pressable>
 
@@ -331,7 +378,7 @@ export default function AddItemScreen() {
       >
          <Text style={[typography.button, styles.buttonText, { color: colors.text }]}>{t('general.close', 'Done')}</Text>
       </Pressable>
-      
+       
       <View style={{ height: 50 }} />
     </ScrollView>
   );
@@ -344,16 +391,21 @@ const styles = StyleSheet.create({
     input: { borderWidth: 1, borderRadius: 8, padding: 12, marginBottom: 20 },
     button: { padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 20 },
     buttonText: { fontWeight: 'bold' },
-    warningContainer: {
-        flexDirection: 'row',
+    
+    // Grid Styles
+    gridContainer: { marginTop: 10 },
+    gridControls: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
+    slotsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    slotButton: {
+        width: 60,
+        height: 40,
+        justifyContent: 'center',
         alignItems: 'center',
-        padding: 10,
-        borderRadius: 8,
-        backgroundColor: 'rgba(220, 53, 69, 0.1)',
-        marginBottom: 20,
+        borderWidth: 1,
+        borderRadius: 6,
     },
-    warningText: {
-        marginLeft: 10,
-        fontWeight: '500',
+    slotText: {
+        fontSize: 12,
+        fontWeight: 'bold',
     },
 });
