@@ -460,7 +460,7 @@ export default function StockGridScreen() {
                 </Pressable>
             )}
             <Pressable 
-                style={[styles.iconButton, { backgroundColor: isEditMode ? colors.primary : colors.card, borderColor: colors.border, borderWidth: 1 }]} 
+                style={[styles.iconButton, { backgroundColor: isEditMode ? colors.primary : colors.card, borderColor: colors.selector, borderWidth: 1 }]} 
                 onPress={toggleEditMode}
             >
                 <Feather name={isEditMode ? "check" : "edit-2"} size={20} color={isEditMode ? colors.primaryText : colors.text} />
