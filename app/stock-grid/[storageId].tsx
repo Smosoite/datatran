@@ -57,6 +57,9 @@ export default function StockGridScreen() {
   const UNIT_WIDTH = (AVAILABLE_WIDTH - TOTAL_GAPS) / TOTAL_GRID_COLS;
 
   const [locations, setLocations] = useState<LocationSlot[]>([]);
+  // NEW: State to hold the snapshot for undo
+  const [originalSnapshot, setOriginalSnapshot] = useState<LocationSlot[]>([]);
+  
   const [loading, setLoading] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
   const [showGridLines, setShowGridLines] = useState(true);
@@ -105,7 +108,87 @@ export default function StockGridScreen() {
     fetchData();
   }, [fetchData]);
 
-  // --- MERGE LOGIC ---
+  // --- ACTIONS: SAVE / CANCEL ---
+
+  const handleSaveChanges = async () => {
+      setLoading(true);
+      try {
+          // 1. Identify Deletions (IDs present in snapshot but missing in current)
+          const currentIds = new Set(locations.map(l => l.id));
+          const deletedIds = originalSnapshot.filter(l => !currentIds.has(l.id)).map(l => l.id);
+
+          if (deletedIds.length > 0) {
+              const { error } = await supabase.from('defined_locations').delete().in('id', deletedIds);
+              if (error) throw error;
+          }
+
+          // 2. Identify Updates (Items where master_id changed)
+          const changedItems = locations.filter(curr => {
+              const orig = originalSnapshot.find(o => o.id === curr.id);
+              // Check if master_id changed from the original snapshot
+              return orig && orig.master_id !== curr.master_id;
+          });
+
+          if (changedItems.length > 0) {
+              // Execute updates in parallel
+              const updatePromises = changedItems.map(item => 
+                  supabase.from('defined_locations').update({ master_id: item.master_id }).eq('id', item.id)
+              );
+              await Promise.all(updatePromises);
+          }
+
+          showSuccess(t('general.success'), "Layout changes saved.");
+          setIsEditMode(false);
+          setIsMenuOpen(false);
+          fetchData(); // Re-fetch to ensure sync with DB
+
+      } catch (err: any) {
+          showError(t('general.error'), err.message);
+      } finally {
+          setLoading(false);
+      }
+  };
+
+  const handleCancelChanges = () => {
+      // Revert to snapshot
+      setLocations(originalSnapshot);
+      setIsEditMode(false);
+      setIsMenuOpen(false);
+      showSuccess(t('general.info'), "Changes discarded");
+  };
+
+  const toggleEditMode = () => {
+      setIsMenuOpen(false);
+      if (isEditMode) {
+          // If clicking edit button while already editing, ask to save or discard
+          Alert.alert(
+              t('general.confirm'),
+              "Do you want to save your changes?",
+              [
+                  { text: "Discard", style: "destructive", onPress: handleCancelChanges },
+                  { text: "Save", onPress: handleSaveChanges }
+              ]
+          );
+      } else {
+          showPasscodeModal({
+              title: t('stockGrid.adminAccess'),
+              message: t('stockGrid.enterPasscode'),
+              onSubmit: (passcode) => {
+                  if (passcode === workgroup?.admin_passcode) {
+                      // CAPTURE SNAPSHOT BEFORE EDITING
+                      setOriginalSnapshot(JSON.parse(JSON.stringify(locations)));
+                      setIsEditMode(true);
+                      showSuccess(t('stockGrid.editModeEnabled'));
+                  } else {
+                      showError(t('stockGrid.invalidPasscode'));
+                  }
+              },
+          });
+      }
+  };
+
+  // --- LOCAL ACTIONS (Only update state, not DB) ---
+
   const handleMerge = async (sourceSlot: LocationSlot, direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT') => {
     
     // 1. Find the neighbor
@@ -184,11 +267,10 @@ export default function StockGridScreen() {
         return;
     }
 
-    // --- PERFORM MERGE ---
+    // --- PERFORM MERGE (LOCAL STATE ONLY) ---
     const winningId = sourceSlot.master_id;
     const losingId = neighbor.master_id;
 
-    // 1. Optimistic Update (Instant feedback)
     setLocations(prev => prev.map(l => {
         if (l.master_id === losingId) {
             return { ...l, master_id: winningId };
@@ -197,20 +279,21 @@ export default function StockGridScreen() {
     }));
 
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    // 2. Database Update
-    const { error } = await supabase
-        .from('defined_locations')
-        .update({ master_id: winningId })
-        .or(`master_id.eq.${losingId},id.eq.${losingId}`);
-
-    if (error) {
-        console.error("Merge Save Error:", error);
-        showError("Merge failed to save", error.message);
-        fetchData(); // Revert on failure
-    }
   };
 
+  const handleDeleteLocation = (id: string) => {
+      // Local state delete only
+      Alert.alert(
+          t('general.delete'),
+          "Delete this location? This will be applied when you Save.",
+          [
+              { text: "Cancel", style: "cancel" },
+              { text: "Delete", style: "destructive", onPress: () => {
+                   setLocations(prev => prev.filter(l => l.id !== id));
+              }}
+          ]
+      );
+  };
 
   // --- VISUAL GRID CALCULATION ---
   const visualGrid = useMemo(() => {
@@ -406,28 +489,6 @@ export default function StockGridScreen() {
       );
   };
 
-  const toggleEditMode = () => {
-      // Close menu when triggering action
-      setIsMenuOpen(false);
-
-      if (isEditMode) {
-          setIsEditMode(false);
-      } else {
-          showPasscodeModal({
-              title: t('stockGrid.adminAccess'),
-              message: t('stockGrid.enterPasscode'),
-              onSubmit: (passcode) => {
-                  if (passcode === workgroup?.admin_passcode) {
-                      setIsEditMode(true);
-                      showSuccess(t('stockGrid.editModeEnabled'));
-                  } else {
-                      showError(t('stockGrid.invalidPasscode'));
-                  }
-              },
-          });
-      }
-  };
-
   const handleSlotPress = (slot: LocationSlot) => {
     if (!isEditMode) {
       const groupMembers = locations.filter(l => l.master_id === slot.master_id);
@@ -450,19 +511,6 @@ export default function StockGridScreen() {
       }
       return;
     }
-  };
-
-  const handleDeleteLocation = (id: string) => {
-     showPasscodeModal({
-        title: t('general.confirm'),
-        message: t('stockGrid.deleteMsg'),
-        onSubmit: async (passcode) => {
-            if (passcode === workgroup?.admin_passcode) {
-                await supabase.from('defined_locations').delete().eq('id', id);
-                fetchData();
-            }
-        }
-     });
   };
 
   if (loading) return <ActivityIndicator style={styles.centered} size="large" color={colors.primary} />;
@@ -554,7 +602,7 @@ export default function StockGridScreen() {
 
                     <TouchableOpacity 
                         style={styles.menuItem}
-                        onPress={() => { setIsEditMode(false); setIsMenuOpen(false); }}
+                        onPress={handleSaveChanges}
                     >
                         <Feather name="check" size={18} color={colors.success} />
                         <Text style={[styles.menuText, { color: colors.text }]}>{t('general.save', 'Accept')}</Text>
@@ -564,10 +612,10 @@ export default function StockGridScreen() {
 
                     <TouchableOpacity 
                         style={styles.menuItem}
-                        onPress={() => { setIsEditMode(false); setIsMenuOpen(false); }}
+                        onPress={handleCancelChanges}
                     >
                         <Feather name="x" size={18} color={colors.danger} />
-                        <Text style={[styles.menuText, { color: colors.text }]}>{t('general.cancel', 'Cancel')}</Text>
+                        <Text style={[styles.menuText, { color: colors.text }]}>{t('general.cancel', 'Stop (Cancel)')}</Text>
                     </TouchableOpacity>
                  </>
              )}
@@ -663,12 +711,12 @@ const styles = StyleSheet.create({
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.3,
       shadowRadius: 3,
-      opacity: 0.9, // Translucent effect
+      opacity: 0.9, 
       borderWidth: 1,
   },
   menuContainer: {
       position: 'absolute',
-      bottom: 90, // Positioned above the FAB
+      bottom: 90, 
       right: 20,
       width: 160,
       borderRadius: 12,
