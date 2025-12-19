@@ -107,7 +107,7 @@ export default function StockGridScreen() {
   // --- MERGE LOGIC ---
   const handleMerge = async (sourceSlot: LocationSlot, direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT') => {
     
-    // Sort shelves to know order
+    // 1. Find the neighbor
     const allShelves = [...new Set(locations.map(l => l.shelf))].sort(naturalSort);
     const currentShelfIdx = allShelves.indexOf(sourceSlot.shelf);
 
@@ -120,6 +120,7 @@ export default function StockGridScreen() {
     const colIdx = uniqueCols.indexOf(sourceSlot.column);
     const rowIdx = uniqueRows.indexOf(sourceSlot.row);
 
+    // Direction Logic
     if (direction === 'RIGHT') {
         if (colIdx < uniqueCols.length - 1) {
             const nextCol = uniqueCols[colIdx + 1];
@@ -132,11 +133,9 @@ export default function StockGridScreen() {
         }
     } else if (direction === 'DOWN') {
         if (rowIdx < uniqueRows.length - 1) {
-            // Same shelf down
             const nextRow = uniqueRows[rowIdx + 1];
             neighbor = shelfSlots.find(l => l.column === sourceSlot.column && l.row === nextRow);
         } else if (currentShelfIdx < allShelves.length - 1) {
-            // Next shelf top row
             const nextShelf = allShelves[currentShelfIdx + 1];
             const nextShelfSlots = locations.filter(l => l.shelf === nextShelf);
             const nextShelfRows = [...new Set(nextShelfSlots.map(l => l.row))].sort(naturalSort);
@@ -150,11 +149,9 @@ export default function StockGridScreen() {
         }
     } else if (direction === 'UP') {
         if (rowIdx > 0) {
-            // Same shelf up
             const prevRow = uniqueRows[rowIdx - 1];
             neighbor = shelfSlots.find(l => l.column === sourceSlot.column && l.row === prevRow);
         } else if (currentShelfIdx > 0) {
-            // Prev shelf bottom row
             const prevShelf = allShelves[currentShelfIdx - 1];
             const prevShelfSlots = locations.filter(l => l.shelf === prevShelf);
             const prevShelfRows = [...new Set(prevShelfSlots.map(l => l.row))].sort(naturalSort);
@@ -201,13 +198,16 @@ export default function StockGridScreen() {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     // 2. Database Update
+    // FIX: We search for rows where master_id is the losingId OR the row's ID is the losingId.
+    // This handles cases where master_id might still be NULL in the database.
     const { error } = await supabase
         .from('defined_locations')
         .update({ master_id: winningId })
-        .eq('master_id', losingId);
+        .or(`master_id.eq.${losingId},id.eq.${losingId}`);
 
     if (error) {
-        showError("Merge failed", error.message);
+        console.error("Merge Save Error:", error);
+        showError("Merge failed to save", error.message);
         fetchData(); // Revert on failure
     }
   };
