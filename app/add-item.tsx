@@ -373,7 +373,7 @@ export default function AddItemScreen() {
       </Pressable>
 
        <Pressable 
-        style={[styles.button, { backgroundColor: 'transparent', marginTop: 10, borderWidth: 1, borderColor: colors.border }]} 
+        style={[styles.button, { backgroundColor: 'transparent', marginTop: 10, borderWidth: 1, borderColor: colors.selector }]} 
         onPress={() => router.back()}
       >
          <Text style={[typography.button, styles.buttonText, { color: colors.text }]}>{t('general.close', 'Done')}</Text>
