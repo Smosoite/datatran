@@ -353,7 +353,7 @@ export default function StockGridScreen() {
                 
                 {isLeader && masterItem && (
                     <View style={styles.contentContainer}>
-                        <View style={[styles.quantityBadge, { backgroundColor: masterItem.quantity > 0 ? colors.success : colors.danger }]}>
+                        <View style={[styles.quantityBadge, { backgroundColor: masterItem.quantity > 0 ? colors.selector : colors.danger }]}>
                             <Text style={styles.quantityText}>{masterItem.quantity}</Text>
                         </View>
                         <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={2}>
