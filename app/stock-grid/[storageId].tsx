@@ -43,6 +43,7 @@ export default function StockGridScreen() {
   const { workgroup } = useAuth();
   const { storageId } = useLocalSearchParams<{ storageId: string }>();
 
+  // This Hook automatically updates when screen rotates
   const { width: screenWidth } = useWindowDimensions(); 
     
   // --- LAYOUT CONSTANTS ---
@@ -51,7 +52,7 @@ export default function StockGridScreen() {
   const GAP_SIZE = 4;        
   const BASE_HEIGHT = 80;    
 
-  // Precise Math
+  // Precise Math (Recalculates on Rotation)
   const AVAILABLE_WIDTH = screenWidth - (GRID_PADDING * 2);
   const TOTAL_GAPS = GAP_SIZE * (TOTAL_GRID_COLS - 1);
   const UNIT_WIDTH = (AVAILABLE_WIDTH - TOTAL_GAPS) / TOTAL_GRID_COLS;
@@ -113,7 +114,6 @@ export default function StockGridScreen() {
       setIsMenuOpen(false);
       setLoading(true);
       try {
-          // Identify Deletions
           const currentIds = new Set(locations.map(l => l.id));
           const deletedIds = originalSnapshot.filter(l => !currentIds.has(l.id)).map(l => l.id);
 
@@ -122,7 +122,6 @@ export default function StockGridScreen() {
               if (error) throw error;
           }
 
-          // Identify Updates
           const changedItems = locations.filter(curr => {
               const orig = originalSnapshot.find(o => o.id === curr.id);
               return orig && orig.master_id !== curr.master_id;
@@ -328,6 +327,8 @@ export default function StockGridScreen() {
   }, [locations, BASE_HEIGHT, GAP_SIZE, UNIT_WIDTH]);
 
   // --- Calculate Content Width ---
+  // If rotated, screenWidth increases, so maxGridColumns logic ensures we still use available space
+  // unless the data actually demands more width than the screen provides.
   const maxGridColumns = useMemo(() => {
       if (visualGrid.length === 0) return TOTAL_GRID_COLS;
       const maxColsInShelves = Math.max(...visualGrid.map(s => s.colCount));
@@ -423,13 +424,10 @@ export default function StockGridScreen() {
       const isLeader = sortedGroup[0].id === slot.id;
       const masterItem = slot.items?.[0] || sortedGroup.flatMap(g => g.items || [])[0];
 
-      // THE RACK EFFECT LOGIC:
-      // If Show Grid is ON, empty slots are OPAQUE (colors.background) to hide the Rack Frame behind them.
-      // The gaps (margins) between slots will allow the Rack Frame to peek through.
       const slotBackgroundColor = masterItem 
           ? colors.card 
           : showGrid 
-              ? colors.background // Opaque to block the rack color behind
+              ? colors.background 
               : 'rgba(128,128,128,0.1)';
 
       return (
@@ -456,7 +454,6 @@ export default function StockGridScreen() {
                     }
                 ]}
             >
-                {/* Gap Fillers must use slotBackgroundColor to effectively hide the rack lines in merged areas */}
                 {isMergedRight && <View style={[styles.gapFillerRight, { backgroundColor: slotBackgroundColor }]} />}
                 {isMergedDown && <View style={[styles.gapFillerDown, { backgroundColor: slotBackgroundColor }]} />}
                 
@@ -522,14 +519,9 @@ export default function StockGridScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
 
-      {/* Grid Content */}
       <ScrollView contentContainerStyle={{ paddingTop: 40, paddingBottom: 100 }}>
         <ScrollView horizontal contentContainerStyle={{ flexGrow: 1 }}>
             
-            {/* THE RACK FRAME (Parent View)
-                When grid is ON, this background color shows through the gaps between slots/shelves
-                creating the grid lines.
-            */}
             <View style={{ 
                 width: Math.max(screenWidth, contentWidth), 
                 padding: GRID_PADDING,
@@ -541,8 +533,6 @@ export default function StockGridScreen() {
                     style={[
                         styles.shelfContainer, 
                         { 
-                            // CHANGED: marginBottom creates horizontal gap between shelves
-                            // Since the Parent View is colored (Rack Color), this gap creates the horizontal beam line.
                             marginBottom: GAP_SIZE,
                             borderColor: colors.border
                         }
@@ -573,7 +563,7 @@ export default function StockGridScreen() {
                  <>
                     <TouchableOpacity 
                         style={styles.menuItem}
-                        onPress={() => { setShowGridLines(!showGridLines); }} // Keep open for toggling
+                        onPress={() => { setShowGridLines(!showGridLines); }} 
                     >
                         <MaterialIcons name="grid-on" size={18} color={showGridLines ? colors.primary : colors.text} />
                         <Text style={[styles.menuText, { color: colors.text }]}>
@@ -607,7 +597,7 @@ export default function StockGridScreen() {
                  <>
                     <TouchableOpacity 
                         style={styles.menuItem}
-                        onPress={() => { setShowGridLines(!showGridLines); }} // Keep open
+                        onPress={() => { setShowGridLines(!showGridLines); }} 
                     >
                         <MaterialIcons name="grid-on" size={18} color={showGridLines ? colors.primary : colors.text} />
                         <Text style={[styles.menuText, { color: colors.text }]}>
@@ -703,7 +693,6 @@ const styles = StyleSheet.create({
   },
   miniDelete: { position: 'absolute', top: 2, left: 2, backgroundColor: '#DC2626', borderRadius: 10, padding: 4, opacity: 0.8, zIndex: 60 },
 
-  // --- FAB & MENU STYLES ---
   fab: {
       position: 'absolute',
       bottom: 30,
@@ -736,7 +725,6 @@ const styles = StyleSheet.create({
       shadowRadius: 3,
       borderWidth: 1,
   },
-  // CHANGED: Increased touch target size
   menuItem: {
       width: '100%',
       flexDirection: 'row',
