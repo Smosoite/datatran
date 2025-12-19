@@ -313,7 +313,7 @@ export default function AddItemScreen() {
                                     style={[
                                         styles.slotButton,
                                         { 
-                                            borderColor: colors.border,
+                                            borderColor: colors.selector,
                                             backgroundColor: isOccupied 
                                                 ? 'rgba(128,128,128,0.1)' // Greyed out if occupied
                                                 : isSelected 
