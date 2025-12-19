@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, useWindowDimensions, Alert, TouchableOpacity, Platform, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, useWindowDimensions, Alert, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../providers/ThemeProvider';
@@ -59,8 +59,10 @@ export default function StockGridScreen() {
   const [locations, setLocations] = useState<LocationSlot[]>([]);
   const [originalSnapshot, setOriginalSnapshot] = useState<LocationSlot[]>([]);
   const [loading, setLoading] = useState(true);
+  
   const [isEditMode, setIsEditMode] = useState(false);
-  const [showGridLines, setShowGridLines] = useState(true);
+  // Default to false so the view is clean initially, or true if you prefer grid always on
+  const [showGridLines, setShowGridLines] = useState(false); 
 
   // --- MENU STATE ---
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -146,7 +148,8 @@ export default function StockGridScreen() {
   };
 
   const handleCancelChanges = () => {
-      setLocations(originalSnapshot);
+      // Strictly revert to the snapshot taken when Edit Mode started
+      setLocations(JSON.parse(JSON.stringify(originalSnapshot)));
       setIsEditMode(false);
       setIsMenuOpen(false);
       showSuccess(t('general.info'), "Changes discarded");
@@ -169,6 +172,7 @@ export default function StockGridScreen() {
               message: t('stockGrid.enterPasscode'),
               onSubmit: (passcode) => {
                   if (passcode === workgroup?.admin_passcode) {
+                      // Deep copy snapshot
                       setOriginalSnapshot(JSON.parse(JSON.stringify(locations)));
                       setIsEditMode(true);
                       showSuccess(t('stockGrid.editModeEnabled'));
@@ -419,14 +423,17 @@ export default function StockGridScreen() {
       const isLeader = sortedGroup[0].id === slot.id;
       const masterItem = slot.items?.[0] || sortedGroup.flatMap(g => g.items || [])[0];
 
-      // Dynamic Styles based on "Show Grid"
-      // If Show Grid is ON, empty slots are opaque to hide the rack background behind them,
-      // but the GAPS remain visible (revealing the rack).
+      // THE RACK EFFECT LOGIC:
+      // If masterItem exists, show card color.
+      // If NO item, check showGrid. 
+      //    If showGrid is TRUE: use background color (opaque) so the container color (the "beams") is hidden behind the slot, 
+      //    but visible in the gaps.
+      //    If showGrid is FALSE: use transparent grey.
       const slotBackgroundColor = masterItem 
           ? colors.card 
           : showGrid 
-              ? colors.background // Opaque to hide rack behind
-              : 'rgba(128,128,128,0.1)'; // Transparent normally
+              ? colors.background 
+              : 'rgba(128,128,128,0.1)';
 
       return (
         <View style={{
@@ -443,7 +450,7 @@ export default function StockGridScreen() {
                     styles.slotBase,
                     { 
                         backgroundColor: slotBackgroundColor,
-                        // If grid is shown, the rack background acts as borders, so we can hide local borders to look cleaner
+                        // If showing grid, the container background acts as the border
                         borderColor: showGrid ? 'transparent' : colors.border,
                         borderStyle: masterItem ? 'solid' : 'dashed',
                         borderRightWidth: isMergedRight ? 0 : 1,
@@ -453,10 +460,7 @@ export default function StockGridScreen() {
                     }
                 ]}
             >
-                {/* GAP FILLERS: These are critical.
-                   They cover the "Rack" background color in the gaps between merged cells.
-                   They must match the slot background color.
-                */}
+                {/* Gap Fillers extend the slot color over the gap to hide the "rack" (container background) */}
                 {isMergedRight && <View style={[styles.gapFillerRight, { backgroundColor: slotBackgroundColor }]} />}
                 {isMergedDown && <View style={[styles.gapFillerDown, { backgroundColor: slotBackgroundColor }]} />}
                 
@@ -533,15 +537,16 @@ export default function StockGridScreen() {
                         styles.shelfContainer, 
                         { 
                             // THE RACK EFFECT:
-                            // If Show Grid is ON, background is dark (Rack Color).
+                            // If Show Grid is ON, background is the border color (representing beams).
                             // The slots sit on top. The gaps reveal this background.
-                            backgroundColor: (isEditMode && showGridLines) ? (colors.border) : 'transparent',
+                            // We use showGridLines directly (removed isEditMode check)
+                            backgroundColor: showGridLines ? colors.border : 'transparent',
                             borderColor: colors.border
                         }
                     ]}
                 >
                 <View style={[styles.shelfContent, { height: shelf.totalHeight }]}>
-                    {/* Removed independent backgroundGridOverlay - the container background now acts as the grid */}
+                    {/* Grid Overlay removed - container background handles it */}
 
                     {shelf.mappedSlots.map((slot) => (
                         <SlotComponent 
@@ -549,7 +554,7 @@ export default function StockGridScreen() {
                             slot={slot} 
                             allLocations={locations} 
                             shelfLabel={shelf.shelfLabel} 
-                            showGrid={isEditMode && showGridLines}
+                            showGrid={showGridLines}
                         />
                     ))}
                 </View>
@@ -563,8 +568,21 @@ export default function StockGridScreen() {
       {isMenuOpen && (
           <View style={[styles.menuContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
              
+             {/* Normal Mode Menu */}
              {!isEditMode && (
                  <>
+                    <TouchableOpacity 
+                        style={styles.menuItem}
+                        onPress={() => { setShowGridLines(!showGridLines); setIsMenuOpen(false); }}
+                    >
+                        <MaterialIcons name="grid-on" size={18} color={showGridLines ? colors.primary : colors.text} />
+                        <Text style={[styles.menuText, { color: colors.text }]}>
+                            {showGridLines ? 'Hide Grid' : 'Show Grid'}
+                        </Text>
+                    </TouchableOpacity>
+
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
                     <TouchableOpacity 
                         style={styles.menuItem}
                         onPress={toggleEditMode}
@@ -572,7 +590,9 @@ export default function StockGridScreen() {
                         <Feather name="edit-2" size={18} color={colors.text} />
                         <Text style={[styles.menuText, { color: colors.text }]}>{t('general.edit', 'Edit Layout')}</Text>
                     </TouchableOpacity>
+                    
                     <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                    
                     <TouchableOpacity 
                         style={styles.menuItem}
                         onPress={() => router.back()}
@@ -583,6 +603,7 @@ export default function StockGridScreen() {
                  </>
              )}
 
+             {/* Edit Mode Menu */}
              {isEditMode && (
                  <>
                     <TouchableOpacity 
@@ -640,7 +661,6 @@ const styles = StyleSheet.create({
   shelfContainer: { 
       position: 'relative', 
       marginBottom: 0, 
-      // borderRadius: 4, // Optional: round the rack edges slightly
   }, 
   
   shelfContent: { width: '100%', position: 'relative', overflow: 'visible' },
@@ -671,8 +691,6 @@ const styles = StyleSheet.create({
   
   contentContainer: { alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' },
 
-  // Removed old grid overlay styles
-  
   emptyMarker: { width: 8, height: 8, borderRadius: 4 },
   quantityBadge: {
     position: 'absolute', top: 4, right: 4, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, minWidth: 20, alignItems: 'center',
@@ -711,13 +729,14 @@ const styles = StyleSheet.create({
       width: 160,
       borderRadius: 12,
       paddingVertical: 5,
-      elevation: 5,
+      // FIXED: Increased zIndex significantly to sit above handles and grid
+      zIndex: 10000,
+      elevation: 20,
       shadowColor: "#000",
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.2,
       shadowRadius: 3,
       borderWidth: 1,
-      zIndex: 200,
   },
   menuItem: {
       flexDirection: 'row',
