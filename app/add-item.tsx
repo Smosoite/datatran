@@ -363,7 +363,7 @@ export default function AddItemScreen() {
         {loading ? (
           <ActivityIndicator color={colors.text || '#fff'} />
         ) : (
-          <Text style={[typography.button, styles.buttonText, { color: colors.text || '#fff' }]}>
+          <Text style={[typography.button, styles.buttonText, { color: colors.selector || '#fff' }]}>
               {selectedLocationIds.length > 1 
                 ? `${t('item.addButton')} to (${selectedLocationIds.length}) locations`
                 : t('item.addButton')
