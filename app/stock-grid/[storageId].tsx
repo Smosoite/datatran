@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, useWindowDimensions, Alert, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, useWindowDimensions, Alert, TouchableOpacity, Animated, Platform, StatusBar } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../providers/ThemeProvider';
@@ -60,6 +60,18 @@ export default function StockGridScreen() {
   const [loading, setLoading] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
   const [showGridLines, setShowGridLines] = useState(true);
+
+  // --- HEADER ANIMATION STATE ---
+  const [headerVisible, setHeaderVisible] = useState(false);
+  const slideAnim = useRef(new Animated.Value(-150)).current; // Start hidden (above screen)
+
+  useEffect(() => {
+    Animated.timing(slideAnim, {
+      toValue: headerVisible ? 0 : -150, // 0 = visible, -150 = hidden above top
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [headerVisible]);
 
   const fetchData = useCallback(async () => {
     if (!storageId) return;
@@ -234,7 +246,6 @@ export default function StockGridScreen() {
         });
 
         const rowCount = uniqueRows.length;
-        // CHANGED: Added colCount to help layout calculation
         const colCount = uniqueCols.length;
         const totalHeight = (rowCount * BASE_HEIGHT) + ((rowCount - 1) * GAP_SIZE);
 
@@ -243,20 +254,18 @@ export default function StockGridScreen() {
             totalHeight: Math.max(totalHeight, BASE_HEIGHT),
             mappedSlots,
             rowCount,
-            colCount // Return this so we can calculate width
+            colCount 
         };
     });
   }, [locations, BASE_HEIGHT, GAP_SIZE, UNIT_WIDTH]);
 
   // --- Calculate Content Width ---
-  // Determine max columns across all shelves (at least 6)
   const maxGridColumns = useMemo(() => {
       if (visualGrid.length === 0) return TOTAL_GRID_COLS;
       const maxColsInShelves = Math.max(...visualGrid.map(s => s.colCount));
       return Math.max(TOTAL_GRID_COLS, maxColsInShelves);
   }, [visualGrid, TOTAL_GRID_COLS]);
 
-  // Calculate pixel width based on max columns
   const contentWidth = useMemo(() => {
      return (maxGridColumns * UNIT_WIDTH) + ((maxGridColumns - 1) * GAP_SIZE) + (GRID_PADDING * 2);
   }, [maxGridColumns, UNIT_WIDTH, GAP_SIZE, GRID_PADDING]);
@@ -467,36 +476,67 @@ export default function StockGridScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       
-      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        <View>
-             <Text style={[typography.h2, { color: colors.text }]}>{t('stockGrid.title')}</Text>
-             {isEditMode && <Text style={[typography.caption, { color: colors.primary, fontWeight: 'bold' }]}>EDITING LAYOUT</Text>}
-        </View>
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-            {isEditMode && (
-                <Pressable 
-                    style={[styles.iconButton, { backgroundColor: showGridLines ? colors.selector : colors.card, borderColor: colors.border, borderWidth: 1 }]} 
-                    onPress={() => setShowGridLines(!showGridLines)}
-                >
-                    <MaterialIcons name="grid-on" size={20} color={showGridLines ? 'white' : colors.text} />
-                </Pressable>
-            )}
-            <Pressable 
-                style={[styles.iconButton, { backgroundColor: isEditMode ? colors.primary : colors.card, borderColor: colors.selector, borderWidth: 1 }]} 
-                onPress={toggleEditMode}
-            >
-                <Feather name={isEditMode ? "check" : "edit-2"} size={20} color={isEditMode ? colors.primaryText : colors.text} />
-            </Pressable>
-            <Pressable style={[styles.iconButton, { backgroundColor: colors.danger }]} onPress={() => router.back()}>
-                <Feather name="x" size={20} color="white" />
-            </Pressable>
-        </View>
-      </View>
+      {/* TRIGGER ZONE */}
+      {!headerVisible && (
+        <Pressable 
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 50, zIndex: 90 }} 
+            onPress={() => setHeaderVisible(true)}
+        />
+      )}
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
-        {/* ADDED: Horizontal ScrollView wrapper for grid content */}
+      {/* HEADER (Now Animated) */}
+      <Animated.View style={[
+          styles.header, 
+          { 
+            backgroundColor: colors.card, 
+            borderBottomColor: colors.border,
+            transform: [{ translateY: slideAnim }],
+            position: 'absolute', 
+            top: 0, 
+            left: 0, 
+            right: 0,
+            zIndex: 100 
+          }
+      ]}>
+        <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <View>
+                <Text style={[typography.h2, { color: colors.text }]}>{t('stockGrid.title')}</Text>
+                {isEditMode && <Text style={[typography.caption, { color: colors.primary, fontWeight: 'bold' }]}>EDITING LAYOUT</Text>}
+            </View>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+                {isEditMode && (
+                    <Pressable 
+                        style={[styles.iconButton, { backgroundColor: showGridLines ? colors.selector : colors.card, borderColor: colors.border, borderWidth: 1 }]} 
+                        onPress={() => setShowGridLines(!showGridLines)}
+                    >
+                        <MaterialIcons name="grid-on" size={20} color={showGridLines ? 'white' : colors.text} />
+                    </Pressable>
+                )}
+                <Pressable 
+                    style={[styles.iconButton, { backgroundColor: isEditMode ? colors.primary : colors.card, borderColor: colors.selector, borderWidth: 1 }]} 
+                    onPress={toggleEditMode}
+                >
+                    <Feather name={isEditMode ? "check" : "edit-2"} size={20} color={isEditMode ? colors.primaryText : colors.text} />
+                </Pressable>
+                <Pressable style={[styles.iconButton, { backgroundColor: colors.danger }]} onPress={() => router.back()}>
+                    <Feather name="x" size={20} color="white" />
+                </Pressable>
+            </View>
+        </View>
+
+        {/* HIDE BUTTON inside header */}
+        <TouchableOpacity 
+            style={{ alignSelf: 'center', marginTop: 5, padding: 5 }}
+            onPress={() => setHeaderVisible(false)}
+        >
+             <Feather name="chevron-up" size={24} color={colors.subtext} />
+        </TouchableOpacity>
+      </Animated.View>
+
+      <ScrollView contentContainerStyle={{ paddingTop: 0, paddingBottom: 100 }}>
         <ScrollView horizontal contentContainerStyle={{ flexGrow: 1 }}>
-            <View style={{ width: Math.max(screenWidth, contentWidth), padding: GRID_PADDING }}>
+            {/* Added padding top 40 here just so content doesn't start exactly at edge, optional */}
+            <View style={{ width: Math.max(screenWidth, contentWidth), padding: GRID_PADDING, paddingTop: 40 }}>
             {visualGrid.map((shelf) => (
                 <View 
                     key={shelf.shelfLabel} 
@@ -543,8 +583,17 @@ const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   container: { flex: 1 },
   header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: 16, paddingTop: 50, borderBottomWidth: 1, elevation: 2, zIndex: 10,
+    // Modified header to support column layout for hide button
+    flexDirection: 'column', 
+    padding: 16, 
+    // Increased top padding to account for status bar since it slides over
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 10 : 50, 
+    borderBottomWidth: 1, 
+    elevation: 4, 
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
   iconButton: { padding: 10, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   
