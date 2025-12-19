@@ -57,9 +57,7 @@ export default function StockGridScreen() {
   const UNIT_WIDTH = (AVAILABLE_WIDTH - TOTAL_GAPS) / TOTAL_GRID_COLS;
 
   const [locations, setLocations] = useState<LocationSlot[]>([]);
-  // NEW: State to hold the snapshot for undo
   const [originalSnapshot, setOriginalSnapshot] = useState<LocationSlot[]>([]);
-  
   const [loading, setLoading] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
   const [showGridLines, setShowGridLines] = useState(true);
@@ -113,7 +111,7 @@ export default function StockGridScreen() {
   const handleSaveChanges = async () => {
       setLoading(true);
       try {
-          // 1. Identify Deletions (IDs present in snapshot but missing in current)
+          // 1. Identify Deletions
           const currentIds = new Set(locations.map(l => l.id));
           const deletedIds = originalSnapshot.filter(l => !currentIds.has(l.id)).map(l => l.id);
 
@@ -122,15 +120,13 @@ export default function StockGridScreen() {
               if (error) throw error;
           }
 
-          // 2. Identify Updates (Items where master_id changed)
+          // 2. Identify Updates
           const changedItems = locations.filter(curr => {
               const orig = originalSnapshot.find(o => o.id === curr.id);
-              // Check if master_id changed from the original snapshot
               return orig && orig.master_id !== curr.master_id;
           });
 
           if (changedItems.length > 0) {
-              // Execute updates in parallel
               const updatePromises = changedItems.map(item => 
                   supabase.from('defined_locations').update({ master_id: item.master_id }).eq('id', item.id)
               );
@@ -140,7 +136,7 @@ export default function StockGridScreen() {
           showSuccess(t('general.success'), "Layout changes saved.");
           setIsEditMode(false);
           setIsMenuOpen(false);
-          fetchData(); // Re-fetch to ensure sync with DB
+          fetchData(); 
 
       } catch (err: any) {
           showError(t('general.error'), err.message);
@@ -150,7 +146,6 @@ export default function StockGridScreen() {
   };
 
   const handleCancelChanges = () => {
-      // Revert to snapshot
       setLocations(originalSnapshot);
       setIsEditMode(false);
       setIsMenuOpen(false);
@@ -160,7 +155,6 @@ export default function StockGridScreen() {
   const toggleEditMode = () => {
       setIsMenuOpen(false);
       if (isEditMode) {
-          // If clicking edit button while already editing, ask to save or discard
           Alert.alert(
               t('general.confirm'),
               "Do you want to save your changes?",
@@ -175,7 +169,6 @@ export default function StockGridScreen() {
               message: t('stockGrid.enterPasscode'),
               onSubmit: (passcode) => {
                   if (passcode === workgroup?.admin_passcode) {
-                      // CAPTURE SNAPSHOT BEFORE EDITING
                       setOriginalSnapshot(JSON.parse(JSON.stringify(locations)));
                       setIsEditMode(true);
                       showSuccess(t('stockGrid.editModeEnabled'));
@@ -187,11 +180,10 @@ export default function StockGridScreen() {
       }
   };
 
-  // --- LOCAL ACTIONS (Only update state, not DB) ---
+  // --- LOCAL ACTIONS ---
 
   const handleMerge = async (sourceSlot: LocationSlot, direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT') => {
     
-    // 1. Find the neighbor
     const allShelves = [...new Set(locations.map(l => l.shelf))].sort(naturalSort);
     const currentShelfIdx = allShelves.indexOf(sourceSlot.shelf);
 
@@ -204,7 +196,6 @@ export default function StockGridScreen() {
     const colIdx = uniqueCols.indexOf(sourceSlot.column);
     const rowIdx = uniqueRows.indexOf(sourceSlot.row);
 
-    // Direction Logic
     if (direction === 'RIGHT') {
         if (colIdx < uniqueCols.length - 1) {
             const nextCol = uniqueCols[colIdx + 1];
@@ -267,7 +258,7 @@ export default function StockGridScreen() {
         return;
     }
 
-    // --- PERFORM MERGE (LOCAL STATE ONLY) ---
+    // --- PERFORM MERGE (LOCAL) ---
     const winningId = sourceSlot.master_id;
     const losingId = neighbor.master_id;
 
@@ -282,7 +273,6 @@ export default function StockGridScreen() {
   };
 
   const handleDeleteLocation = (id: string) => {
-      // Local state delete only
       Alert.alert(
           t('general.delete'),
           "Delete this location? This will be applied when you Save.",
@@ -377,7 +367,7 @@ export default function StockGridScreen() {
   };
 
   // --- COMPONENT: Slot ---
-  const SlotComponent = ({ slot, allLocations, shelfLabel }: { slot: LocationSlot, allLocations: LocationSlot[], shelfLabel: string }) => {
+  const SlotComponent = ({ slot, allLocations, shelfLabel, showGrid }: { slot: LocationSlot, allLocations: LocationSlot[], shelfLabel: string, showGrid: boolean }) => {
       
       const getNeighborMaster = (dir: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT') => {
           const shelfLocs = allLocations.filter(l => l.shelf === shelfLabel);
@@ -429,6 +419,15 @@ export default function StockGridScreen() {
       const isLeader = sortedGroup[0].id === slot.id;
       const masterItem = slot.items?.[0] || sortedGroup.flatMap(g => g.items || [])[0];
 
+      // Dynamic Styles based on "Show Grid"
+      // If Show Grid is ON, empty slots are opaque to hide the rack background behind them,
+      // but the GAPS remain visible (revealing the rack).
+      const slotBackgroundColor = masterItem 
+          ? colors.card 
+          : showGrid 
+              ? colors.background // Opaque to hide rack behind
+              : 'rgba(128,128,128,0.1)'; // Transparent normally
+
       return (
         <View style={{
             position: 'absolute',
@@ -443,8 +442,9 @@ export default function StockGridScreen() {
                 style={[
                     styles.slotBase,
                     { 
-                        backgroundColor: masterItem ? colors.card : 'rgba(128,128,128,0.1)',
-                        borderColor: colors.border,
+                        backgroundColor: slotBackgroundColor,
+                        // If grid is shown, the rack background acts as borders, so we can hide local borders to look cleaner
+                        borderColor: showGrid ? 'transparent' : colors.border,
                         borderStyle: masterItem ? 'solid' : 'dashed',
                         borderRightWidth: isMergedRight ? 0 : 1,
                         borderLeftWidth: isMergedLeft ? 0 : 1,
@@ -453,8 +453,12 @@ export default function StockGridScreen() {
                     }
                 ]}
             >
-                {isMergedRight && <View style={[styles.gapFillerRight, { backgroundColor: masterItem ? colors.card : 'rgba(128,128,128,0.1)' }]} />}
-                {isMergedDown && <View style={[styles.gapFillerDown, { backgroundColor: masterItem ? colors.card : 'rgba(128,128,128,0.1)' }]} />}
+                {/* GAP FILLERS: These are critical.
+                   They cover the "Rack" background color in the gaps between merged cells.
+                   They must match the slot background color.
+                */}
+                {isMergedRight && <View style={[styles.gapFillerRight, { backgroundColor: slotBackgroundColor }]} />}
+                {isMergedDown && <View style={[styles.gapFillerDown, { backgroundColor: slotBackgroundColor }]} />}
                 
                 {isLeader && masterItem && (
                     <View style={styles.contentContainer}>
@@ -466,7 +470,7 @@ export default function StockGridScreen() {
                         </Text>
                     </View>
                 )}
-                 {isLeader && !masterItem && (
+                 {isLeader && !masterItem && !showGrid && (
                     <View style={[styles.emptyMarker, { backgroundColor: colors.border }]} />
                 )}
 
@@ -525,25 +529,19 @@ export default function StockGridScreen() {
             {visualGrid.map((shelf) => (
                 <View 
                     key={shelf.shelfLabel} 
-                    style={[styles.shelfContainer, { borderColor: colors.border }]}
+                    style={[
+                        styles.shelfContainer, 
+                        { 
+                            // THE RACK EFFECT:
+                            // If Show Grid is ON, background is dark (Rack Color).
+                            // The slots sit on top. The gaps reveal this background.
+                            backgroundColor: (isEditMode && showGridLines) ? (colors.border) : 'transparent',
+                            borderColor: colors.border
+                        }
+                    ]}
                 >
                 <View style={[styles.shelfContent, { height: shelf.totalHeight }]}>
-                    {isEditMode && showGridLines && (
-                    <View style={styles.backgroundGridOverlay} pointerEvents="none">
-                        {Array.from({ length: Math.max(TOTAL_GRID_COLS, shelf.colCount) }).map((_, i) => (
-                            <View 
-                                key={`v-${i}`} 
-                                style={[ styles.gridLine, { borderColor: colors.text, left: (i * (UNIT_WIDTH + GAP_SIZE)) + UNIT_WIDTH + (GAP_SIZE / 2) } ]} 
-                            />
-                        ))}
-                        {Array.from({ length: shelf.rowCount - 1 }).map((_, i) => (
-                            <View 
-                                key={`h-${i}`} 
-                                style={[ styles.gridLineHorizontal, { borderColor: colors.text, top: (i * (BASE_HEIGHT + GAP_SIZE)) + BASE_HEIGHT + (GAP_SIZE / 2) } ]} 
-                            />
-                        ))}
-                    </View>
-                    )}
+                    {/* Removed independent backgroundGridOverlay - the container background now acts as the grid */}
 
                     {shelf.mappedSlots.map((slot) => (
                         <SlotComponent 
@@ -551,6 +549,7 @@ export default function StockGridScreen() {
                             slot={slot} 
                             allLocations={locations} 
                             shelfLabel={shelf.shelfLabel} 
+                            showGrid={isEditMode && showGridLines}
                         />
                     ))}
                 </View>
@@ -564,7 +563,6 @@ export default function StockGridScreen() {
       {isMenuOpen && (
           <View style={[styles.menuContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
              
-             {/* Normal Mode Options */}
              {!isEditMode && (
                  <>
                     <TouchableOpacity 
@@ -585,7 +583,6 @@ export default function StockGridScreen() {
                  </>
              )}
 
-             {/* Edit Mode Options */}
              {isEditMode && (
                  <>
                     <TouchableOpacity 
@@ -623,7 +620,7 @@ export default function StockGridScreen() {
           </View>
       )}
 
-      {/* --- FLOATING ACTION BUTTON --- */}
+      {/* --- FAB --- */}
       <TouchableOpacity 
          style={[styles.fab, { backgroundColor: colors.card, borderColor: colors.border }]}
          onPress={() => setIsMenuOpen(!isMenuOpen)}
@@ -643,6 +640,7 @@ const styles = StyleSheet.create({
   shelfContainer: { 
       position: 'relative', 
       marginBottom: 0, 
+      // borderRadius: 4, // Optional: round the rack edges slightly
   }, 
   
   shelfContent: { width: '100%', position: 'relative', overflow: 'visible' },
@@ -673,15 +671,7 @@ const styles = StyleSheet.create({
   
   contentContainer: { alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' },
 
-  backgroundGridOverlay: {
-      position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, zIndex: 0, 
-  },
-  gridLine: {
-      position: 'absolute', top: 0, bottom: 0, width: 1, borderLeftWidth: 1, borderStyle: 'solid', opacity: 0.2,
-  },
-  gridLineHorizontal: {
-      position: 'absolute', left: 0, right: 0, height: 1, borderTopWidth: 1, borderStyle: 'solid', opacity: 0.2,
-  },
+  // Removed old grid overlay styles
   
   emptyMarker: { width: 8, height: 8, borderRadius: 4 },
   quantityBadge: {
