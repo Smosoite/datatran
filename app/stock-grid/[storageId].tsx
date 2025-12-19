@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, useWindowDimensions, Alert, TouchableOpacity, Animated, Platform, StatusBar } from 'react-native';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, useWindowDimensions, Alert, TouchableOpacity, Platform, StatusBar } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../providers/ThemeProvider';
@@ -61,17 +61,8 @@ export default function StockGridScreen() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [showGridLines, setShowGridLines] = useState(true);
 
-  // --- HEADER ANIMATION STATE ---
-  const [headerVisible, setHeaderVisible] = useState(false);
-  const slideAnim = useRef(new Animated.Value(-150)).current; // Start hidden (above screen)
-
-  useEffect(() => {
-    Animated.timing(slideAnim, {
-      toValue: headerVisible ? 0 : -150, // 0 = visible, -150 = hidden above top
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }, [headerVisible]);
+  // --- MENU STATE ---
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!storageId) return;
@@ -416,22 +407,25 @@ export default function StockGridScreen() {
   };
 
   const toggleEditMode = () => {
-    if (isEditMode) {
-      setIsEditMode(false);
-    } else {
-      showPasscodeModal({
-        title: t('stockGrid.adminAccess'),
-        message: t('stockGrid.enterPasscode'),
-        onSubmit: (passcode) => {
-          if (passcode === workgroup?.admin_passcode) {
-            setIsEditMode(true);
-            showSuccess(t('stockGrid.editModeEnabled'));
-          } else {
-            showError(t('stockGrid.invalidPasscode'));
-          }
-        },
-      });
-    }
+      // Close menu when triggering action
+      setIsMenuOpen(false);
+
+      if (isEditMode) {
+          setIsEditMode(false);
+      } else {
+          showPasscodeModal({
+              title: t('stockGrid.adminAccess'),
+              message: t('stockGrid.enterPasscode'),
+              onSubmit: (passcode) => {
+                  if (passcode === workgroup?.admin_passcode) {
+                      setIsEditMode(true);
+                      showSuccess(t('stockGrid.editModeEnabled'));
+                  } else {
+                      showError(t('stockGrid.invalidPasscode'));
+                  }
+              },
+          });
+      }
   };
 
   const handleSlotPress = (slot: LocationSlot) => {
@@ -475,68 +469,11 @@ export default function StockGridScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      
-      {/* TRIGGER ZONE */}
-      {!headerVisible && (
-        <Pressable 
-            style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 50, zIndex: 90 }} 
-            onPress={() => setHeaderVisible(true)}
-        />
-      )}
 
-      {/* HEADER (Now Animated) */}
-      <Animated.View style={[
-          styles.header, 
-          { 
-            backgroundColor: colors.card, 
-            borderBottomColor: colors.border,
-            transform: [{ translateY: slideAnim }],
-            position: 'absolute', 
-            top: 0, 
-            left: 0, 
-            right: 0,
-            zIndex: 100 
-          }
-      ]}>
-        <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <View>
-                <Text style={[typography.h2, { color: colors.text }]}>{t('stockGrid.title')}</Text>
-                {isEditMode && <Text style={[typography.caption, { color: colors.primary, fontWeight: 'bold' }]}>EDITING LAYOUT</Text>}
-            </View>
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-                {isEditMode && (
-                    <Pressable 
-                        style={[styles.iconButton, { backgroundColor: showGridLines ? colors.selector : colors.card, borderColor: colors.border, borderWidth: 1 }]} 
-                        onPress={() => setShowGridLines(!showGridLines)}
-                    >
-                        <MaterialIcons name="grid-on" size={20} color={showGridLines ? 'white' : colors.text} />
-                    </Pressable>
-                )}
-                <Pressable 
-                    style={[styles.iconButton, { backgroundColor: isEditMode ? colors.primary : colors.card, borderColor: colors.selector, borderWidth: 1 }]} 
-                    onPress={toggleEditMode}
-                >
-                    <Feather name={isEditMode ? "check" : "edit-2"} size={20} color={isEditMode ? colors.primaryText : colors.text} />
-                </Pressable>
-                <Pressable style={[styles.iconButton, { backgroundColor: colors.danger }]} onPress={() => router.back()}>
-                    <Feather name="x" size={20} color="white" />
-                </Pressable>
-            </View>
-        </View>
-
-        {/* HIDE BUTTON inside header */}
-        <TouchableOpacity 
-            style={{ alignSelf: 'center', marginTop: 5, padding: 5 }}
-            onPress={() => setHeaderVisible(false)}
-        >
-             <Feather name="chevron-up" size={24} color={colors.subtext} />
-        </TouchableOpacity>
-      </Animated.View>
-
-      <ScrollView contentContainerStyle={{ paddingTop: 0, paddingBottom: 100 }}>
+      {/* Grid Content */}
+      <ScrollView contentContainerStyle={{ paddingTop: 40, paddingBottom: 100 }}>
         <ScrollView horizontal contentContainerStyle={{ flexGrow: 1 }}>
-            {/* Added padding top 40 here just so content doesn't start exactly at edge, optional */}
-            <View style={{ width: Math.max(screenWidth, contentWidth), padding: GRID_PADDING, paddingTop: 40 }}>
+            <View style={{ width: Math.max(screenWidth, contentWidth), padding: GRID_PADDING }}>
             {visualGrid.map((shelf) => (
                 <View 
                     key={shelf.shelfLabel} 
@@ -575,6 +512,78 @@ export default function StockGridScreen() {
         </ScrollView>
       </ScrollView>
 
+      {/* --- MENU OVERLAY --- */}
+      {isMenuOpen && (
+          <View style={[styles.menuContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+             
+             {/* Normal Mode Options */}
+             {!isEditMode && (
+                 <>
+                    <TouchableOpacity 
+                        style={styles.menuItem}
+                        onPress={toggleEditMode}
+                    >
+                        <Feather name="edit-2" size={18} color={colors.text} />
+                        <Text style={[styles.menuText, { color: colors.text }]}>{t('general.edit', 'Edit Layout')}</Text>
+                    </TouchableOpacity>
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                    <TouchableOpacity 
+                        style={styles.menuItem}
+                        onPress={() => router.back()}
+                    >
+                        <Feather name="log-out" size={18} color={colors.danger} />
+                        <Text style={[styles.menuText, { color: colors.danger }]}>{t('general.exit', 'Exit')}</Text>
+                    </TouchableOpacity>
+                 </>
+             )}
+
+             {/* Edit Mode Options */}
+             {isEditMode && (
+                 <>
+                    <TouchableOpacity 
+                        style={styles.menuItem}
+                        onPress={() => { setShowGridLines(!showGridLines); setIsMenuOpen(false); }}
+                    >
+                        <MaterialIcons name="grid-on" size={18} color={showGridLines ? colors.primary : colors.text} />
+                        <Text style={[styles.menuText, { color: colors.text }]}>
+                            {showGridLines ? 'Hide Grid' : 'Show Grid'}
+                        </Text>
+                    </TouchableOpacity>
+                    
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+                    <TouchableOpacity 
+                        style={styles.menuItem}
+                        onPress={() => { setIsEditMode(false); setIsMenuOpen(false); }}
+                    >
+                        <Feather name="check" size={18} color={colors.success} />
+                        <Text style={[styles.menuText, { color: colors.text }]}>{t('general.save', 'Accept')}</Text>
+                    </TouchableOpacity>
+
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+                    <TouchableOpacity 
+                        style={styles.menuItem}
+                        onPress={() => { setIsEditMode(false); setIsMenuOpen(false); }}
+                    >
+                        <Feather name="x" size={18} color={colors.danger} />
+                        <Text style={[styles.menuText, { color: colors.text }]}>{t('general.cancel', 'Cancel')}</Text>
+                    </TouchableOpacity>
+                 </>
+             )}
+
+          </View>
+      )}
+
+      {/* --- FLOATING ACTION BUTTON --- */}
+      <TouchableOpacity 
+         style={[styles.fab, { backgroundColor: colors.card, borderColor: colors.border }]}
+         onPress={() => setIsMenuOpen(!isMenuOpen)}
+         activeOpacity={0.8}
+      >
+          <Feather name={isMenuOpen ? "x" : "menu"} size={24} color={colors.text} />
+      </TouchableOpacity>
+
     </View>
   );
 }
@@ -582,20 +591,6 @@ export default function StockGridScreen() {
 const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   container: { flex: 1 },
-  header: {
-    // Modified header to support column layout for hide button
-    flexDirection: 'column', 
-    padding: 16, 
-    // Increased top padding to account for status bar since it slides over
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 10 : 50, 
-    borderBottomWidth: 1, 
-    elevation: 4, 
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-  },
-  iconButton: { padding: 10, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   
   shelfContainer: { 
       position: 'relative', 
@@ -652,4 +647,54 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center', zIndex: 9999,
   },
   miniDelete: { position: 'absolute', top: 2, left: 2, backgroundColor: '#DC2626', borderRadius: 10, padding: 4, opacity: 0.8, zIndex: 60 },
+
+  // --- FAB & MENU STYLES ---
+  fab: {
+      position: 'absolute',
+      bottom: 30,
+      right: 20,
+      width: 50,
+      height: 50,
+      borderRadius: 25,
+      justifyContent: 'center',
+      alignItems: 'center',
+      elevation: 5,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 3,
+      opacity: 0.9, // Translucent effect
+      borderWidth: 1,
+  },
+  menuContainer: {
+      position: 'absolute',
+      bottom: 90, // Positioned above the FAB
+      right: 20,
+      width: 160,
+      borderRadius: 12,
+      paddingVertical: 5,
+      elevation: 5,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 3,
+      borderWidth: 1,
+      zIndex: 200,
+  },
+  menuItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      gap: 10,
+  },
+  menuText: {
+      fontSize: 14,
+      fontWeight: '600',
+  },
+  divider: {
+      height: 1,
+      width: '100%',
+      opacity: 0.5,
+  }
 });
