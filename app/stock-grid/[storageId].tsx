@@ -61,7 +61,6 @@ export default function StockGridScreen() {
   const [loading, setLoading] = useState(true);
   
   const [isEditMode, setIsEditMode] = useState(false);
-  // CHANGED: Default to TRUE as requested
   const [showGridLines, setShowGridLines] = useState(true); 
 
   // --- MENU STATE ---
@@ -111,10 +110,8 @@ export default function StockGridScreen() {
   // --- ACTIONS: SAVE / CANCEL ---
 
   const handleSaveChanges = async () => {
-      // 1. Close menu immediately
       setIsMenuOpen(false);
       setLoading(true);
-      
       try {
           // Identify Deletions
           const currentIds = new Set(locations.map(l => l.id));
@@ -139,12 +136,8 @@ export default function StockGridScreen() {
           }
 
           showSuccess(t('general.success'), "Layout changes saved.");
-          
-          // 2. Force exit Edit Mode
           setIsEditMode(false);
-          setOriginalSnapshot([]); // Clear snapshot
-          
-          // 3. Refresh data
+          setOriginalSnapshot([]); 
           fetchData(); 
 
       } catch (err: any) {
@@ -154,16 +147,12 @@ export default function StockGridScreen() {
   };
 
   const handleCancelChanges = () => {
-      // 1. Revert to snapshot
       if (originalSnapshot.length > 0) {
           setLocations(JSON.parse(JSON.stringify(originalSnapshot)));
       }
-      
-      // 2. Reset UI states
       setIsEditMode(false);
       setIsMenuOpen(false);
       setOriginalSnapshot([]);
-      
       showSuccess(t('general.info'), "Changes discarded");
   };
 
@@ -435,10 +424,12 @@ export default function StockGridScreen() {
       const masterItem = slot.items?.[0] || sortedGroup.flatMap(g => g.items || [])[0];
 
       // THE RACK EFFECT LOGIC:
+      // If Show Grid is ON, empty slots are OPAQUE (colors.background) to hide the Rack Frame behind them.
+      // The gaps (margins) between slots will allow the Rack Frame to peek through.
       const slotBackgroundColor = masterItem 
           ? colors.card 
           : showGrid 
-              ? colors.background 
+              ? colors.background // Opaque to block the rack color behind
               : 'rgba(128,128,128,0.1)';
 
       return (
@@ -465,6 +456,7 @@ export default function StockGridScreen() {
                     }
                 ]}
             >
+                {/* Gap Fillers must use slotBackgroundColor to effectively hide the rack lines in merged areas */}
                 {isMergedRight && <View style={[styles.gapFillerRight, { backgroundColor: slotBackgroundColor }]} />}
                 {isMergedDown && <View style={[styles.gapFillerDown, { backgroundColor: slotBackgroundColor }]} />}
                 
@@ -533,16 +525,25 @@ export default function StockGridScreen() {
       {/* Grid Content */}
       <ScrollView contentContainerStyle={{ paddingTop: 40, paddingBottom: 100 }}>
         <ScrollView horizontal contentContainerStyle={{ flexGrow: 1 }}>
-            <View style={{ width: Math.max(screenWidth, contentWidth), padding: GRID_PADDING }}>
+            
+            {/* THE RACK FRAME (Parent View)
+                When grid is ON, this background color shows through the gaps between slots/shelves
+                creating the grid lines.
+            */}
+            <View style={{ 
+                width: Math.max(screenWidth, contentWidth), 
+                padding: GRID_PADDING,
+                backgroundColor: showGridLines ? colors.border : 'transparent' 
+            }}>
             {visualGrid.map((shelf) => (
                 <View 
                     key={shelf.shelfLabel} 
                     style={[
                         styles.shelfContainer, 
                         { 
-                            // CHANGED: GAP_SIZE (4px) is now added as marginBottom to create spacing between shelves
+                            // CHANGED: marginBottom creates horizontal gap between shelves
+                            // Since the Parent View is colored (Rack Color), this gap creates the horizontal beam line.
                             marginBottom: GAP_SIZE,
-                            backgroundColor: showGridLines ? colors.border : 'transparent',
                             borderColor: colors.border
                         }
                     ]}
@@ -572,7 +573,7 @@ export default function StockGridScreen() {
                  <>
                     <TouchableOpacity 
                         style={styles.menuItem}
-                        onPress={() => { setShowGridLines(!showGridLines); setIsMenuOpen(false); }}
+                        onPress={() => { setShowGridLines(!showGridLines); }} // Keep open for toggling
                     >
                         <MaterialIcons name="grid-on" size={18} color={showGridLines ? colors.primary : colors.text} />
                         <Text style={[styles.menuText, { color: colors.text }]}>
@@ -606,7 +607,7 @@ export default function StockGridScreen() {
                  <>
                     <TouchableOpacity 
                         style={styles.menuItem}
-                        onPress={() => { setShowGridLines(!showGridLines); setIsMenuOpen(false); }}
+                        onPress={() => { setShowGridLines(!showGridLines); }} // Keep open
                     >
                         <MaterialIcons name="grid-on" size={18} color={showGridLines ? colors.primary : colors.text} />
                         <Text style={[styles.menuText, { color: colors.text }]}>
@@ -727,7 +728,6 @@ const styles = StyleSheet.create({
       width: 160,
       borderRadius: 12,
       paddingVertical: 5,
-      // FIXED: Increased zIndex significantly to sit above handles and grid
       zIndex: 10000,
       elevation: 20,
       shadowColor: "#000",
@@ -736,10 +736,12 @@ const styles = StyleSheet.create({
       shadowRadius: 3,
       borderWidth: 1,
   },
+  // CHANGED: Increased touch target size
   menuItem: {
+      width: '100%',
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: 12,
+      paddingVertical: 15,
       paddingHorizontal: 16,
       gap: 10,
   },
