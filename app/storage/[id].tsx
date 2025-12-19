@@ -115,8 +115,8 @@ export default function ManageStorageScreen() {
               <View style={styles.locationDetails}>
                 <Text style={[typography.body, styles.itemName, { color: colors.text }]}>{formatLocationName(item)}</Text>
                 {assignedItem ? (
-                  <Text style={[typography.body, styles.assignedItemText, { color: colors.selector }]}>
-                    <FontAwesome name="cube" size={14} color={colors.success} /> {assignedItem.name}
+                  <Text style={[typography.body, styles.assignedItemText, { color: colors.success }]}>
+                    <FontAwesome name="cube" size={14} color={colors.selector} /> {assignedItem.name}
                   </Text>
                 ) : (
                   <Text style={[typography.caption, styles.emptySlotText, { color: colors.subtext }]}>- {t('general.empty')} -</Text>
