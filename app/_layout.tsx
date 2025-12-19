@@ -11,6 +11,7 @@ import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 import { FontAwesome } from '@expo/vector-icons';
 import { ModalProvider } from '../providers/ModalProvider';
 import { typography } from '../styles/typography';
+import { CopilotProvider } from "react-native-copilot";
 
 // --- FIX: This component is now correctly using the restored ThemeProvider ---
 const ThemedStack = () => {
@@ -182,10 +183,12 @@ const toastConfig = {
     <ThemeProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <AuthProvider>
+          <CopilotProvider stopOnOutsideClick androidStatusBarVisible>
           {/* 2. Move ModalProvider to wrap the component that renders your screens */}
           <ModalProvider>
             <AppWithToasts />
           </ModalProvider>
+          </CopilotProvider>
         </AuthProvider>
       </GestureHandlerRootView>
     </ThemeProvider>
