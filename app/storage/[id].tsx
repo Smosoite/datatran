@@ -99,7 +99,8 @@ export default function ManageStorageScreen() {
         title: storageName || t('storage.manageLayout'), // Dynamic title
         headerRight: () => (
           <Pressable onPress={() => router.push({ pathname: '/create-location', params: { storageId } })}>
-            <FontAwesome name="plus" size={24} color={colors.primary} style={{ marginRight: 15 }} />
+            <FontAwesome name="plus" size={24} color={colors.selector
+            } style={{ marginRight: 15 }} />
           </Pressable>
         )
       }} />
