@@ -15,7 +15,7 @@ import * as Haptics from 'expo-haptics';
 // --- Data Types ---
 type LocationSlot = {
   id: string; 
-  master_id: string; 
+  master_id: string; // Now required, as it exists in DB
   shelf: string;
   row: string;
   column: string;
@@ -65,6 +65,7 @@ export default function StockGridScreen() {
     if (!storageId) return;
     setLoading(true);
     try {
+      // PERMANENT FIX: We now select master_id properly from the DB
       const { data, error } = await supabase
         .from('defined_locations')
         .select(`
@@ -75,15 +76,14 @@ export default function StockGridScreen() {
         
       if (error) throw error;
       
-      // Safety check: ensure data exists
       if (!data) {
           setLocations([]);
           return;
       }
 
-      // Initialize: If master_id is missing, it is its own master
       const formattedLocations = data.map(loc => ({
         ...loc,
+        // Fallback: if DB update was missed, default to self, but ideally this comes from DB
         master_id: loc.master_id || loc.id, 
         width_span: loc.width_span || 1,
         height_span: loc.height_span || 1,
@@ -93,8 +93,8 @@ export default function StockGridScreen() {
       setLocations(formattedLocations as LocationSlot[]);
 
     } catch (err: any) {
-      console.error("StockGrid Fetch Error:", err); // Check your console for details
-      showError(t('general.error'), err.message || "Unknown error");
+      console.error("StockGrid Fetch Error:", err);
+      showError(t('general.error'), err.message);
     } finally {
       setLoading(false);
     }
@@ -186,9 +186,11 @@ export default function StockGridScreen() {
         return;
     }
 
+    // --- PERFORM MERGE ---
     const winningId = sourceSlot.master_id;
     const losingId = neighbor.master_id;
 
+    // 1. Optimistic Update (Instant feedback)
     setLocations(prev => prev.map(l => {
         if (l.master_id === losingId) {
             return { ...l, master_id: winningId };
@@ -198,6 +200,7 @@ export default function StockGridScreen() {
 
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
+    // 2. Database Update
     const { error } = await supabase
         .from('defined_locations')
         .update({ master_id: winningId })
@@ -205,7 +208,7 @@ export default function StockGridScreen() {
 
     if (error) {
         showError("Merge failed", error.message);
-        fetchData(); 
+        fetchData(); // Revert on failure
     }
   };
 
@@ -522,7 +525,7 @@ const styles = StyleSheet.create({
   
   shelfContainer: { 
       position: 'relative', 
-      marginBottom: 0, // FIXED: Removed gap between shelves
+      marginBottom: 0, 
   }, 
   
   shelfContent: { width: '100%', position: 'relative', overflow: 'visible' },
