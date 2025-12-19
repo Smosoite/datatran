@@ -115,7 +115,7 @@ export default function ManageWarehouseScreen() {
             {/* --- NEW: Admin-only button for stock grid --- */}
             {profile?.role === 'admin' && (
               <Pressable 
-                style={[styles.gridButton, { backgroundColor: colors.primary }]} 
+                style={[styles.gridButton, { backgroundColor: colors.selector }]} 
                 onPress={() => handleOpenGrid(item.id)}
               >
                 <FontAwesome name="th-large" size={20} color={colors.primaryText} />
