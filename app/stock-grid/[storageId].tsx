@@ -234,22 +234,37 @@ export default function StockGridScreen() {
         });
 
         const rowCount = uniqueRows.length;
+        // CHANGED: Added colCount to help layout calculation
+        const colCount = uniqueCols.length;
         const totalHeight = (rowCount * BASE_HEIGHT) + ((rowCount - 1) * GAP_SIZE);
 
         return {
             shelfLabel: shelfKey,
             totalHeight: Math.max(totalHeight, BASE_HEIGHT),
             mappedSlots,
-            rowCount
+            rowCount,
+            colCount // Return this so we can calculate width
         };
     });
   }, [locations, BASE_HEIGHT, GAP_SIZE, UNIT_WIDTH]);
+
+  // --- Calculate Content Width ---
+  // Determine max columns across all shelves (at least 6)
+  const maxGridColumns = useMemo(() => {
+      if (visualGrid.length === 0) return TOTAL_GRID_COLS;
+      const maxColsInShelves = Math.max(...visualGrid.map(s => s.colCount));
+      return Math.max(TOTAL_GRID_COLS, maxColsInShelves);
+  }, [visualGrid, TOTAL_GRID_COLS]);
+
+  // Calculate pixel width based on max columns
+  const contentWidth = useMemo(() => {
+     return (maxGridColumns * UNIT_WIDTH) + ((maxGridColumns - 1) * GAP_SIZE) + (GRID_PADDING * 2);
+  }, [maxGridColumns, UNIT_WIDTH, GAP_SIZE, GRID_PADDING]);
 
 
   // --- COMPONENT: Merge Handle ---
   const MergeHandle = ({ direction, onPress }: { direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT', onPress: () => void }) => {
     let style = {};
-    // Center the handle on the line. 24px width means -12px offset
     const offset = -12; 
     
     if (direction === 'UP') style = { top: offset, left: '50%', marginLeft: -12 };
@@ -261,7 +276,6 @@ export default function StockGridScreen() {
 
     return (
         <TouchableOpacity 
-            // MODIFIED: Removed backgroundColor: colors.card to make it transparent
             style={[styles.mergeHandle, style]} 
             onPress={onPress}
             activeOpacity={0.7}
@@ -272,8 +286,6 @@ export default function StockGridScreen() {
                 size={18} 
                 color={colors.primary} 
                 style={{ 
-                    // Rotate 90deg for vertical merge so it looks like || connecting up/down
-                    // Keep 0deg for horizontal merge so it looks like = connecting left/right
                     transform: [{ rotate: isVerticalMerge ? '90deg' : '0deg' }]
                 }}
             />
@@ -296,7 +308,6 @@ export default function StockGridScreen() {
           if (dir === 'DOWN' && rIdx < rows.length - 1) return shelfLocs.find(l => l.column === slot.column && l.row === rows[rIdx+1])?.master_id;
           if (dir === 'UP' && rIdx > 0) return shelfLocs.find(l => l.column === slot.column && l.row === rows[rIdx-1])?.master_id;
           
-          // Cross shelf visual checks
           if (dir === 'DOWN' || dir === 'UP') {
               const shelves = [...new Set(allLocations.map(l => l.shelf))].sort(naturalSort);
               const sIdx = shelves.indexOf(shelfLabel);
@@ -483,42 +494,45 @@ export default function StockGridScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
-        <View style={{ padding: GRID_PADDING }}>
-          {visualGrid.map((shelf) => (
-            <View 
-                key={shelf.shelfLabel} 
-                style={[styles.shelfContainer, { borderColor: colors.border }]}
-            >
-              <View style={[styles.shelfContent, { height: shelf.totalHeight }]}>
-                {isEditMode && showGridLines && (
-                  <View style={styles.backgroundGridOverlay} pointerEvents="none">
-                      {Array.from({ length: TOTAL_GRID_COLS }).map((_, i) => (
-                          <View 
-                            key={`v-${i}`} 
-                            style={[ styles.gridLine, { borderColor: colors.text, left: (i * (UNIT_WIDTH + GAP_SIZE)) + UNIT_WIDTH + (GAP_SIZE / 2) } ]} 
-                          />
-                      ))}
-                      {Array.from({ length: shelf.rowCount - 1 }).map((_, i) => (
-                          <View 
-                            key={`h-${i}`} 
-                            style={[ styles.gridLineHorizontal, { borderColor: colors.text, top: (i * (BASE_HEIGHT + GAP_SIZE)) + BASE_HEIGHT + (GAP_SIZE / 2) } ]} 
-                          />
-                      ))}
-                  </View>
-                )}
+        {/* ADDED: Horizontal ScrollView wrapper for grid content */}
+        <ScrollView horizontal contentContainerStyle={{ flexGrow: 1 }}>
+            <View style={{ width: Math.max(screenWidth, contentWidth), padding: GRID_PADDING }}>
+            {visualGrid.map((shelf) => (
+                <View 
+                    key={shelf.shelfLabel} 
+                    style={[styles.shelfContainer, { borderColor: colors.border }]}
+                >
+                <View style={[styles.shelfContent, { height: shelf.totalHeight }]}>
+                    {isEditMode && showGridLines && (
+                    <View style={styles.backgroundGridOverlay} pointerEvents="none">
+                        {Array.from({ length: Math.max(TOTAL_GRID_COLS, shelf.colCount) }).map((_, i) => (
+                            <View 
+                                key={`v-${i}`} 
+                                style={[ styles.gridLine, { borderColor: colors.text, left: (i * (UNIT_WIDTH + GAP_SIZE)) + UNIT_WIDTH + (GAP_SIZE / 2) } ]} 
+                            />
+                        ))}
+                        {Array.from({ length: shelf.rowCount - 1 }).map((_, i) => (
+                            <View 
+                                key={`h-${i}`} 
+                                style={[ styles.gridLineHorizontal, { borderColor: colors.text, top: (i * (BASE_HEIGHT + GAP_SIZE)) + BASE_HEIGHT + (GAP_SIZE / 2) } ]} 
+                            />
+                        ))}
+                    </View>
+                    )}
 
-                {shelf.mappedSlots.map((slot) => (
-                    <SlotComponent 
-                        key={slot.id} 
-                        slot={slot} 
-                        allLocations={locations} 
-                        shelfLabel={shelf.shelfLabel} 
-                    />
-                ))}
-              </View>
+                    {shelf.mappedSlots.map((slot) => (
+                        <SlotComponent 
+                            key={slot.id} 
+                            slot={slot} 
+                            allLocations={locations} 
+                            shelfLabel={shelf.shelfLabel} 
+                        />
+                    ))}
+                </View>
+                </View>
+            ))}
             </View>
-          ))}
-        </View>
+        </ScrollView>
       </ScrollView>
 
     </View>
