@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, useWindowDimensions, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, useWindowDimensions, Alert, TouchableOpacity, Platform, StatusBar } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../providers/ThemeProvider';
@@ -61,8 +61,8 @@ export default function StockGridScreen() {
   const [loading, setLoading] = useState(true);
   
   const [isEditMode, setIsEditMode] = useState(false);
-  // Default to false so the view is clean initially, or true if you prefer grid always on
-  const [showGridLines, setShowGridLines] = useState(false); 
+  // CHANGED: Default to TRUE as requested
+  const [showGridLines, setShowGridLines] = useState(true); 
 
   // --- MENU STATE ---
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -111,9 +111,12 @@ export default function StockGridScreen() {
   // --- ACTIONS: SAVE / CANCEL ---
 
   const handleSaveChanges = async () => {
+      // 1. Close menu immediately
+      setIsMenuOpen(false);
       setLoading(true);
+      
       try {
-          // 1. Identify Deletions
+          // Identify Deletions
           const currentIds = new Set(locations.map(l => l.id));
           const deletedIds = originalSnapshot.filter(l => !currentIds.has(l.id)).map(l => l.id);
 
@@ -122,7 +125,7 @@ export default function StockGridScreen() {
               if (error) throw error;
           }
 
-          // 2. Identify Updates
+          // Identify Updates
           const changedItems = locations.filter(curr => {
               const orig = originalSnapshot.find(o => o.id === curr.id);
               return orig && orig.master_id !== curr.master_id;
@@ -136,22 +139,31 @@ export default function StockGridScreen() {
           }
 
           showSuccess(t('general.success'), "Layout changes saved.");
+          
+          // 2. Force exit Edit Mode
           setIsEditMode(false);
-          setIsMenuOpen(false);
+          setOriginalSnapshot([]); // Clear snapshot
+          
+          // 3. Refresh data
           fetchData(); 
 
       } catch (err: any) {
           showError(t('general.error'), err.message);
-      } finally {
           setLoading(false);
       }
   };
 
   const handleCancelChanges = () => {
-      // Strictly revert to the snapshot taken when Edit Mode started
-      setLocations(JSON.parse(JSON.stringify(originalSnapshot)));
+      // 1. Revert to snapshot
+      if (originalSnapshot.length > 0) {
+          setLocations(JSON.parse(JSON.stringify(originalSnapshot)));
+      }
+      
+      // 2. Reset UI states
       setIsEditMode(false);
       setIsMenuOpen(false);
+      setOriginalSnapshot([]);
+      
       showSuccess(t('general.info'), "Changes discarded");
   };
 
@@ -172,7 +184,6 @@ export default function StockGridScreen() {
               message: t('stockGrid.enterPasscode'),
               onSubmit: (passcode) => {
                   if (passcode === workgroup?.admin_passcode) {
-                      // Deep copy snapshot
                       setOriginalSnapshot(JSON.parse(JSON.stringify(locations)));
                       setIsEditMode(true);
                       showSuccess(t('stockGrid.editModeEnabled'));
@@ -424,11 +435,6 @@ export default function StockGridScreen() {
       const masterItem = slot.items?.[0] || sortedGroup.flatMap(g => g.items || [])[0];
 
       // THE RACK EFFECT LOGIC:
-      // If masterItem exists, show card color.
-      // If NO item, check showGrid. 
-      //    If showGrid is TRUE: use background color (opaque) so the container color (the "beams") is hidden behind the slot, 
-      //    but visible in the gaps.
-      //    If showGrid is FALSE: use transparent grey.
       const slotBackgroundColor = masterItem 
           ? colors.card 
           : showGrid 
@@ -450,7 +456,6 @@ export default function StockGridScreen() {
                     styles.slotBase,
                     { 
                         backgroundColor: slotBackgroundColor,
-                        // If showing grid, the container background acts as the border
                         borderColor: showGrid ? 'transparent' : colors.border,
                         borderStyle: masterItem ? 'solid' : 'dashed',
                         borderRightWidth: isMergedRight ? 0 : 1,
@@ -460,7 +465,6 @@ export default function StockGridScreen() {
                     }
                 ]}
             >
-                {/* Gap Fillers extend the slot color over the gap to hide the "rack" (container background) */}
                 {isMergedRight && <View style={[styles.gapFillerRight, { backgroundColor: slotBackgroundColor }]} />}
                 {isMergedDown && <View style={[styles.gapFillerDown, { backgroundColor: slotBackgroundColor }]} />}
                 
@@ -536,18 +540,14 @@ export default function StockGridScreen() {
                     style={[
                         styles.shelfContainer, 
                         { 
-                            // THE RACK EFFECT:
-                            // If Show Grid is ON, background is the border color (representing beams).
-                            // The slots sit on top. The gaps reveal this background.
-                            // We use showGridLines directly (removed isEditMode check)
+                            // CHANGED: GAP_SIZE (4px) is now added as marginBottom to create spacing between shelves
+                            marginBottom: GAP_SIZE,
                             backgroundColor: showGridLines ? colors.border : 'transparent',
                             borderColor: colors.border
                         }
                     ]}
                 >
                 <View style={[styles.shelfContent, { height: shelf.totalHeight }]}>
-                    {/* Grid Overlay removed - container background handles it */}
-
                     {shelf.mappedSlots.map((slot) => (
                         <SlotComponent 
                             key={slot.id} 
@@ -568,7 +568,6 @@ export default function StockGridScreen() {
       {isMenuOpen && (
           <View style={[styles.menuContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
              
-             {/* Normal Mode Menu */}
              {!isEditMode && (
                  <>
                     <TouchableOpacity 
@@ -603,7 +602,6 @@ export default function StockGridScreen() {
                  </>
              )}
 
-             {/* Edit Mode Menu */}
              {isEditMode && (
                  <>
                     <TouchableOpacity 
