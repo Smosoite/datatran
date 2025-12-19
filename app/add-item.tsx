@@ -356,13 +356,15 @@ export default function AddItemScreen() {
       )}
        
       <Pressable 
-        style={[styles.button, { backgroundColor: colors.primary, opacity: (loading || selectedLocationIds.length === 0) ? 0.6 : 1 }]} 
+        // CHANGED: backgroundColor is now colors.selector
+        style={[styles.button, { backgroundColor: colors.selector, opacity: (loading || selectedLocationIds.length === 0) ? 0.6 : 1 }]} 
         onPress={handleAddItem} 
         disabled={loading || selectedLocationIds.length === 0}
       >
         {loading ? (
           <ActivityIndicator color={colors.text || '#fff'} />
         ) : (
+          <Text style={[typography.button, styles.buttonText, { color: colors.text || '#fff' }]}>
               {selectedLocationIds.length > 1 
                 ? `${t('item.addButton')} to (${selectedLocationIds.length}) locations`
                 : t('item.addButton')
