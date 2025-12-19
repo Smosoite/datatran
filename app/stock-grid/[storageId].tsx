@@ -46,12 +46,12 @@ export default function StockGridScreen() {
   const { storageId } = useLocalSearchParams<{ storageId: string }>();
 
   const { width: screenWidth } = useWindowDimensions(); 
-   
+    
   // --- LAYOUT CONSTANTS ---
   const TOTAL_GRID_COLS = 6; 
   const GRID_PADDING = 12; 
-  const GAP_SIZE = 4;       // Gap between cells
-  const BASE_HEIGHT = 80;   
+  const GAP_SIZE = 4;        // Gap between cells
+  const BASE_HEIGHT = 80;    
 
   // Precise Math
   const AVAILABLE_WIDTH = screenWidth - (GRID_PADDING * 2);
@@ -74,7 +74,7 @@ export default function StockGridScreen() {
           items ( id, name, quantity )
         `)
         .eq('storage_id', storageId);
-       
+        
       if (error) throw error;
 
       // Initialize: If master_id is missing, it is its own master
@@ -506,9 +506,7 @@ export default function StockGridScreen() {
                 key={shelf.shelfLabel} 
                 style={[styles.shelfContainer, { marginBottom: GAP_SIZE, borderColor: colors.border }]}
             >
-              <View style={[styles.shelfLabelTab, { backgroundColor: colors.border }]}>
-                <Text style={[styles.shelfLabelText, { color: colors.text }]}>{shelf.shelfLabel}</Text>
-              </View>
+              {/* REMOVED: shelfLabelTab View was here */}
 
               <View style={[styles.shelfContent, { height: shelf.totalHeight }]}>
                 {/* BACKGROUND GRID LINES */}
@@ -557,13 +555,16 @@ const styles = StyleSheet.create({
   },
   iconButton: { padding: 10, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   
-  shelfContainer: { position: 'relative', marginTop: 12 }, 
+  // MODIFIED: Removed marginTop: 12 so shelves stack seamlessly
+  shelfContainer: { position: 'relative' }, 
+  
   shelfLabelTab: {
     position: 'absolute', left: -10, top: -12, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 4, zIndex: 10,
   },
   shelfLabelText: { fontWeight: 'bold', fontSize: 14 },
-  // Overflow visible allows the gap filler to extend outside the shelf container to connect to the next shelf
-  shelfContent: { width: '100%', position: 'relative', marginTop: 10, overflow: 'visible' },
+  
+  // MODIFIED: Removed marginTop: 10 so content aligns with container top
+  shelfContent: { width: '100%', position: 'relative', overflow: 'visible' },
   
   slotBase: {
       width: '100%', height: '100%',
