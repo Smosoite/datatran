@@ -14,12 +14,11 @@ import * as Haptics from 'expo-haptics';
 
 // --- Data Types ---
 type LocationSlot = {
-  id: string; // The specific grid cell ID
-  master_id: string; // The ID of the "Logical" location (if merged, multiple slots share this)
+  id: string; 
+  master_id: string; 
   shelf: string;
   row: string;
   column: string;
-  // Visual props
   width_span: number; 
   height_span: number;
   items: {
@@ -27,7 +26,6 @@ type LocationSlot = {
     name: string;
     quantity: number;
   }[] | null;
-  // Computed for layout
   _top?: number;
   _left?: number;
 };
@@ -50,7 +48,7 @@ export default function StockGridScreen() {
   // --- LAYOUT CONSTANTS ---
   const TOTAL_GRID_COLS = 6; 
   const GRID_PADDING = 12; 
-  const GAP_SIZE = 4;        // Gap between cells
+  const GAP_SIZE = 4;        
   const BASE_HEIGHT = 80;    
 
   // Precise Math
@@ -76,6 +74,12 @@ export default function StockGridScreen() {
         .eq('storage_id', storageId);
         
       if (error) throw error;
+      
+      // Safety check: ensure data exists
+      if (!data) {
+          setLocations([]);
+          return;
+      }
 
       // Initialize: If master_id is missing, it is its own master
       const formattedLocations = data.map(loc => ({
@@ -89,7 +93,8 @@ export default function StockGridScreen() {
       setLocations(formattedLocations as LocationSlot[]);
 
     } catch (err: any) {
-      showError(t('general.error'), err.message);
+      console.error("StockGrid Fetch Error:", err); // Check your console for details
+      showError(t('general.error'), err.message || "Unknown error");
     } finally {
       setLoading(false);
     }
@@ -101,9 +106,6 @@ export default function StockGridScreen() {
 
   // --- MERGE LOGIC ---
   const handleMerge = async (sourceSlot: LocationSlot, direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT') => {
-    
-    // 1. Find the specific neighbor cell visually adjacent to this cell
-    // We search the entire dataset because neighbors might be on different shelves visually
     
     // Sort shelves to know order
     const allShelves = [...new Set(locations.map(l => l.shelf))].sort(naturalSort);
@@ -140,7 +142,6 @@ export default function StockGridScreen() {
             const nextShelfRows = [...new Set(nextShelfSlots.map(l => l.row))].sort(naturalSort);
             const nextShelfCols = [...new Set(nextShelfSlots.map(l => l.column))].sort(naturalSort);
             
-            // Map column index to column name in next shelf
             if (colIdx < nextShelfCols.length && nextShelfRows.length > 0) {
                 const targetCol = nextShelfCols[colIdx];
                 const targetRow = nextShelfRows[0];
@@ -172,13 +173,11 @@ export default function StockGridScreen() {
         return;
     }
 
-    // Check if they are already merged
     if (neighbor.master_id === sourceSlot.master_id) {
         Alert.alert("Already Merged", "These locations are already part of the same unit.");
         return;
     }
 
-    // Check if occupied (Merging occupied slots is complex, usually blocked)
     const neighborItems = locations.filter(l => l.master_id === neighbor!.master_id).flatMap(l => l.items || []);
     const sourceItems = locations.filter(l => l.master_id === sourceSlot.master_id).flatMap(l => l.items || []);
 
@@ -187,14 +186,9 @@ export default function StockGridScreen() {
         return;
     }
 
-    // --- PERFORM MERGE ---
-    // We define the Source's Master ID as the winner.
-    // Everyone currently pointing to Neighbor's Master ID updates to Source's Master ID.
-    
     const winningId = sourceSlot.master_id;
     const losingId = neighbor.master_id;
 
-    // Local Update
     setLocations(prev => prev.map(l => {
         if (l.master_id === losingId) {
             return { ...l, master_id: winningId };
@@ -204,8 +198,6 @@ export default function StockGridScreen() {
 
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    // DB Update
-    // 1. Update all cells that had the losing ID to have the winning ID
     const { error } = await supabase
         .from('defined_locations')
         .update({ master_id: winningId })
@@ -213,7 +205,7 @@ export default function StockGridScreen() {
 
     if (error) {
         showError("Merge failed", error.message);
-        fetchData(); // Revert
+        fetchData(); 
     }
   };
 
@@ -278,15 +270,7 @@ export default function StockGridScreen() {
   // --- COMPONENT: Slot ---
   const SlotComponent = ({ slot, allLocations, shelfLabel }: { slot: LocationSlot, allLocations: LocationSlot[], shelfLabel: string }) => {
       
-      // Check borders
-      // We look for neighbors in the global list to handle cross-shelf visually
-      // However, for the drawing within a shelf container, we are positioned relatively.
-      // But the gap filler needs to know if the neighbor shares the master_id.
-      
-      // Helper to find specific neighbor by indices to check master_id
       const getNeighborMaster = (dir: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT') => {
-          // Note: This logic duplicates handleMerge finding logic slightly but is for display
-          // Simplified for same-shelf checks primarily for borders
           const shelfLocs = allLocations.filter(l => l.shelf === shelfLabel);
           const cols = [...new Set(shelfLocs.map(l => l.column))].sort(naturalSort);
           const rows = [...new Set(shelfLocs.map(l => l.row))].sort(naturalSort);
@@ -298,7 +282,7 @@ export default function StockGridScreen() {
           if (dir === 'DOWN' && rIdx < rows.length - 1) return shelfLocs.find(l => l.column === slot.column && l.row === rows[rIdx+1])?.master_id;
           if (dir === 'UP' && rIdx > 0) return shelfLocs.find(l => l.column === slot.column && l.row === rows[rIdx-1])?.master_id;
           
-          // Cross shelf visual checks for borders (Optional, but makes it look contiguous)
+          // Cross shelf visual checks
           if (dir === 'DOWN' || dir === 'UP') {
               const shelves = [...new Set(allLocations.map(l => l.shelf))].sort(naturalSort);
               const sIdx = shelves.indexOf(shelfLabel);
@@ -328,11 +312,7 @@ export default function StockGridScreen() {
       const isMergedDown = getNeighborMaster('DOWN') === slot.master_id;
       const isMergedUp = getNeighborMaster('UP') === slot.master_id;
 
-      // Only show content (Name/Qty) if this is the "Top-Left-most" cell of the merged group
-      // or simply: determine a representative. 
-      // Simple logic: Is this the first one in the list when sorted?
       const groupMembers = allLocations.filter(l => l.master_id === slot.master_id);
-      // Sort by shelf, then row, then column
       const sortedGroup = groupMembers.sort((a,b) => {
           if (a.shelf !== b.shelf) return naturalSort(a.shelf, b.shelf);
           if (a.row !== b.row) return naturalSort(a.row, b.row);
@@ -348,9 +328,8 @@ export default function StockGridScreen() {
             left: slot._left,
             width: UNIT_WIDTH,
             height: BASE_HEIGHT,
-            zIndex: isLeader ? 10 : 1 // Leader higher z to show text above
+            zIndex: isLeader ? 10 : 1
         }}>
-            {/* The Actual Cell Box */}
             <Pressable
                 onPress={() => handleSlotPress(slot)}
                 style={[
@@ -359,7 +338,6 @@ export default function StockGridScreen() {
                         backgroundColor: masterItem ? colors.card : 'rgba(128,128,128,0.1)',
                         borderColor: colors.border,
                         borderStyle: masterItem ? 'solid' : 'dashed',
-                        // Hide borders if merged
                         borderRightWidth: isMergedRight ? 0 : 1,
                         borderLeftWidth: isMergedLeft ? 0 : 1,
                         borderTopWidth: isMergedUp ? 0 : 1,
@@ -367,11 +345,9 @@ export default function StockGridScreen() {
                     }
                 ]}
             >
-                {/* Gap Fillers: Extending the background color into the padding area */}
                 {isMergedRight && <View style={[styles.gapFillerRight, { backgroundColor: masterItem ? colors.card : 'rgba(128,128,128,0.1)' }]} />}
                 {isMergedDown && <View style={[styles.gapFillerDown, { backgroundColor: masterItem ? colors.card : 'rgba(128,128,128,0.1)' }]} />}
                 
-                {/* Content - Only show on leader */}
                 {isLeader && masterItem && (
                     <View style={styles.contentContainer}>
                         <View style={[styles.quantityBadge, { backgroundColor: masterItem.quantity > 0 ? colors.success : colors.danger }]}>
@@ -393,7 +369,6 @@ export default function StockGridScreen() {
                 )}
             </Pressable>
 
-            {/* Edit Handles - Show on every cell to allow expanding any edge */}
             {isEditMode && (
                 <>
                     {!isMergedUp && <MergeHandle direction="UP" onPress={() => handleMerge(slot, 'UP')} />}
@@ -406,7 +381,6 @@ export default function StockGridScreen() {
       );
   };
 
-  // --- ACTIONS ---
   const toggleEditMode = () => {
     if (isEditMode) {
       setIsEditMode(false);
@@ -428,7 +402,6 @@ export default function StockGridScreen() {
 
   const handleSlotPress = (slot: LocationSlot) => {
     if (!isEditMode) {
-      // Find the master item
       const groupMembers = locations.filter(l => l.master_id === slot.master_id);
       const item = groupMembers.flatMap(g => g.items || [])[0];
 
@@ -457,8 +430,6 @@ export default function StockGridScreen() {
         message: t('stockGrid.deleteMsg'),
         onSubmit: async (passcode) => {
             if (passcode === workgroup?.admin_passcode) {
-                // If deleting a merged group, we might want to just reset them to individual?
-                // For now, let's just delete the record.
                 await supabase.from('defined_locations').delete().eq('id', id);
                 fetchData();
             }
@@ -471,7 +442,6 @@ export default function StockGridScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       
-      {/* HEADER */}
       <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <View>
              <Text style={[typography.h2, { color: colors.text }]}>{t('stockGrid.title')}</Text>
@@ -498,18 +468,14 @@ export default function StockGridScreen() {
         </View>
       </View>
 
-      {/* SCROLLABLE GRID */}
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
         <View style={{ padding: GRID_PADDING }}>
           {visualGrid.map((shelf) => (
             <View 
                 key={shelf.shelfLabel} 
-                style={[styles.shelfContainer, { marginBottom: GAP_SIZE, borderColor: colors.border }]}
+                style={[styles.shelfContainer, { borderColor: colors.border }]}
             >
-              {/* REMOVED: shelfLabelTab View was here */}
-
               <View style={[styles.shelfContent, { height: shelf.totalHeight }]}>
-                {/* BACKGROUND GRID LINES */}
                 {isEditMode && showGridLines && (
                   <View style={styles.backgroundGridOverlay} pointerEvents="none">
                       {Array.from({ length: TOTAL_GRID_COLS }).map((_, i) => (
@@ -527,7 +493,6 @@ export default function StockGridScreen() {
                   </View>
                 )}
 
-                {/* SLOTS */}
                 {shelf.mappedSlots.map((slot) => (
                     <SlotComponent 
                         key={slot.id} 
@@ -555,15 +520,11 @@ const styles = StyleSheet.create({
   },
   iconButton: { padding: 10, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   
-  // MODIFIED: Removed marginTop: 12 so shelves stack seamlessly
-  shelfContainer: { position: 'relative' }, 
+  shelfContainer: { 
+      position: 'relative', 
+      marginBottom: 0, // FIXED: Removed gap between shelves
+  }, 
   
-  shelfLabelTab: {
-    position: 'absolute', left: -10, top: -12, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 4, zIndex: 10,
-  },
-  shelfLabelText: { fontWeight: 'bold', fontSize: 14 },
-  
-  // MODIFIED: Removed marginTop: 10 so content aligns with container top
   shelfContent: { width: '100%', position: 'relative', overflow: 'visible' },
   
   slotBase: {
@@ -571,13 +532,11 @@ const styles = StyleSheet.create({
       justifyContent: 'center', alignItems: 'center',
       borderRadius: 4, 
       borderWidth: 1,
-      overflow: 'visible' // Important for gap fillers
+      overflow: 'visible' 
   },
-
-  // These extend the color of the box into the gap area
   gapFillerRight: {
       position: 'absolute',
-      right: -6, // GAP_SIZE + border compensation
+      right: -6, 
       top: 0,
       bottom: 0,
       width: 6,
@@ -585,7 +544,7 @@ const styles = StyleSheet.create({
   },
   gapFillerDown: {
       position: 'absolute',
-      bottom: -6, // GAP_SIZE + border compensation
+      bottom: -6, 
       left: 0,
       right: 0,
       height: 6,
