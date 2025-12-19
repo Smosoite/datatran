@@ -261,7 +261,8 @@ export default function StockGridScreen() {
 
     return (
         <TouchableOpacity 
-            style={[styles.mergeHandle, style, { backgroundColor: colors.card }]} 
+            // MODIFIED: Removed backgroundColor: colors.card to make it transparent
+            style={[styles.mergeHandle, style]} 
             onPress={onPress}
             activeOpacity={0.7}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -586,7 +587,6 @@ const styles = StyleSheet.create({
   mergeHandle: {
     position: 'absolute', width: 24, height: 24, 
     justifyContent: 'center', alignItems: 'center', zIndex: 9999,
-    // Removed border and radius for the "clean lines" look
   },
   miniDelete: { position: 'absolute', top: 2, left: 2, backgroundColor: '#DC2626', borderRadius: 10, padding: 4, opacity: 0.8, zIndex: 60 },
 });
