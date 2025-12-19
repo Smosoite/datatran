@@ -93,7 +93,7 @@ export default function ManageWarehouseScreen() {
         headerRight: () => (
           <Pressable onPress={() => router.push({ pathname: '/create-storage', params: { warehouseId: id } })}>
             {/* --- FIX: Used theme color for icon --- */}
-            <FontAwesome name="plus" size={24} color={colors.primary} style={{ marginRight: 15 }} />
+            <FontAwesome name="plus" size={24} color={colors.selector} style={{ marginRight: 15 }} />
           </Pressable>
         )
       }} />
