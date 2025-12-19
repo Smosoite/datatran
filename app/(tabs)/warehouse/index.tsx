@@ -71,7 +71,7 @@ export default function WarehouseScreen() {
           // Note: The title for this screen is set in the parent _layout.tsx
           headerRight: () => (
             <Pressable onPress={() => router.push('/create-warehouse')}>
-              <FontAwesome name="plus" size={24} color={colors.primary} style={{ marginRight: 15 }}/>
+              <FontAwesome name="plus" size={24} color={colors.selector} style={{ marginRight: 15 }}/>
             </Pressable>
           ),
         }}
