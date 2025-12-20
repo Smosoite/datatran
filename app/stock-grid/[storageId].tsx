@@ -11,6 +11,8 @@ import { typography } from '../../styles/typography';
 import { Feather, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { logActivity } from '../../lib/logger';
 import * as Haptics from 'expo-haptics';
+import { CopilotStep, walkthroughable, useCopilot } from "react-native-copilot";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // --- Data Types ---
 type LocationSlot = {
