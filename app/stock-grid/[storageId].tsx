@@ -148,7 +148,7 @@ export default function StockGridScreen() {
               await Promise.all(updatePromises);
           }
 
-          showSuccess(t('general.success'), "Layout changes saved.");
+          showSuccess(t('general.success'), t('general.layout'));
           setIsEditMode(false);
           setOriginalSnapshot([]); 
           fetchData(); 
@@ -188,7 +188,7 @@ export default function StockGridScreen() {
                   if (passcode === workgroup?.admin_passcode) {
                       setOriginalSnapshot(JSON.parse(JSON.stringify(locations)));
                       setIsEditMode(true);
-                      showSuccess(t('general.Success'));
+                      showSuccess(t('general.success'));
                   } else {
                       showError(t('stockGrid.invalidPasscode'));
                   }
