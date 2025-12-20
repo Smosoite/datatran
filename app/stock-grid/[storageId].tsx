@@ -454,7 +454,7 @@ export default function StockGridScreen() {
   const handleDeleteLocation = (id: string) => {
      showPasscodeModal({
         title: t('general.confirm'),
-        message: t('stockGrid.deleteMsg'),
+        message: t('general.delete'),
         onSubmit: async (passcode) => {
             if (passcode === workgroup?.admin_passcode) {
                 // If deleting a merged group, we might want to just reset them to individual?
