@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import React, { useEffect } from 'react';
 import { useRouter, useSegments, Stack } from 'expo-router';
 import { AuthProvider, useAuth } from '../providers/AuthProvider';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ThemeProvider, useTheme } from '../providers/ThemeProvider'; 
 import { StatusBar } from 'expo-status-bar';
@@ -13,15 +13,34 @@ import { ModalProvider } from '../providers/ModalProvider';
 import { typography } from '../styles/typography';
 import { CopilotProvider } from "react-native-copilot";
 
-// --- FIX: This component is now correctly using the restored ThemeProvider ---
+// --- CUSTOM TOOLTIP COMPONENT ---
+// This ensures the "Tour" popup matches your App's Theme
+const CustomTooltip = ({ isFirstStep, isLastStep, handleNext, handlePrev, handleStop, currentStep, labels }) => {
+  const { colors } = useTheme();
+  return (
+    <View style={{ backgroundColor: colors.card, padding: 16, borderRadius: 12, width: 250, borderWidth: 1, borderColor: colors.border }}>
+      <Text style={[typography.h3, { color: colors.text, marginBottom: 8 }]}>{currentStep.name}</Text>
+      <Text style={[typography.body, { color: colors.subtext, marginBottom: 16 }]}>{currentStep.text}</Text>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+        {!isFirstStep ? (
+          <Text onPress={handlePrev} style={{ color: colors.primary, fontWeight: 'bold' }}>{labels.previous}</Text>
+        ) : <View />}
+        {!isLastStep ? (
+          <Text onPress={handleNext} style={{ color: colors.primary, fontWeight: 'bold' }}>{labels.next}</Text>
+        ) : (
+          <Text onPress={handleStop} style={{ color: colors.success, fontWeight: 'bold' }}>{labels.finish}</Text>
+        )}
+      </View>
+    </View>
+  );
+};
+
 const ThemedStack = () => {
   const { t } = useTranslation();
-  // Get `mode` for the status bar and `colors` for styling
   const { mode, colors } = useTheme();
 
   return (
     <>
-      {/* Use `mode` to determine the status bar style */}
       <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
       <Stack
         screenOptions={{
@@ -35,7 +54,6 @@ const ThemedStack = () => {
         <Stack.Screen name="create-warehouse" options={{ headerShown: true, title: t('warehouse.createHeader'), presentation: 'modal' }} />
         <Stack.Screen name="add-item" options={{ headerShown: true, title: t('item.addHeader'), presentation: 'modal' }} />
         <Stack.Screen name="create-storage" options={{ headerShown: true, title: '', presentation: 'modal' }} />
-        {/* Reminder: The title for this screen should be set dynamically inside `app/storage/[id].tsx` */}
         <Stack.Screen name="storage/[id]" options={{ headerShown: true, presentation: 'push' }} />
         <Stack.Screen name="create-location" options={{ headerShown: true, title: '', presentation: 'modal' }} />
         <Stack.Screen name="select-location-modal" options={{ headerShown: true, title: t('location.selectLocal'), presentation: 'modal' }} />
@@ -49,23 +67,22 @@ const ThemedStack = () => {
         <Stack.Screen name="history" options={{ headerShown: true, presentation: 'push' }} /> 
         <Stack.Screen name="manage-members" options={{ headerShown: true, presentation: 'push' }} />
         <Stack.Screen 
-  name="paywall" 
-  options={{ 
-    headerShown: false, 
-    presentation: 'modal',
-    gestureEnabled: false // Prevent swiping away if mandatory
-  }} 
-/>
+          name="paywall" 
+          options={{ 
+            headerShown: false, 
+            presentation: 'modal',
+            gestureEnabled: false 
+          }} 
+        />
       </Stack>
     </>
   );
 };
 
-// This component's logic is already correct and robust.
 const MainNavigator = () => {
   const { session, profile, loading } = useAuth();
   const router = useRouter();
-    const { colors } = useTheme();
+  const { colors } = useTheme();
   const segments = useSegments();
 
   useEffect(() => {
@@ -88,7 +105,6 @@ const MainNavigator = () => {
   }, [session, profile, loading, segments, router]);
 
   if (loading) {
-    // 2. Apply the primary theme color to the spinner
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -99,96 +115,83 @@ const MainNavigator = () => {
   return <ThemedStack />;
 };
 
-
-// This component is also correct.
-export default function RootLayout() {
-  // We need access to the theme to style our toasts, so we'll create a small helper component
-  const AppWithToasts = () => {
+// --- FIX: Wrapper to consume Theme for Copilot ---
+const AppWithCopilot = () => {
     const { colors } = useTheme();
-
-const toastConfig = {
-      // Success Toast
-      success: (props) => (
-        <BaseToast
-          {...props}
-          // --- FIX: Add alignItems: 'center' to center content vertically ---
-          style={{ 
-            height: 80, 
-            borderLeftColor: colors.success, 
-            backgroundColor: colors.card, 
-            borderLeftWidth: 7,
-            alignItems: 'center', // This is the key change for vertical alignment
-          }}
-          text2NumberOfLines={2}
-          contentContainerStyle={{ paddingHorizontal: 15 }}
-          text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
-          text2Style={{ fontSize: 14, color: colors.subtext }}
-          renderLeadingIcon={() => (
-            <FontAwesome 
-              name="check-circle" 
-              size={24} 
-              color={colors.success} 
-              style={{ marginLeft: 15 }} 
-            />
-          )}
-        />
-      ),
-      // Error Toast
-      error: (props) => (
-        <ErrorToast
-          {...props}
-          // --- FIX: Add alignItems: 'center' to center content vertically ---
-          style={{ 
-            height: 80, 
-            borderLeftColor: colors.danger, 
-            backgroundColor: colors.card, 
-            borderLeftWidth: 7,
-            alignItems: 'center', // This is the key change for vertical alignment
-          }}
-          text2NumberOfLines={2}
-          contentContainerStyle={{ paddingHorizontal: 15 }}
-          text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
-          text2Style={{ fontSize: 14, color: colors.subtext }}
-          renderLeadingIcon={() => (
-            <FontAwesome 
-              name="warning" 
-              size={24} 
-              color={colors.danger} 
-              style={{ marginLeft: 15 }} 
-            />
-          )}
-        />
-      ),
-
-       info: (props) => (
-         <BaseToast
-           {...props}
-           style={{ borderLeftColor: colors.info, backgroundColor: colors.card, borderLeftWidth: 7, alignItems: 'center' }}
-           text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
-           text2Style={{ fontSize: 14, color: colors.subtext }}
-           renderLeadingIcon={() => <FontAwesome name="info-circle" size={24} color={colors.info} style={{ marginLeft: 15 }} />}
-         />
-       ),
-    };
-
+    
     return (
-      <>
-        <MainNavigator />
-        <Toast config={toastConfig} />
-      </>
+        <CopilotProvider 
+            stopOnOutsideClick 
+            androidStatusBarVisible
+            tooltipComponent={CustomTooltip} // Use our custom themed tooltip
+            stepNumberComponent={() => null} // Hide step numbers if you want cleaner look
+            arrowColor={colors.card}
+            overlay="svg" // Smoother overlay
+            backdropColor="rgba(0, 0, 0, 0.7)"
+        >
+            <ModalProvider>
+                <MainNavigator />
+                {/* Toasts must be inside ThemeProvider to use colors */}
+                <Toast config={getToastConfig(colors)} /> 
+            </ModalProvider>
+        </CopilotProvider>
     );
-  };
+}
 
+// Helper for Toast Config to keep render clean
+const getToastConfig = (colors: any) => ({
+    success: (props: any) => (
+      <BaseToast
+        {...props}
+        style={{ 
+          height: 80, 
+          borderLeftColor: colors.success, 
+          backgroundColor: colors.card, 
+          borderLeftWidth: 7,
+          alignItems: 'center', 
+        }}
+        text2NumberOfLines={2}
+        contentContainerStyle={{ paddingHorizontal: 15 }}
+        text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
+        text2Style={{ fontSize: 14, color: colors.subtext }}
+        renderLeadingIcon={() => <FontAwesome name="check-circle" size={24} color={colors.success} style={{ marginLeft: 15 }} />}
+      />
+    ),
+    error: (props: any) => (
+      <ErrorToast
+        {...props}
+        style={{ 
+          height: 80, 
+          borderLeftColor: colors.danger, 
+          backgroundColor: colors.card, 
+          borderLeftWidth: 7,
+          alignItems: 'center', 
+        }}
+        text2NumberOfLines={2}
+        contentContainerStyle={{ paddingHorizontal: 15 }}
+        text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
+        text2Style={{ fontSize: 14, color: colors.subtext }}
+        renderLeadingIcon={() => <FontAwesome name="warning" size={24} color={colors.danger} style={{ marginLeft: 15 }} />}
+      />
+    ),
+    info: (props: any) => (
+      <BaseToast
+        {...props}
+        style={{ borderLeftColor: colors.info, backgroundColor: colors.card, borderLeftWidth: 7, alignItems: 'center' }}
+        text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
+        text2Style={{ fontSize: 14, color: colors.subtext }}
+        renderLeadingIcon={() => <FontAwesome name="info-circle" size={24} color={colors.info} style={{ marginLeft: 15 }} />}
+      />
+    ),
+});
+
+export default function RootLayout() {
   return (
     <ThemeProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <AuthProvider>
-          <CopilotProvider stopOnOutsideClick androidStatusBarVisible>
-          {/* 2. Move ModalProvider to wrap the component that renders your screens */}
-          <ModalProvider>
-            <AppWithToasts />
-          </ModalProvider>
-          </CopilotProvider>
+           {/* All content moved into AppWithCopilot to access ThemeProvider context */}
+           <AppWithCopilot />
         </AuthProvider>
       </GestureHandlerRootView>
     </ThemeProvider>
