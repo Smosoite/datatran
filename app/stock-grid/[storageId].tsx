@@ -188,7 +188,7 @@ export default function StockGridScreen() {
                   if (passcode === workgroup?.admin_passcode) {
                       setOriginalSnapshot(JSON.parse(JSON.stringify(locations)));
                       setIsEditMode(true);
-                      showSuccess(t('stockGrid.editModeEnabled'));
+                      showSuccess(t('general.Success'));
                   } else {
                       showError(t('stockGrid.invalidPasscode'));
                   }
