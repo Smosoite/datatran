@@ -48,7 +48,8 @@
     "delete": "Delete",
     "noData": "No Data",
     "noDataToExport": "There is no inventory data to export.",
-    "exportError": "Failed to export data: {{message}}"
+    "exportError": "Failed to export data: {{message}}",
+    "layout": "",
   },
   "auth": {
     "loginHeader": "Welcome Back",
