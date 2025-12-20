@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, useWindowDimensions, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, useWindowDimensions, Alert, TouchableOpacity, Platform, StatusBar } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../providers/ThemeProvider';
@@ -11,17 +11,22 @@ import { typography } from '../../styles/typography';
 import { Feather, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { logActivity } from '../../lib/logger';
 import * as Haptics from 'expo-haptics';
+
+// --- COPILOT IMPORTS ---
 import { CopilotStep, walkthroughable, useCopilot } from "react-native-copilot";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// Make components walkthrough-able
+const WalkableTouchableOpacity = walkthroughable(TouchableOpacity);
+const WalkableView = walkthroughable(View);
+
 // --- Data Types ---
 type LocationSlot = {
-  id: string; // The specific grid cell ID
-  master_id: string; // The ID of the "Logical" location (if merged, multiple slots share this)
+  id: string; 
+  master_id: string; 
   shelf: string;
   row: string;
   column: string;
-  // Visual props
   width_span: number; 
   height_span: number;
   items: {
@@ -29,7 +34,6 @@ type LocationSlot = {
     name: string;
     quantity: number;
   }[] | null;
-  // Computed for layout
   _top?: number;
   _left?: number;
 };
@@ -47,23 +51,53 @@ export default function StockGridScreen() {
   const { workgroup } = useAuth();
   const { storageId } = useLocalSearchParams<{ storageId: string }>();
 
-  const { width: screenWidth } = useWindowDimensions(); 
-   
-  // --- LAYOUT CONSTANTS ---
-  const TOTAL_GRID_COLS = 6; 
-  const GRID_PADDING = 12; 
-  const GAP_SIZE = 4;       // Gap between cells
-  const BASE_HEIGHT = 80;   
+  // --- COPILOT HOOK ---
+  const { start: startTour } = useCopilot();
 
-  // Precise Math
+  // --- DYNAMIC LAYOUT CALCULATION ---
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions(); 
+  
+  const isLandscape = screenWidth > screenHeight;
+  const VISIBLE_COLS = isLandscape ? 7 : 6; 
+  const GRID_PADDING = 12; 
+  const GAP_SIZE = 4;
+
   const AVAILABLE_WIDTH = screenWidth - (GRID_PADDING * 2);
-  const TOTAL_GAPS = GAP_SIZE * (TOTAL_GRID_COLS - 1);
-  const UNIT_WIDTH = (AVAILABLE_WIDTH - TOTAL_GAPS) / TOTAL_GRID_COLS;
+  const TOTAL_GAPS_W = GAP_SIZE * (VISIBLE_COLS - 1);
+  const UNIT_WIDTH = (AVAILABLE_WIDTH - TOTAL_GAPS_W) / VISIBLE_COLS;
+
+  const AVAILABLE_HEIGHT = screenHeight - (GRID_PADDING * 2); 
+  const TOTAL_GAPS_H = GAP_SIZE * (7 - 1); 
+  const BASE_HEIGHT = isLandscape 
+      ? Math.floor((AVAILABLE_HEIGHT - TOTAL_GAPS_H - 20) / 7) 
+      : 80;
 
   const [locations, setLocations] = useState<LocationSlot[]>([]);
+  const [originalSnapshot, setOriginalSnapshot] = useState<LocationSlot[]>([]);
   const [loading, setLoading] = useState(true);
+  
   const [isEditMode, setIsEditMode] = useState(false);
-  const [showGridLines, setShowGridLines] = useState(true);
+  const [showGridLines, setShowGridLines] = useState(true); 
+
+  // --- MENU STATE ---
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // --- START TOUR ON MOUNT (ONCE) ---
+  useEffect(() => {
+    const checkFirstTime = async () => {
+        try {
+            const hasSeen = await AsyncStorage.getItem('HAS_SEEN_GRID_TOUR');
+            if (!hasSeen) {
+                // Short delay to ensure layout renders before spotlight
+                setTimeout(() => startTour(), 500);
+                await AsyncStorage.setItem('HAS_SEEN_GRID_TOUR', 'true');
+            }
+        } catch (e) {
+            console.warn("Tour check failed", e);
+        }
+    };
+    checkFirstTime();
+  }, []);
 
   const fetchData = useCallback(async () => {
     if (!storageId) return;
@@ -76,10 +110,14 @@ export default function StockGridScreen() {
           items ( id, name, quantity )
         `)
         .eq('storage_id', storageId);
-       
+        
       if (error) throw error;
+      
+      if (!data) {
+          setLocations([]);
+          return;
+      }
 
-      // Initialize: If master_id is missing, it is its own master
       const formattedLocations = data.map(loc => ({
         ...loc,
         master_id: loc.master_id || loc.id, 
@@ -91,6 +129,7 @@ export default function StockGridScreen() {
       setLocations(formattedLocations as LocationSlot[]);
 
     } catch (err: any) {
+      console.error("StockGrid Fetch Error:", err);
       showError(t('general.error'), err.message);
     } finally {
       setLoading(false);
@@ -101,13 +140,85 @@ export default function StockGridScreen() {
     fetchData();
   }, [fetchData]);
 
-  // --- MERGE LOGIC ---
+  // --- ACTIONS: SAVE / CANCEL ---
+
+  const handleSaveChanges = async () => {
+      setIsMenuOpen(false);
+      setLoading(true);
+      try {
+          const currentIds = new Set(locations.map(l => l.id));
+          const deletedIds = originalSnapshot.filter(l => !currentIds.has(l.id)).map(l => l.id);
+
+          if (deletedIds.length > 0) {
+              const { error } = await supabase.from('defined_locations').delete().in('id', deletedIds);
+              if (error) throw error;
+          }
+
+          const changedItems = locations.filter(curr => {
+              const orig = originalSnapshot.find(o => o.id === curr.id);
+              return orig && orig.master_id !== curr.master_id;
+          });
+
+          if (changedItems.length > 0) {
+              const updatePromises = changedItems.map(item => 
+                  supabase.from('defined_locations').update({ master_id: item.master_id }).eq('id', item.id)
+              );
+              await Promise.all(updatePromises);
+          }
+
+          showSuccess(t('general.success'), "Layout changes saved.");
+          setIsEditMode(false);
+          setOriginalSnapshot([]); 
+          fetchData(); 
+
+      } catch (err: any) {
+          showError(t('general.error'), err.message);
+          setLoading(false);
+      }
+  };
+
+  const handleCancelChanges = () => {
+      if (originalSnapshot.length > 0) {
+          setLocations(JSON.parse(JSON.stringify(originalSnapshot)));
+      }
+      setIsEditMode(false);
+      setIsMenuOpen(false);
+      setOriginalSnapshot([]);
+      showSuccess(t('general.info'), "Changes discarded");
+  };
+
+  const toggleEditMode = () => {
+      setIsMenuOpen(false);
+      if (isEditMode) {
+          Alert.alert(
+              t('general.confirm'),
+              "Do you want to save your changes?",
+              [
+                  { text: "Discard", style: "destructive", onPress: handleCancelChanges },
+                  { text: "Save", onPress: handleSaveChanges }
+              ]
+          );
+      } else {
+          showPasscodeModal({
+              title: t('stockGrid.adminAccess'),
+              message: t('stockGrid.enterPasscode'),
+              onSubmit: (passcode) => {
+                  if (passcode === workgroup?.admin_passcode) {
+                      setOriginalSnapshot(JSON.parse(JSON.stringify(locations)));
+                      setIsEditMode(true);
+                      showSuccess(t('stockGrid.editModeEnabled'));
+                  } else {
+                      showError(t('stockGrid.invalidPasscode'));
+                  }
+              },
+          });
+      }
+  };
+
+  // --- LOCAL ACTIONS ---
+
   const handleMerge = async (sourceSlot: LocationSlot, direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT') => {
     
-    // 1. Find the specific neighbor cell visually adjacent to this cell
-    // We search the entire dataset because neighbors might be on different shelves visually
-    
-    // Sort shelves to know order
     const allShelves = [...new Set(locations.map(l => l.shelf))].sort(naturalSort);
     const currentShelfIdx = allShelves.indexOf(sourceSlot.shelf);
 
@@ -132,17 +243,14 @@ export default function StockGridScreen() {
         }
     } else if (direction === 'DOWN') {
         if (rowIdx < uniqueRows.length - 1) {
-            // Same shelf down
             const nextRow = uniqueRows[rowIdx + 1];
             neighbor = shelfSlots.find(l => l.column === sourceSlot.column && l.row === nextRow);
         } else if (currentShelfIdx < allShelves.length - 1) {
-            // Next shelf top row
             const nextShelf = allShelves[currentShelfIdx + 1];
             const nextShelfSlots = locations.filter(l => l.shelf === nextShelf);
             const nextShelfRows = [...new Set(nextShelfSlots.map(l => l.row))].sort(naturalSort);
             const nextShelfCols = [...new Set(nextShelfSlots.map(l => l.column))].sort(naturalSort);
             
-            // Map column index to column name in next shelf
             if (colIdx < nextShelfCols.length && nextShelfRows.length > 0) {
                 const targetCol = nextShelfCols[colIdx];
                 const targetRow = nextShelfRows[0];
@@ -151,11 +259,9 @@ export default function StockGridScreen() {
         }
     } else if (direction === 'UP') {
         if (rowIdx > 0) {
-            // Same shelf up
             const prevRow = uniqueRows[rowIdx - 1];
             neighbor = shelfSlots.find(l => l.column === sourceSlot.column && l.row === prevRow);
         } else if (currentShelfIdx > 0) {
-            // Prev shelf bottom row
             const prevShelf = allShelves[currentShelfIdx - 1];
             const prevShelfSlots = locations.filter(l => l.shelf === prevShelf);
             const prevShelfRows = [...new Set(prevShelfSlots.map(l => l.row))].sort(naturalSort);
@@ -174,13 +280,11 @@ export default function StockGridScreen() {
         return;
     }
 
-    // Check if they are already merged
     if (neighbor.master_id === sourceSlot.master_id) {
         Alert.alert("Already Merged", "These locations are already part of the same unit.");
         return;
     }
 
-    // Check if occupied (Merging occupied slots is complex, usually blocked)
     const neighborItems = locations.filter(l => l.master_id === neighbor!.master_id).flatMap(l => l.items || []);
     const sourceItems = locations.filter(l => l.master_id === sourceSlot.master_id).flatMap(l => l.items || []);
 
@@ -189,14 +293,10 @@ export default function StockGridScreen() {
         return;
     }
 
-    // --- PERFORM MERGE ---
-    // We define the Source's Master ID as the winner.
-    // Everyone currently pointing to Neighbor's Master ID updates to Source's Master ID.
-    
+    // --- PERFORM MERGE (LOCAL) ---
     const winningId = sourceSlot.master_id;
     const losingId = neighbor.master_id;
 
-    // Local Update
     setLocations(prev => prev.map(l => {
         if (l.master_id === losingId) {
             return { ...l, master_id: winningId };
@@ -205,20 +305,20 @@ export default function StockGridScreen() {
     }));
 
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    // DB Update
-    // 1. Update all cells that had the losing ID to have the winning ID
-    const { error } = await supabase
-        .from('defined_locations')
-        .update({ master_id: winningId })
-        .eq('master_id', losingId);
-
-    if (error) {
-        showError("Merge failed", error.message);
-        fetchData(); // Revert
-    }
   };
 
+  const handleDeleteLocation = (id: string) => {
+      Alert.alert(
+          t('general.delete'),
+          "Delete this location? This will be applied when you Save.",
+          [
+              { text: "Cancel", style: "cancel" },
+              { text: "Delete", style: "destructive", onPress: () => {
+                   setLocations(prev => prev.filter(l => l.id !== id));
+              }}
+          ]
+      );
+  };
 
   // --- VISUAL GRID CALCULATION ---
   const visualGrid = useMemo(() => {
@@ -245,50 +345,66 @@ export default function StockGridScreen() {
         });
 
         const rowCount = uniqueRows.length;
+        const colCount = uniqueCols.length;
         const totalHeight = (rowCount * BASE_HEIGHT) + ((rowCount - 1) * GAP_SIZE);
 
         return {
             shelfLabel: shelfKey,
             totalHeight: Math.max(totalHeight, BASE_HEIGHT),
             mappedSlots,
-            rowCount
+            rowCount,
+            colCount 
         };
     });
   }, [locations, BASE_HEIGHT, GAP_SIZE, UNIT_WIDTH]);
+
+  // --- Calculate Content Width ---
+  const maxGridColumns = useMemo(() => {
+      if (visualGrid.length === 0) return TOTAL_GRID_COLS;
+      const maxColsInShelves = Math.max(...visualGrid.map(s => s.colCount));
+      return Math.max(TOTAL_GRID_COLS, maxColsInShelves);
+  }, [visualGrid, TOTAL_GRID_COLS]);
+
+  const contentWidth = useMemo(() => {
+     return (maxGridColumns * UNIT_WIDTH) + ((maxGridColumns - 1) * GAP_SIZE) + (GRID_PADDING * 2);
+  }, [maxGridColumns, UNIT_WIDTH, GAP_SIZE, GRID_PADDING]);
 
 
   // --- COMPONENT: Merge Handle ---
   const MergeHandle = ({ direction, onPress }: { direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT', onPress: () => void }) => {
     let style = {};
-    const offset = -10; 
-    if (direction === 'UP') style = { top: offset, left: '50%', marginLeft: -10 };
-    if (direction === 'DOWN') style = { bottom: offset, left: '50%', marginLeft: -10 };
-    if (direction === 'LEFT') style = { left: offset, top: '50%', marginTop: -10 };
-    if (direction === 'RIGHT') style = { right: offset, top: '50%', marginTop: -10 };
+    const offset = -12; 
+    
+    if (direction === 'UP') style = { top: offset, left: '50%', marginLeft: -12 };
+    if (direction === 'DOWN') style = { bottom: offset, left: '50%', marginLeft: -12 };
+    if (direction === 'LEFT') style = { left: offset, top: '50%', marginTop: -12 };
+    if (direction === 'RIGHT') style = { right: offset, top: '50%', marginTop: -12 };
+
+    const isVerticalMerge = direction === 'UP' || direction === 'DOWN';
 
     return (
         <TouchableOpacity 
-            style={[styles.mergeHandle, style, { backgroundColor: colors.card, borderColor: colors.primary }]} 
+            style={[styles.mergeHandle, style]} 
             onPress={onPress}
             activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-            <MaterialCommunityIcons name="link-variant" size={12} color={colors.primary} />
+            <MaterialCommunityIcons 
+                name="equal" 
+                size={18} 
+                color={colors.primary} 
+                style={{ 
+                    transform: [{ rotate: isVerticalMerge ? '90deg' : '0deg' }]
+                }}
+            />
         </TouchableOpacity>
     );
   };
 
   // --- COMPONENT: Slot ---
-  const SlotComponent = ({ slot, allLocations, shelfLabel }: { slot: LocationSlot, allLocations: LocationSlot[], shelfLabel: string }) => {
+  const SlotComponent = ({ slot, allLocations, shelfLabel, showGrid }: { slot: LocationSlot, allLocations: LocationSlot[], shelfLabel: string, showGrid: boolean }) => {
       
-      // Check borders
-      // We look for neighbors in the global list to handle cross-shelf visually
-      // However, for the drawing within a shelf container, we are positioned relatively.
-      // But the gap filler needs to know if the neighbor shares the master_id.
-      
-      // Helper to find specific neighbor by indices to check master_id
       const getNeighborMaster = (dir: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT') => {
-          // Note: This logic duplicates handleMerge finding logic slightly but is for display
-          // Simplified for same-shelf checks primarily for borders
           const shelfLocs = allLocations.filter(l => l.shelf === shelfLabel);
           const cols = [...new Set(shelfLocs.map(l => l.column))].sort(naturalSort);
           const rows = [...new Set(shelfLocs.map(l => l.row))].sort(naturalSort);
@@ -300,7 +416,6 @@ export default function StockGridScreen() {
           if (dir === 'DOWN' && rIdx < rows.length - 1) return shelfLocs.find(l => l.column === slot.column && l.row === rows[rIdx+1])?.master_id;
           if (dir === 'UP' && rIdx > 0) return shelfLocs.find(l => l.column === slot.column && l.row === rows[rIdx-1])?.master_id;
           
-          // Cross shelf visual checks for borders (Optional, but makes it look contiguous)
           if (dir === 'DOWN' || dir === 'UP') {
               const shelves = [...new Set(allLocations.map(l => l.shelf))].sort(naturalSort);
               const sIdx = shelves.indexOf(shelfLabel);
@@ -330,11 +445,7 @@ export default function StockGridScreen() {
       const isMergedDown = getNeighborMaster('DOWN') === slot.master_id;
       const isMergedUp = getNeighborMaster('UP') === slot.master_id;
 
-      // Only show content (Name/Qty) if this is the "Top-Left-most" cell of the merged group
-      // or simply: determine a representative. 
-      // Simple logic: Is this the first one in the list when sorted?
       const groupMembers = allLocations.filter(l => l.master_id === slot.master_id);
-      // Sort by shelf, then row, then column
       const sortedGroup = groupMembers.sort((a,b) => {
           if (a.shelf !== b.shelf) return naturalSort(a.shelf, b.shelf);
           if (a.row !== b.row) return naturalSort(a.row, b.row);
@@ -343,6 +454,12 @@ export default function StockGridScreen() {
       const isLeader = sortedGroup[0].id === slot.id;
       const masterItem = slot.items?.[0] || sortedGroup.flatMap(g => g.items || [])[0];
 
+      const slotBackgroundColor = masterItem 
+          ? colors.card 
+          : showGrid 
+              ? colors.background 
+              : 'rgba(128,128,128,0.1)';
+
       return (
         <View style={{
             position: 'absolute',
@@ -350,18 +467,16 @@ export default function StockGridScreen() {
             left: slot._left,
             width: UNIT_WIDTH,
             height: BASE_HEIGHT,
-            zIndex: isLeader ? 10 : 1 // Leader higher z to show text above
+            zIndex: isLeader ? 10 : 1
         }}>
-            {/* The Actual Cell Box */}
             <Pressable
                 onPress={() => handleSlotPress(slot)}
                 style={[
                     styles.slotBase,
                     { 
-                        backgroundColor: masterItem ? colors.card : 'rgba(128,128,128,0.1)',
-                        borderColor: colors.border,
+                        backgroundColor: slotBackgroundColor,
+                        borderColor: showGrid ? 'transparent' : colors.border,
                         borderStyle: masterItem ? 'solid' : 'dashed',
-                        // Hide borders if merged
                         borderRightWidth: isMergedRight ? 0 : 1,
                         borderLeftWidth: isMergedLeft ? 0 : 1,
                         borderTopWidth: isMergedUp ? 0 : 1,
@@ -369,14 +484,12 @@ export default function StockGridScreen() {
                     }
                 ]}
             >
-                {/* Gap Fillers: Extending the background color into the padding area */}
-                {isMergedRight && <View style={[styles.gapFillerRight, { backgroundColor: masterItem ? colors.card : 'rgba(128,128,128,0.1)' }]} />}
-                {isMergedDown && <View style={[styles.gapFillerDown, { backgroundColor: masterItem ? colors.card : 'rgba(128,128,128,0.1)' }]} />}
+                {isMergedRight && <View style={[styles.gapFillerRight, { backgroundColor: slotBackgroundColor }]} />}
+                {isMergedDown && <View style={[styles.gapFillerDown, { backgroundColor: slotBackgroundColor }]} />}
                 
-                {/* Content - Only show on leader */}
                 {isLeader && masterItem && (
                     <View style={styles.contentContainer}>
-                        <View style={[styles.quantityBadge, { backgroundColor: masterItem.quantity > 0 ? colors.success : colors.danger }]}>
+                        <View style={[styles.quantityBadge, { backgroundColor: masterItem.quantity > 0 ? colors.selector : colors.danger }]}>
                             <Text style={styles.quantityText}>{masterItem.quantity}</Text>
                         </View>
                         <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={2}>
@@ -384,7 +497,7 @@ export default function StockGridScreen() {
                         </Text>
                     </View>
                 )}
-                 {isLeader && !masterItem && (
+                 {isLeader && !masterItem && !showGrid && (
                     <View style={[styles.emptyMarker, { backgroundColor: colors.border }]} />
                 )}
 
@@ -395,7 +508,6 @@ export default function StockGridScreen() {
                 )}
             </Pressable>
 
-            {/* Edit Handles - Show on every cell to allow expanding any edge */}
             {isEditMode && (
                 <>
                     {!isMergedUp && <MergeHandle direction="UP" onPress={() => handleMerge(slot, 'UP')} />}
@@ -408,29 +520,8 @@ export default function StockGridScreen() {
       );
   };
 
-  // --- ACTIONS ---
-  const toggleEditMode = () => {
-    if (isEditMode) {
-      setIsEditMode(false);
-    } else {
-      showPasscodeModal({
-        title: t('stockGrid.passcodeTitle'),
-        message: t('stockGrid.passcodeMessage'),
-        onSubmit: (passcode) => {
-          if (passcode === workgroup?.admin_passcode) {
-            setIsEditMode(true);
-            showSuccess(t('general.success'));
-          } else {
-            showError(t('stockGrid.invalidPasscode'));
-          }
-        },
-      });
-    }
-  };
-
   const handleSlotPress = (slot: LocationSlot) => {
     if (!isEditMode) {
-      // Find the master item
       const groupMembers = locations.filter(l => l.master_id === slot.master_id);
       const item = groupMembers.flatMap(g => g.items || [])[0];
 
@@ -453,98 +544,144 @@ export default function StockGridScreen() {
     }
   };
 
-  const handleDeleteLocation = (id: string) => {
-     showPasscodeModal({
-        title: t('general.confirm'),
-        message: t('general.delete'),
-        onSubmit: async (passcode) => {
-            if (passcode === workgroup?.admin_passcode) {
-                // If deleting a merged group, we might want to just reset them to individual?
-                // For now, let's just delete the record.
-                await supabase.from('defined_locations').delete().eq('id', id);
-                fetchData();
-            }
-        }
-     });
-  };
-
   if (loading) return <ActivityIndicator style={styles.centered} size="large" color={colors.primary} />;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      
-      {/* HEADER */}
-      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        <View>
-             <Text style={[typography.h2, { color: colors.text }]}>{t('stockGrid.title')}</Text>
-             {isEditMode && <Text style={[typography.caption, { color: colors.primary, fontWeight: 'bold' }]}>EDITING LAYOUT</Text>}
-        </View>
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-            {isEditMode && (
-                <Pressable 
-                    style={[styles.iconButton, { backgroundColor: showGridLines ? colors.selector : colors.card, borderColor: colors.border, borderWidth: 1 }]} 
-                    onPress={() => setShowGridLines(!showGridLines)}
-                >
-                    <MaterialIcons name="grid-on" size={20} color={showGridLines ? 'white' : colors.text} />
-                </Pressable>
-            )}
-            <Pressable 
-                style={[styles.iconButton, { backgroundColor: isEditMode ? colors.primary : colors.card, borderColor: colors.border, borderWidth: 1 }]} 
-                onPress={toggleEditMode}
+
+      {/* Grid Content */}
+      <ScrollView contentContainerStyle={{ paddingTop: 40, paddingBottom: 100 }}>
+        <ScrollView horizontal contentContainerStyle={{ flexGrow: 1 }}>
+            
+            {/* WRAP THE GRID IN A COPILOT STEP */}
+            <CopilotStep 
+                text="This is your inventory grid. Pinch, scroll, or tap slots to manage items." 
+                order={2} 
+                name="gridArea"
             >
-                <Feather name={isEditMode ? "check" : "edit-2"} size={20} color={isEditMode ? colors.primaryText : colors.text} />
-            </Pressable>
-            <Pressable style={[styles.iconButton, { backgroundColor: colors.danger }]} onPress={() => router.back()}>
-                <Feather name="x" size={20} color="white" />
-            </Pressable>
-        </View>
-      </View>
-
-      {/* SCROLLABLE GRID */}
-      <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
-        <View style={{ padding: GRID_PADDING }}>
-          {visualGrid.map((shelf) => (
-            <View 
-                key={shelf.shelfLabel} 
-                style={[styles.shelfContainer, { marginBottom: GAP_SIZE, borderColor: colors.border }]}
-            >
-              <View style={[styles.shelfLabelTab, { backgroundColor: colors.border }]}>
-                <Text style={[styles.shelfLabelText, { color: colors.text }]}>{shelf.shelfLabel}</Text>
-              </View>
-
-              <View style={[styles.shelfContent, { height: shelf.totalHeight }]}>
-                {/* BACKGROUND GRID LINES */}
-                {isEditMode && showGridLines && (
-                  <View style={styles.backgroundGridOverlay} pointerEvents="none">
-                      {Array.from({ length: TOTAL_GRID_COLS }).map((_, i) => (
-                          <View 
-                            key={`v-${i}`} 
-                            style={[ styles.gridLine, { borderColor: colors.text, left: (i * (UNIT_WIDTH + GAP_SIZE)) + UNIT_WIDTH + (GAP_SIZE / 2) } ]} 
-                          />
-                      ))}
-                      {Array.from({ length: shelf.rowCount - 1 }).map((_, i) => (
-                          <View 
-                            key={`h-${i}`} 
-                            style={[ styles.gridLineHorizontal, { borderColor: colors.text, top: (i * (BASE_HEIGHT + GAP_SIZE)) + BASE_HEIGHT + (GAP_SIZE / 2) } ]} 
-                          />
-                      ))}
-                  </View>
-                )}
-
-                {/* SLOTS */}
-                {shelf.mappedSlots.map((slot) => (
-                    <SlotComponent 
-                        key={slot.id} 
-                        slot={slot} 
-                        allLocations={locations} 
-                        shelfLabel={shelf.shelfLabel} 
-                    />
+                <WalkableView style={{ 
+                    width: Math.max(screenWidth, contentWidth), 
+                    padding: GRID_PADDING,
+                    backgroundColor: showGridLines ? colors.border : 'transparent' 
+                }}>
+                {visualGrid.map((shelf) => (
+                    <View 
+                        key={shelf.shelfLabel} 
+                        style={[
+                            styles.shelfContainer, 
+                            { 
+                                marginBottom: GAP_SIZE,
+                                borderColor: colors.border
+                            }
+                        ]}
+                    >
+                    <View style={[styles.shelfContent, { height: shelf.totalHeight }]}>
+                        {shelf.mappedSlots.map((slot) => (
+                            <SlotComponent 
+                                key={slot.id} 
+                                slot={slot} 
+                                allLocations={locations} 
+                                shelfLabel={shelf.shelfLabel} 
+                                showGrid={showGridLines}
+                            />
+                        ))}
+                    </View>
+                    </View>
                 ))}
-              </View>
-            </View>
-          ))}
-        </View>
+                </WalkableView>
+            </CopilotStep>
+        </ScrollView>
       </ScrollView>
+
+      {/* --- MENU OVERLAY --- */}
+      {isMenuOpen && (
+          <View style={[styles.menuContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+             
+             {!isEditMode && (
+                 <>
+                    <TouchableOpacity 
+                        style={styles.menuItem}
+                        onPress={() => { setShowGridLines(!showGridLines); }} 
+                    >
+                        <MaterialIcons name="grid-on" size={18} color={showGridLines ? colors.primary : colors.text} />
+                        <Text style={[styles.menuText, { color: colors.text }]}>
+                            {showGridLines ? 'Hide Grid' : 'Show Grid'}
+                        </Text>
+                    </TouchableOpacity>
+
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+                    <TouchableOpacity 
+                        style={styles.menuItem}
+                        onPress={toggleEditMode}
+                    >
+                        <Feather name="edit-2" size={18} color={colors.text} />
+                        <Text style={[styles.menuText, { color: colors.text }]}>{t('general.edit', 'Edit Layout')}</Text>
+                    </TouchableOpacity>
+                    
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                    
+                    <TouchableOpacity 
+                        style={styles.menuItem}
+                        onPress={() => router.back()}
+                    >
+                        <Feather name="log-out" size={18} color={colors.danger} />
+                        <Text style={[styles.menuText, { color: colors.danger }]}>{t('general.exit', 'Exit')}</Text>
+                    </TouchableOpacity>
+                 </>
+             )}
+
+             {isEditMode && (
+                 <>
+                    <TouchableOpacity 
+                        style={styles.menuItem}
+                        onPress={() => { setShowGridLines(!showGridLines); }} 
+                    >
+                        <MaterialIcons name="grid-on" size={18} color={showGridLines ? colors.primary : colors.text} />
+                        <Text style={[styles.menuText, { color: colors.text }]}>
+                            {showGridLines ? 'Hide Grid' : 'Show Grid'}
+                        </Text>
+                    </TouchableOpacity>
+                    
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+                    <TouchableOpacity 
+                        style={styles.menuItem}
+                        onPress={handleSaveChanges}
+                    >
+                        <Feather name="check" size={18} color={colors.success} />
+                        <Text style={[styles.menuText, { color: colors.text }]}>{t('general.save', 'Accept')}</Text>
+                    </TouchableOpacity>
+
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+                    <TouchableOpacity 
+                        style={styles.menuItem}
+                        onPress={handleCancelChanges}
+                    >
+                        <Feather name="x" size={18} color={colors.danger} />
+                        <Text style={[styles.menuText, { color: colors.text }]}>{t('general.cancel', 'Stop (Cancel)')}</Text>
+                    </TouchableOpacity>
+                 </>
+             )}
+
+          </View>
+      )}
+
+      {/* --- FAB (Wrapped in Tour) --- */}
+      <CopilotStep 
+        text="Tap here to edit your grid layout, toggle visibility, or exit." 
+        order={1} 
+        name="menuFab"
+      >
+          <WalkableTouchableOpacity 
+             style={[styles.fab, { backgroundColor: colors.card, borderColor: colors.border }]}
+             onPress={() => setIsMenuOpen(!isMenuOpen)}
+             activeOpacity={0.8}
+          >
+              <Feather name={isMenuOpen ? "x" : "menu"} size={24} color={colors.text} />
+          </WalkableTouchableOpacity>
+      </CopilotStep>
 
     </View>
   );
@@ -553,32 +690,24 @@ export default function StockGridScreen() {
 const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   container: { flex: 1 },
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: 16, paddingTop: 50, borderBottomWidth: 1, elevation: 2, zIndex: 10,
-  },
-  iconButton: { padding: 10, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   
-  shelfContainer: { position: 'relative', marginTop: 12 }, 
-  shelfLabelTab: {
-    position: 'absolute', left: -10, top: -12, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 4, zIndex: 10,
-  },
-  shelfLabelText: { fontWeight: 'bold', fontSize: 14 },
-  // Overflow visible allows the gap filler to extend outside the shelf container to connect to the next shelf
-  shelfContent: { width: '100%', position: 'relative', marginTop: 10, overflow: 'visible' },
+  shelfContainer: { 
+      position: 'relative', 
+      marginBottom: 0, 
+  }, 
+  
+  shelfContent: { width: '100%', position: 'relative', overflow: 'visible' },
   
   slotBase: {
       width: '100%', height: '100%',
       justifyContent: 'center', alignItems: 'center',
       borderRadius: 4, 
       borderWidth: 1,
-      overflow: 'visible' // Important for gap fillers
+      overflow: 'visible' 
   },
-
-  // These extend the color of the box into the gap area
   gapFillerRight: {
       position: 'absolute',
-      right: -6, // GAP_SIZE + border compensation
+      right: -6, 
       top: 0,
       bottom: 0,
       width: 6,
@@ -586,7 +715,7 @@ const styles = StyleSheet.create({
   },
   gapFillerDown: {
       position: 'absolute',
-      bottom: -6, // GAP_SIZE + border compensation
+      bottom: -6, 
       left: 0,
       right: 0,
       height: 6,
@@ -595,16 +724,6 @@ const styles = StyleSheet.create({
   
   contentContainer: { alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' },
 
-  backgroundGridOverlay: {
-      position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, zIndex: 0, 
-  },
-  gridLine: {
-      position: 'absolute', top: 0, bottom: 0, width: 1, borderLeftWidth: 1, borderStyle: 'solid', opacity: 0.2,
-  },
-  gridLineHorizontal: {
-      position: 'absolute', left: 0, right: 0, height: 1, borderTopWidth: 1, borderStyle: 'solid', opacity: 0.2,
-  },
-  
   emptyMarker: { width: 8, height: 8, borderRadius: 4 },
   quantityBadge: {
     position: 'absolute', top: 4, right: 4, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, minWidth: 20, alignItems: 'center',
@@ -613,8 +732,58 @@ const styles = StyleSheet.create({
   itemName: { fontSize: 11, fontWeight: '600', textAlign: 'center', marginTop: 12, paddingHorizontal: 2 },
 
   mergeHandle: {
-    position: 'absolute', width: 20, height: 20, borderRadius: 10, borderWidth: 1, 
-    justifyContent: 'center', alignItems: 'center', zIndex: 9999, elevation: 10
+    position: 'absolute', width: 24, height: 24, 
+    justifyContent: 'center', alignItems: 'center', zIndex: 9999,
   },
   miniDelete: { position: 'absolute', top: 2, left: 2, backgroundColor: '#DC2626', borderRadius: 10, padding: 4, opacity: 0.8, zIndex: 60 },
+
+  fab: {
+      position: 'absolute',
+      bottom: 30,
+      right: 20,
+      width: 50,
+      height: 50,
+      borderRadius: 25,
+      justifyContent: 'center',
+      alignItems: 'center',
+      elevation: 5,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 3,
+      opacity: 0.9, 
+      borderWidth: 1,
+  },
+  menuContainer: {
+      position: 'absolute',
+      bottom: 90, 
+      right: 20,
+      width: 160,
+      borderRadius: 12,
+      paddingVertical: 5,
+      zIndex: 10000,
+      elevation: 20,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 3,
+      borderWidth: 1,
+  },
+  menuItem: {
+      width: '100%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 15,
+      paddingHorizontal: 16,
+      gap: 10,
+  },
+  menuText: {
+      fontSize: 14,
+      fontWeight: '600',
+  },
+  divider: {
+      height: 1,
+      width: '100%',
+      opacity: 0.5,
+  }
 });
