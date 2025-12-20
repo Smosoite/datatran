@@ -182,7 +182,7 @@ export default function StockGridScreen() {
           );
       } else {
           showPasscodeModal({
-              title: t('stockGrid.adminAccess'),
+              title: t('stockGrid.passcodeTitle'),
               message: t('stockGrid.passcodeMessage'),
               onSubmit: (passcode) => {
                   if (passcode === workgroup?.admin_passcode) {
