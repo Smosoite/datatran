@@ -183,7 +183,7 @@ export default function StockGridScreen() {
       } else {
           showPasscodeModal({
               title: t('stockGrid.adminAccess'),
-              message: t('stockGrid.enterPasscode'),
+              message: t('stockGrid.passcodeMessage'),
               onSubmit: (passcode) => {
                   if (passcode === workgroup?.admin_passcode) {
                       setOriginalSnapshot(JSON.parse(JSON.stringify(locations)));
