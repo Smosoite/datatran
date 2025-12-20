@@ -10,6 +10,14 @@ import { FontAwesome, MaterialCommunityIcons } from '@expo/vector-icons';
 import { showError, showSuccess } from '../lib/toast';
 import { typography } from '../styles/typography';
 
+// --- COPILOT IMPORTS ---
+import { CopilotStep, walkthroughable, useCopilot } from "react-native-copilot";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const WalkableTextInput = walkthroughable(TextInput);
+const WalkableView = walkthroughable(View);
+const WalkablePressable = walkthroughable(Pressable);
+
 type DefinedLocation = { 
   id: string; 
   shelf: string; 
@@ -22,6 +30,7 @@ export default function AddItemScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const { profile } = useAuth();
+  const { start: startTour } = useCopilot();
    
   // Incoming param
   const { barcode: initialBarcode } = useLocalSearchParams<{ barcode?: string }>();
@@ -44,11 +53,26 @@ export default function AddItemScreen() {
   const [selectedWarehouse, setSelectedWarehouse] = useState<string | null>(null);
   const [selectedStorage, setSelectedStorage] = useState<string | null>(null);
   
-  // CHANGED: We now select a Shelf, then pick multiple specific IDs
   const [selectedShelf, setSelectedShelf] = useState<string | null>(null);
   const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>([]);
 
   const { warehouseId, storageId } = useLocalSearchParams<{ warehouseId?: string; storageId?: string }>();
+
+  // --- START TOUR ON MOUNT (ONCE) ---
+  useEffect(() => {
+    const checkFirstTime = async () => {
+        try {
+            const hasSeen = await AsyncStorage.getItem('HAS_SEEN_ADD_ITEM_TOUR');
+            if (!hasSeen) {
+                setTimeout(() => startTour(), 500);
+                await AsyncStorage.setItem('HAS_SEEN_ADD_ITEM_TOUR', 'true');
+            }
+        } catch (e) {
+            console.warn("Tour check failed", e);
+        }
+    };
+    checkFirstTime();
+  }, []);
 
   // Fetch warehouses
   useEffect(() => {
@@ -101,22 +125,17 @@ export default function AddItemScreen() {
   }, [selectedStorage, t]);
    
   // --- Memoized Options ---
-
-  // 1. Shelf Options
   const shelfOptions = useMemo(() => {
-      // Natural sort for shelves if possible, otherwise simple sort
       const shelves = [...new Set(allLocations.map(l => l.shelf))].sort((a,b) => a.localeCompare(b, undefined, { numeric: true }));
       return shelves.map(s => ({ label: s, value: s }));
   }, [allLocations]);
 
-  // 2. Filter locations for the Grid View based on selected Shelf
   const shelfLocations = useMemo(() => {
       if (!selectedShelf) return [];
       
       return allLocations
         .filter(l => l.shelf === selectedShelf)
         .sort((a, b) => {
-            // Sort by row then column for display
             const rowDiff = (a.row || '').localeCompare(b.row || '', undefined, { numeric: true });
             if (rowDiff !== 0) return rowDiff;
             return (a.column || '').localeCompare(b.column || '', undefined, { numeric: true });
@@ -137,7 +156,7 @@ export default function AddItemScreen() {
 
   const selectAllOnShelf = () => {
       const availableIds = shelfLocations
-        .filter(l => !l.items || l.items.length === 0) // Only empty ones
+        .filter(l => !l.items || l.items.length === 0) 
         .map(l => l.id);
       setSelectedLocationIds(availableIds);
   };
@@ -159,12 +178,10 @@ export default function AddItemScreen() {
 
     setLoading(true);
     try {
-      // Loop through all selected locations and create an item for each
-      // We use Promise.all to run them in parallel for speed
       const promises = selectedLocationIds.map(locId => {
           return supabase.rpc('add_new_item', {
             p_name: name.trim(),
-            p_quantity: parseInt(quantity, 10), // This quantity applies to EACH location
+            p_quantity: parseInt(quantity, 10), 
             p_restock_threshold: parseInt(restockThreshold, 10),
             p_warehouse_id: selectedWarehouse,
             p_storage_id: selectedStorage,
@@ -176,7 +193,6 @@ export default function AddItemScreen() {
 
       const results = await Promise.all(promises);
 
-      // Check for errors
       const failed = results.filter(r => r.error);
       if (failed.length > 0) {
           console.error(failed);
@@ -185,13 +201,10 @@ export default function AddItemScreen() {
        
       showSuccess(t('general.success'), `Added item to ${selectedLocationIds.length} location(s).`);
 
-      // Reset Form
       setName('');
       setQuantity('');
       setRestockThreshold('');
       setItemBarcode(null);
-      
-      // Keep storage/shelf selected, but clear specific slots
       setSelectedLocationIds([]);
 
     } catch (error: any) {
@@ -243,13 +256,17 @@ export default function AddItemScreen() {
       )}
 
       <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('item.name')}</Text>
-      <TextInput 
-        style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} 
-        value={name} 
-        onChangeText={setName} 
-        placeholder="e.g. Copper Wire Spool"
-        placeholderTextColor={colors.subtext}
-      />
+      
+      {/* 1. Name Input Tour Step */}
+      <CopilotStep text="Enter a unique name for your item here." order={1} name="itemName">
+          <WalkableTextInput 
+            style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} 
+            value={name} 
+            onChangeText={setName} 
+            placeholder="e.g. Copper Wire Spool"
+            placeholderTextColor={colors.subtext}
+          />
+      </CopilotStep>
 
       <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('item.quantity')}</Text>
       <TextInput 
@@ -279,7 +296,7 @@ export default function AddItemScreen() {
             selectedValue={selectedShelf}
             onValueChange={(value) => {
               setSelectedShelf(value);
-              setSelectedLocationIds([]); // Clear selection when switching shelf
+              setSelectedLocationIds([]); 
             }}
           />
 
@@ -300,63 +317,64 @@ export default function AddItemScreen() {
                         </View>
                     </View>
 
-                    <View style={styles.slotsGrid}>
-                        {shelfLocations.map((loc) => {
-                            const isOccupied = loc.items && loc.items.length > 0;
-                            const isSelected = selectedLocationIds.includes(loc.id);
-                            
-                            return (
-                                <Pressable
-                                    key={loc.id}
-                                    onPress={() => toggleLocationSelection(loc.id)}
-                                    disabled={isOccupied}
-                                    style={[
-                                        styles.slotButton,
-                                        { 
-                                            borderColor: colors.selector,
-                                            backgroundColor: isOccupied 
-                                                ? 'rgba(128,128,128,0.1)' // Greyed out if occupied
-                                                : isSelected 
-                                                    ? colors.primary // Filled if selected
-                                                    : colors.card // Empty if available
-                                        }
-                                    ]}
-                                >
-                                    <Text style={[
-                                        styles.slotText, 
-                                        { 
-                                            color: isOccupied 
-                                                ? colors.subtext 
-                                                : isSelected 
-                                                    ? '#FFF' 
-                                                    : colors.text 
-                                        }
-                                    ]}>
-                                        {/* Display logic: Row-Column, or just Column if Row is null */}
-                                        {loc.row ? `${loc.row}-` : ''}{loc.column}
-                                    </Text>
-                                    {isOccupied && (
-                                        <MaterialCommunityIcons 
-                                            name="lock" 
-                                            size={10} 
-                                            color={colors.subtext} 
-                                            style={{ position: 'absolute', top: 2, right: 2 }}
-                                        />
-                                    )}
-                                </Pressable>
-                            );
-                        })}
-                        {shelfLocations.length === 0 && (
-                             <Text style={{ color: colors.subtext, fontStyle: 'italic' }}>No slots defined for this shelf.</Text>
-                        )}
-                    </View>
+                    {/* 2. Grid Tour Step */}
+                    <CopilotStep text="Tap available slots to place your item. You can select multiple!" order={2} name="gridSelection">
+                        <WalkableView style={styles.slotsGrid}>
+                            {shelfLocations.map((loc) => {
+                                const isOccupied = loc.items && loc.items.length > 0;
+                                const isSelected = selectedLocationIds.includes(loc.id);
+                                
+                                return (
+                                    <Pressable
+                                        key={loc.id}
+                                        onPress={() => toggleLocationSelection(loc.id)}
+                                        disabled={isOccupied}
+                                        style={[
+                                            styles.slotButton,
+                                            { 
+                                                borderColor: colors.selector,
+                                                backgroundColor: isOccupied 
+                                                    ? 'rgba(128,128,128,0.1)' 
+                                                    : isSelected 
+                                                        ? colors.primary 
+                                                        : colors.card 
+                                            }
+                                        ]}
+                                    >
+                                        <Text style={[
+                                            styles.slotText, 
+                                            { 
+                                                color: isOccupied 
+                                                    ? colors.subtext 
+                                                    : isSelected 
+                                                        ? '#FFF' 
+                                                        : colors.text 
+                                            }
+                                        ]}>
+                                            {loc.row ? `${loc.row}-` : ''}{loc.column}
+                                        </Text>
+                                        {isOccupied && (
+                                            <MaterialCommunityIcons 
+                                                name="lock" 
+                                                size={10} 
+                                                color={colors.subtext} 
+                                                style={{ position: 'absolute', top: 2, right: 2 }}
+                                            />
+                                        )}
+                                    </Pressable>
+                                );
+                            })}
+                            {shelfLocations.length === 0 && (
+                                <Text style={{ color: colors.subtext, fontStyle: 'italic' }}>No slots defined for this shelf.</Text>
+                            )}
+                        </WalkableView>
+                    </CopilotStep>
                 </View>
             )}
         </>
       )}
        
       <Pressable 
-        // CHANGED: backgroundColor is now colors.selector
         style={[styles.button, { backgroundColor: colors.selector, opacity: (loading || selectedLocationIds.length === 0) ? 0.6 : 1 }]} 
         onPress={handleAddItem} 
         disabled={loading || selectedLocationIds.length === 0}
