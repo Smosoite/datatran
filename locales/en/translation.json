@@ -264,7 +264,7 @@
     "createButton": "Create Workgroup",
   },
   "pilot": {
-    "namePlaceholder": "Roadhouse Inc.",
+    "addNew": "Tap here to manually add new items to your inventory.",
     "createButton": "Create Workgroup",
   },
   "paywall": {
