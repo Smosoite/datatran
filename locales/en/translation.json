@@ -266,6 +266,10 @@
   "pilot": {
     "addNew": "Tap here to manually add new items to your inventory.",
     "search": "Search for items by name or location.",
+    "addNew": "Tap here to manually add new items to your inventory.",
+    "search": "Search for items by name or location.",
+    "addNew": "Tap here to manually add new items to your inventory.",
+    "search": "Search for items by name or location.",
   },
   "paywall": {
     "title": "Unlock StoreTool",
