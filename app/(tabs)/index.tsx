@@ -76,7 +76,7 @@ export default function HomeScreen() {
         <View style={styles.buttonContainer}>
           
           {/* STEP 1: Add Item */}
-          <CopilotStep text="Tap here to manually add new items to your inventory." order={1} name="addItem">
+          <CopilotStep text= {t('pilot.addNew')} order={1} name="addItem">
             <WalkablePressable style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/add-item')}>
                 <FontAwesome name="plus-circle" size={20} color={colors.text} style={[typography.shadow, { textShadowColor: colors.textShadow }]} />
                 <Text style={[typography.button, typography.shadow, styles.buttonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('dashboard.addItem')}</Text>
