@@ -109,7 +109,7 @@ export default function ManageWarehouseScreen() {
 
   // Helper for Header Button Tour Step
   const renderHeaderRight = () => (
-      <CopilotStep text="Tap here to add a storage unit to this warehouse." order={1} name="addStorage">
+      <CopilotStep text={t('pilot.addStorage')} order={1} name="addStorage">
         <WalkablePressable onPress={() => router.push({ pathname: '/create-storage', params: { warehouseId: id } })}>
           <FontAwesome name="plus" size={24} color={colors.selector} style={{ marginRight: 15 }} />
         </WalkablePressable>
