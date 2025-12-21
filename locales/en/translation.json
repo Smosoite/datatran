@@ -275,7 +275,7 @@
     "edit": "Tap to edit item details.",
     "adjust": "Quickly adjust stock levels.",
     "addStorage": "Tap here to add a storage unit to this warehouse.",
-    "search": "Search for items by name or location.",
+    "viewStorage": "Tap a storage unit to view items inside.",
   },
   "paywall": {
     "title": "Unlock StoreTool",
