@@ -84,7 +84,7 @@ export default function HomeScreen() {
           </CopilotStep>
 
           {/* STEP 2: Find Item */}
-          <CopilotStep text="Search for items by name, SKU, or location." order={2} name="findItem">
+          <CopilotStep text={t('pilot.search')} order={2} name="findItem">
             <WalkablePressable style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/find')}>
                 <FontAwesome name="search" size={20} color={colors.text} style={[typography.shadow, { textShadowColor: colors.textShadow }]} />
                 <Text style={[typography.button, typography.shadow, styles.buttonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('dashboard.findItem')}</Text>
