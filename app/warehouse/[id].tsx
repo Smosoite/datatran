@@ -141,7 +141,7 @@ export default function ManageWarehouseScreen() {
                     </CopilotStep>
                     
                     {profile?.role === 'admin' && (
-                      <CopilotStep text="Admins can open the visual grid layout here." order={3} name="openGrid">
+                      <CopilotStep text={t('pilot.openGrid')} order={3} name="openGrid">
                           <WalkablePressable 
                             style={[styles.gridButton, { backgroundColor: colors.selector }]} 
                             onPress={() => handleOpenGrid(item.id)}
