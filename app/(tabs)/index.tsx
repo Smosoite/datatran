@@ -1,11 +1,18 @@
 import { useRouter, useFocusEffect } from 'expo-router';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, FlatList, Alert } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../providers/ThemeProvider';
 import { typography } from '../../styles/typography';
+
+// --- COPILOT IMPORTS ---
+import { CopilotStep, walkthroughable, useCopilot } from "react-native-copilot";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const WalkablePressable = walkthroughable(Pressable);
+const WalkableView = walkthroughable(View);
 
 type RestockItem = {
   id: string;
@@ -20,10 +27,28 @@ export default function HomeScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const [restockItems, setRestockItems] = useState<RestockItem[]>([]);
-  // --- FIX: Removed unused `hasLocations` state ----
-
-  const { colors } = useTheme(); // --- FIX: Correct way to get colors ---
+  const { colors } = useTheme();
   const [loading, setLoading] = useState(true);
+
+  // --- COPILOT HOOK ---
+  const { start: startTour } = useCopilot();
+
+  // --- START TOUR ON MOUNT (ONCE) ---
+  useEffect(() => {
+    const checkFirstTime = async () => {
+        try {
+            const hasSeen = await AsyncStorage.getItem('HAS_SEEN_DASHBOARD_TOUR');
+            if (!hasSeen) {
+                // Short delay to ensure layout is ready
+                setTimeout(() => startTour(), 500);
+                await AsyncStorage.setItem('HAS_SEEN_DASHBOARD_TOUR', 'true');
+            }
+        } catch (e) {
+            console.warn("Tour check failed", e);
+        }
+    };
+    checkFirstTime();
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -41,36 +66,48 @@ export default function HomeScreen() {
       };
 
       fetchData();
-    }, [t]) // Added `t` to dependency array for correctness
+    }, [t])
   );
 
-  // --- FIX: Removed unused `updateItemQuantity` function ---
-
   return (
-    // --- FIX: `styles.container` is now just `flex: 1` ---
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.headerContainer, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <Text style={[styles.title, { color: colors.text }]}></Text>
         <View style={styles.buttonContainer}>
-          <Pressable style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/add-item')}>
-            <FontAwesome name="plus-circle" size={20} color={colors.text} style={[
-    typography.shadow, { textShadowColor: colors.textShadow }]} />
-            <Text style={[typography.button, typography.shadow, styles.buttonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('dashboard.addItem')}</Text>
-          </Pressable>
-          <Pressable style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/find')}>
-            <FontAwesome name="search" size={20} color={colors.text} style={[
-    typography.shadow, { textShadowColor: colors.textShadow }]} />
-            <Text style={[typography.button, typography.shadow, styles.buttonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('dashboard.findItem')}</Text>
-          </Pressable>
-          <Pressable style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/scan')}>
-            <FontAwesome name="barcode" size={20} color={colors.text} style={[
-    typography.shadow, { textShadowColor: colors.textShadow }]}/>
-            <Text style={[typography.button, typography.shadow, styles.buttonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('dashboard.scanItem')}</Text>
-          </Pressable>
+          
+          {/* STEP 1: Add Item */}
+          <CopilotStep text="Tap here to manually add new items to your inventory." order={1} name="addItem">
+            <WalkablePressable style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/add-item')}>
+                <FontAwesome name="plus-circle" size={20} color={colors.text} style={[typography.shadow, { textShadowColor: colors.textShadow }]} />
+                <Text style={[typography.button, typography.shadow, styles.buttonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('dashboard.addItem')}</Text>
+            </WalkablePressable>
+          </CopilotStep>
+
+          {/* STEP 2: Find Item */}
+          <CopilotStep text="Search for items by name, SKU, or location." order={2} name="findItem">
+            <WalkablePressable style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/find')}>
+                <FontAwesome name="search" size={20} color={colors.text} style={[typography.shadow, { textShadowColor: colors.textShadow }]} />
+                <Text style={[typography.button, typography.shadow, styles.buttonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('dashboard.findItem')}</Text>
+            </WalkablePressable>
+          </CopilotStep>
+
+          {/* STEP 3: Scan Item */}
+          <CopilotStep text="Use your camera to quickly scan barcodes for lookup or entry." order={3} name="scanItem">
+            <WalkablePressable style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/scan')}>
+                <FontAwesome name="barcode" size={20} color={colors.text} style={[typography.shadow, { textShadowColor: colors.textShadow }]}/>
+                <Text style={[typography.button, typography.shadow, styles.buttonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('dashboard.scanItem')}</Text>
+            </WalkablePressable>
+          </CopilotStep>
+
         </View>
       </View>
       
-      <Text style={[typography.h3, styles.listHeader, { color: colors.text }]}>{t('dashboard.needsRestock')}</Text>
+      {/* STEP 4: Restock List */}
+      <CopilotStep text="Items running low will appear here automatically." order={4} name="restockList">
+        <WalkableView>
+            <Text style={[typography.h3, styles.listHeader, { color: colors.text }]}>{t('dashboard.needsRestock')}</Text>
+        </WalkableView>
+      </CopilotStep>
       
       <View style={styles.listContainer}>
         {loading ? (
@@ -100,8 +137,7 @@ export default function HomeScreen() {
         
         {!loading && restockItems.length > 0 && (
           <Pressable style={[styles.restockButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/restock')}>
-            <FontAwesome name="cubes" size={20} color={colors.text} style={[
-    typography.shadow, { textShadowColor: colors.textShadow }]} />
+            <FontAwesome name="cubes" size={20} color={colors.text} style={[typography.shadow, { textShadowColor: colors.textShadow }]} />
             <Text style={[typography.h3, typography.shadow, styles.restockButtonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('restock.button')}</Text>
           </Pressable>
         )}
@@ -111,13 +147,12 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  // --- FIX: Container style no longer centers everything, allowing for top-down layout ---
   container: {
     flex: 1,
   },
   headerContainer: {
     padding: 16,
-    paddingTop: 40, // Adjust for status bar if needed
+    paddingTop: 40, 
     borderBottomWidth: 1,
   },
   title: {
