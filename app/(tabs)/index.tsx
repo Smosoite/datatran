@@ -103,7 +103,7 @@ export default function HomeScreen() {
       </View>
       
       {/* STEP 4: Restock List */}
-      <CopilotStep text="Items running low will appear here automatically." order={4} name="restockList">
+      <CopilotStep text={t('pilot.restock')} order={4} name="restockList">
         <WalkableView>
             <Text style={[typography.h3, styles.listHeader, { color: colors.text }]}>{t('dashboard.needsRestock')}</Text>
         </WalkableView>
