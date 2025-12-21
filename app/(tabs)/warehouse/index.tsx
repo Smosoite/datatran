@@ -122,7 +122,7 @@ export default function WarehouseScreen() {
           // STEP 2: Highlight first item as example
           if (index === 0) {
               return (
-                <CopilotStep text="Tap a warehouse to view its storages and inventory." order={2} name="viewWarehouse">
+                <CopilotStep text={t('pilot.openWarehouse')} order={2} name="viewWarehouse">
                     <WalkablePressable
                         style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: colors.border }]}
                         onPress={() => router.push(`/warehouse/${item.id}`)}
