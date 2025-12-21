@@ -92,7 +92,7 @@ export default function HomeScreen() {
           </CopilotStep>
 
           {/* STEP 3: Scan Item */}
-          <CopilotStep text="Use your camera to quickly scan barcodes for lookup or entry." order={3} name="scanItem">
+          <CopilotStep text={t('pilot.scan')} order={3} name="scanItem">
             <WalkablePressable style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/scan')}>
                 <FontAwesome name="barcode" size={20} color={colors.text} style={[typography.shadow, { textShadowColor: colors.textShadow }]}/>
                 <Text style={[typography.button, typography.shadow, styles.buttonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('dashboard.scanItem')}</Text>
