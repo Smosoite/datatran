@@ -268,7 +268,13 @@
     "search": "Search for items by name or location.",
     "scan": "Use your camera to quickly scan barcodes for lookup or entry.",
     "fistWarehouse": "Tap here to create your first warehouse.",
+    "newWarehouse": "Tap here to create a new warehouse.",
+    "search": "Search for items by name or location.",
     "addNew": "Tap here to manually add new items to your inventory.",
+    "search": "Search for items by name or location.",
+    "scan": "Use your camera to quickly scan barcodes for lookup or entry.",
+    "fistWarehouse": "Tap here to create your first warehouse.",
+    "newWarehouse": "Tap here to create a new warehouse.",
     "search": "Search for items by name or location.",
   },
   "paywall": {
