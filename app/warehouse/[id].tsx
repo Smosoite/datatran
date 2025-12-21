@@ -130,7 +130,7 @@ export default function ManageWarehouseScreen() {
             if (index === 0) {
                 return (
                   <View style={[styles.card, styles.itemContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                    <CopilotStep text="Tap a storage unit to view items inside." order={2} name="viewStorage">
+                    <CopilotStep text={t('pilot.viewStorage')} order={2} name="viewStorage">
                         <WalkablePressable 
                           style={styles.mainContent} 
                           onPress={() => router.push(`/storage/${item.id}`)}
