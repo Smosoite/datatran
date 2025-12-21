@@ -90,7 +90,7 @@ export default function WarehouseScreen() {
 
   // Helper to render header button only if warehouses exist, wrapped in Copilot
   const renderHeaderRight = () => (
-      <CopilotStep text="Tap here to create a new warehouse." order={1} name="addWarehouseHeader">
+      <CopilotStep text={t('pilot.newWarehouse')} order={1} name="addWarehouseHeader">
         <WalkablePressable onPress={() => router.push('/create-warehouse')}>
           <FontAwesome name="plus" size={24} color={colors.selector} style={{ marginRight: 15 }}/>
         </WalkablePressable>
