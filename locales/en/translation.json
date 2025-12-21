@@ -265,7 +265,7 @@
   },
   "pilot": {
     "addNew": "Tap here to manually add new items to your inventory.",
-    "createButton": "Create Workgroup",
+    "search": "Search for items by name or location.",
   },
   "paywall": {
     "title": "Unlock StoreTool",
