@@ -163,7 +163,7 @@ export default function FindScreen() {
                         </CopilotStep>
                         
                         {/* STEP 4: Quantity Controls */}
-                        <CopilotStep text="Quickly adjust stock levels." order={4} name="quantityControls">
+                        <CopilotStep text={t('pilot.adjust')} order={4} name="quantityControls">
                             <WalkableView style={[styles.quantityControls, { backgroundColor: colors.background }]}>
                                 <Text style={[typography.body, styles.quantityLabel, { color: colors.text }]}>{t('item.quantity')}</Text>
                                 <Pressable style={styles.quantityButton} onPress={() => updateItemQuantity(item.id, item.quantity - 1)}>
