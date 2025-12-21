@@ -155,7 +155,7 @@ export default function FindScreen() {
 
                       <View style={styles.actionsColumn}>
                         {/* STEP 3: Edit Button */}
-                        <CopilotStep text="Tap to edit item details." order={3} name="editItem">
+                        <CopilotStep text={t('pilot.edit')} order={3} name="editItem">
                             <WalkablePressable style={styles.editButton} onPress={() => router.push(`/edit-item/${item.id}`)}>
                                 <FontAwesome name="pencil" size={18} color={colors.primary} />
                                 <Text style={[typography.button, styles.editButtonText, { color: colors.primary }]}>{t('find.edit')}</Text>
