@@ -274,7 +274,7 @@
     "findlocation": "View item location and details here.",
     "edit": "Tap to edit item details.",
     "adjust": "Quickly adjust stock levels.",
-    "newWarehouse": "Tap here to create a new warehouse.",
+    "addStorage": "Tap here to add a storage unit to this warehouse.",
     "search": "Search for items by name or location.",
   },
   "paywall": {
