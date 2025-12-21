@@ -263,6 +263,10 @@
     "namePlaceholder": "Roadhouse Inc.",
     "createButton": "Create Workgroup",
   },
+  "pilot": {
+    "namePlaceholder": "Roadhouse Inc.",
+    "createButton": "Create Workgroup",
+  },
   "paywall": {
     "title": "Unlock StoreTool",
     "subtitle": "Streamline your inventory with quick and easy management!",
