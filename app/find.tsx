@@ -43,6 +43,7 @@ export default function FindScreen() {
 
   // --- START TOUR ON MOUNT (ONCE) ---
   useEffect(() => {
+    if (loading) return;
     const checkFirstTime = async () => {
         try {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_FIND_TOUR');
@@ -55,7 +56,7 @@ export default function FindScreen() {
         }
     };
     checkFirstTime();
-  }, []);
+  }, [loading]);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
