@@ -116,7 +116,7 @@ export default function ManageStorageScreen() {
 
   // Copilot Wrapper for Header Button
   const renderHeaderRight = () => (
-      <CopilotStep text="Tap here to define a new shelf, row, or bin location." order={1} name="addLocation">
+      <CopilotStep text= {t('copilot.tap')} order={1} name="addLocation">
         <WalkablePressable onPress={() => router.push({ pathname: '/create-location', params: { storageId } })}>
           <FontAwesome name="plus" size={24} color={colors.selector} style={{ marginRight: 15 }} />
         </WalkablePressable>
