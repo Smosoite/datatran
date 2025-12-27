@@ -212,7 +212,7 @@ export default function RestockScreen() {
       )}
       
       {selectedItems.length > 0 && (
-        <CopilotStep text="Tap here to restock all selected items at once." order={2} name="bulkAction">
+        <CopilotStep text= {t('pilot.stockbulk')} order={2} name="bulkAction">
             <WalkableView style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
                 <Pressable style={[styles.bulkButton, { backgroundColor: colors.success }]} onPress={openBulkStockModal}>
                     <Text style={[typography.button, styles.bulkButtonText, { color: colors.primaryText }]}>{t('restock.bulkButton', { count: selectedItems.length })}</Text>
