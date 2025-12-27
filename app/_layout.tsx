@@ -20,18 +20,45 @@ const CustomTooltip = (props: any) => {
   const { colors } = useTheme();
 
   return (
-    <View style={{ backgroundColor: colors.card, padding: 16, borderRadius: 12, width: 250, borderWidth: 1, borderColor: colors.border }}>
+    // Only ONE View here with your card styles
+    <View style={{ 
+        backgroundColor: colors.card, 
+        padding: 16, 
+        borderRadius: 12, 
+        width: 250, 
+        borderWidth: 1, 
+        borderColor: colors.border,
+        // Shadow for depth
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        elevation: 5,
+    }}>
       <Text style={[typography.h3, { color: colors.text, marginBottom: 8 }]}>{currentStep?.name}</Text>
       <Text style={[typography.body, { color: colors.subtext, marginBottom: 16 }]}>{currentStep?.text}</Text>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        {!isFirstStep ? (
-          <Text onPress={handlePrev} style={{ color: colors.primary, fontWeight: 'bold' }}>{labels?.previous || 'Back'}</Text>
-        ) : <View />}
-        {!isLastStep ? (
-          <Text onPress={handleNext} style={{ color: colors.primary, fontWeight: 'bold' }}>{labels?.next || 'Next'}</Text>
-        ) : (
-          <Text onPress={handleStop} style={{ color: colors.success, fontWeight: 'bold' }}>{labels?.finish || 'Finish'}</Text>
-        )}
+      
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <TouchableOpacity onPress={handleStop}>
+            <Text style={{ color: colors.subtext, fontSize: 12 }}>{labels?.skip || 'Skip'}</Text>
+        </TouchableOpacity>
+
+        <View style={{ flexDirection: 'row', gap: 15 }}>
+            {!isFirstStep && (
+                <TouchableOpacity onPress={handlePrev}>
+                    <Text style={{ color: colors.primary, fontWeight: '600' }}>{labels?.previous || 'Back'}</Text>
+                </TouchableOpacity>
+            )}
+            {!isLastStep ? (
+                <TouchableOpacity onPress={handleNext}>
+                    <Text style={{ color: colors.primary, fontWeight: 'bold' }}>{labels?.next || 'Next'}</Text>
+                </TouchableOpacity>
+            ) : (
+                <TouchableOpacity onPress={handleStop}>
+                    <Text style={{ color: colors.success, fontWeight: 'bold' }}>{labels?.finish || 'Done'}</Text>
+                </TouchableOpacity>
+            )}
+        </View>
       </View>
     </View>
   );
@@ -128,10 +155,12 @@ const AppWithCopilot = () => {
             stopOnOutsideClick 
             androidStatusBarVisible
             tooltipComponent={CustomTooltip} 
-            stepNumberComponent={() => null} 
-            arrowColor={colors.card}
+            stepNumberComponent={() => null} // Hides the little green number badge
+            arrowColor={colors.card} // Matches tooltip background so the little arrow blends in
             overlay="svg" 
             backdropColor="rgba(0, 0, 0, 0.7)"
+            // --- FIX: This removes the default white box ---
+            tooltipStyle={{ backgroundColor: 'transparent', borderRadius: 12 }}
         >
             <ModalProvider>
                 <MainNavigator />
