@@ -125,7 +125,7 @@ export default function ManageMembersScreen() {
           if (index === 0) {
               return (
                 <CopilotStep text="Manage user roles and permissions here." order={1} name="memberCard">
-                    <WalkableView style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <WalkableView style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]} collapsable={false}>
                         <View style={styles.userInfo}>
                             <View style={[styles.avatar, { backgroundColor: colors.border }]}>
                             <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.text }}>
