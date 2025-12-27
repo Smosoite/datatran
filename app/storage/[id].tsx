@@ -140,7 +140,7 @@ export default function ManageStorageScreen() {
           if (index === 0) {
               return ( 
                 <View style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  <CopilotStep text="See location details and assigned items here." order={2} name="viewLocation">
+                  <CopilotStep text= {t('pilot.see')} order={2} name="viewLocation">
                       <WalkableView style={styles.locationDetails}>
                         <Text style={[typography.body, styles.itemName, { color: colors.text }]}>{formatLocationName(item)}</Text>
                         {assignedItem ? (
