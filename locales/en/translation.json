@@ -294,6 +294,7 @@
     "export": "Tap here to export your entire inventory data to a CSV file.",
     "history": "Admins can view history logs and change the security passcode here.",
     "custom": "Customize the app look and feel here.",
+    "stockbulk": "Tap here to restock all selected items at once.",
     
   },
   "paywall": {
