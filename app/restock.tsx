@@ -86,7 +86,7 @@ export default function RestockScreen() {
         try {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_RESTOCK_TOUR');
             if (!hasSeen) {
-                setTimeout(() => startTour(), 1000); 
+                setTimeout(() => startTour(), 1500); 
                 await AsyncStorage.setItem('HAS_SEEN_RESTOCK_TOUR', 'true');
             }
         } catch (e) { console.warn(e); }
