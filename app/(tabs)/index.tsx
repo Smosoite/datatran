@@ -6,6 +6,8 @@ import { supabase } from '../../lib/supabase';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../providers/ThemeProvider';
 import { typography } from '../../styles/typography';
+import { fetchWithCache } from '../../lib/offline'; // Import the helper
+import { showError } from '../../lib/toast';
 
 // --- COPILOT IMPORTS ---
 import { CopilotStep, walkthroughable, useCopilot } from "react-native-copilot";
