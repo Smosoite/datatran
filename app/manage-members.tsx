@@ -185,7 +185,7 @@ export default function ManageMembersScreen() {
                     {/* STEP 2 & 3: Highlight Actions on the first non-me user if available */}
                     {index === 1 ? (
                         <>
-                            <CopilotStep text="Tap to promote or demote this user." order={2} name="promoteUser">
+                            <CopilotStep text= {t('pilot.promote')} order={2} name="promoteUser">
                                 <WalkablePressable style={[styles.iconButton, { backgroundColor: colors.background }]} onPress={() => handleToggleRole(item)}>
                                     <FontAwesome name={isAdmin ? "arrow-down" : "arrow-up"} size={16} color={colors.text} />
                                 </WalkablePressable>
