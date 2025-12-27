@@ -73,7 +73,7 @@ export default function AddItemScreen() {
         }
     };
     checkFirstTime();
-  }, []);
+  }, [loading]);
 
   // Fetch warehouses
   useEffect(() => {
