@@ -36,7 +36,7 @@ export default function EditItemScreen() {
         try {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_EDIT_ITEM_TOUR');
             if (!hasSeen) {
-                setTimeout(() => startTour(), 800); // Delay for fetch
+                setTimeout(() => startTour(), 1500); // Delay for fetch
                 await AsyncStorage.setItem('HAS_SEEN_EDIT_ITEM_TOUR', 'true');
             }
         } catch (e) { console.warn(e); }
