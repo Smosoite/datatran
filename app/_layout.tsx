@@ -14,48 +14,30 @@ import { typography } from '../styles/typography';
 import { CopilotProvider } from "react-native-copilot";
 
 // --- CUSTOM TOOLTIP COMPONENT ---
-// This ensures the "Tour" popup matches your App's Theme
-
-interface CopilotTooltipProps {
-  isFirstStep: boolean;
-  isLastStep: boolean;
-  handleNext: () => void;
-  handlePrev: () => void;
-  handleStop: () => void;
-  currentStep: {
-    name: string;
-    text: string;
-    order: number;
-    target: any;
-    wrapper: any;
-  };
-  labels: {
-    skip: string;
-    previous: string;
-    next: string;
-    finish: string;
-  };
-}
-const CustomTooltip = ({ isFirstStep, isLastStep, handleNext, handlePrev, handleStop, currentStep, labels }: CopilotTooltipProps) => {
+// Defined safely outside of other components
+const CustomTooltip = (props: any) => {
+  const { isFirstStep, isLastStep, handleNext, handlePrev, handleStop, currentStep, labels } = props;
   const { colors } = useTheme();
+
   return (
     <View style={{ backgroundColor: colors.card, padding: 16, borderRadius: 12, width: 250, borderWidth: 1, borderColor: colors.border }}>
-      <Text style={[typography.h3, { color: colors.text, marginBottom: 8 }]}>{currentStep.name}</Text>
-      <Text style={[typography.body, { color: colors.subtext, marginBottom: 16 }]}>{currentStep.text}</Text>
+      <Text style={[typography.h3, { color: colors.text, marginBottom: 8 }]}>{currentStep?.name}</Text>
+      <Text style={[typography.body, { color: colors.subtext, marginBottom: 16 }]}>{currentStep?.text}</Text>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
         {!isFirstStep ? (
-          <Text onPress={handlePrev} style={{ color: colors.primary, fontWeight: 'bold' }}>{labels.previous}</Text>
+          <Text onPress={handlePrev} style={{ color: colors.primary, fontWeight: 'bold' }}>{labels?.previous || 'Back'}</Text>
         ) : <View />}
         {!isLastStep ? (
-          <Text onPress={handleNext} style={{ color: colors.primary, fontWeight: 'bold' }}>{labels.next}</Text>
+          <Text onPress={handleNext} style={{ color: colors.primary, fontWeight: 'bold' }}>{labels?.next || 'Next'}</Text>
         ) : (
-          <Text onPress={handleStop} style={{ color: colors.success, fontWeight: 'bold' }}>{labels.finish}</Text>
+          <Text onPress={handleStop} style={{ color: colors.success, fontWeight: 'bold' }}>{labels?.finish || 'Finish'}</Text>
         )}
       </View>
     </View>
   );
 };
 
+// --- STACK NAVIGATOR ---
 const ThemedStack = () => {
   const { t } = useTranslation();
   const { mode, colors } = useTheme();
@@ -100,6 +82,7 @@ const ThemedStack = () => {
   );
 };
 
+// --- AUTH HANDLER ---
 const MainNavigator = () => {
   const { session, profile, loading } = useAuth();
   const router = useRouter();
@@ -136,7 +119,7 @@ const MainNavigator = () => {
   return <ThemedStack />;
 };
 
-// --- FIX: Wrapper to consume Theme for Copilot ---
+// --- APP WRAPPER WITH COPILOT ---
 const AppWithCopilot = () => {
     const { colors } = useTheme();
     
@@ -144,22 +127,20 @@ const AppWithCopilot = () => {
         <CopilotProvider 
             stopOnOutsideClick 
             androidStatusBarVisible
-            tooltipComponent={CustomTooltip} // Use our custom themed tooltip
-            stepNumberComponent={() => null} // Hide step numbers if you want cleaner look
+            tooltipComponent={CustomTooltip} 
+            stepNumberComponent={() => null} 
             arrowColor={colors.card}
-            overlay="svg" // Smoother overlay
+            overlay="svg" 
             backdropColor="rgba(0, 0, 0, 0.7)"
         >
             <ModalProvider>
                 <MainNavigator />
-                {/* Toasts must be inside ThemeProvider to use colors */}
                 <Toast config={getToastConfig(colors)} /> 
             </ModalProvider>
         </CopilotProvider>
     );
 }
 
-// Helper for Toast Config to keep render clean
 const getToastConfig = (colors: any) => ({
     success: (props: any) => (
       <BaseToast
@@ -211,7 +192,6 @@ export default function RootLayout() {
     <ThemeProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <AuthProvider>
-           {/* All content moved into AppWithCopilot to access ThemeProvider context */}
            <AppWithCopilot />
         </AuthProvider>
       </GestureHandlerRootView>
