@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable, Alert } from 'react-native';
 import { useFocusEffect, Stack } from 'expo-router';
 import { supabase } from '../lib/supabase';
@@ -10,6 +10,13 @@ import { showError, showSuccess } from '../lib/toast';
 import { typography } from '../styles/typography';
 import { FontAwesome } from '@expo/vector-icons';
 
+// --- COPILOT IMPORTS ---
+import { CopilotStep, walkthroughable, useCopilot } from "react-native-copilot";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const WalkableView = walkthroughable(View);
+const WalkablePressable = walkthroughable(Pressable);
+
 type UserProfile = {
   id: string;
   username: string;
@@ -19,11 +26,27 @@ type UserProfile = {
 export default function ManageMembersScreen() {
   const { t } = useTranslation();
   const { colors } = useTheme();
-  const { profile: myProfile } = useAuth(); // Get current user's ID to prevent self-kicking
+  const { profile: myProfile } = useAuth(); 
   const { showConfirmation } = useModal();
   
   const [members, setMembers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // --- COPILOT HOOK ---
+  const { start: startTour } = useCopilot();
+
+  useEffect(() => {
+    const checkFirstTime = async () => {
+        try {
+            const hasSeen = await AsyncStorage.getItem('HAS_SEEN_MEMBERS_TOUR');
+            if (!hasSeen) {
+                setTimeout(() => startTour(), 500);
+                await AsyncStorage.setItem('HAS_SEEN_MEMBERS_TOUR', 'true');
+            }
+        } catch (e) { console.warn(e); }
+    };
+    checkFirstTime();
+  }, []);
 
   const fetchMembers = useCallback(async () => {
     if (!myProfile?.workgroup_id) return;
@@ -33,7 +56,7 @@ export default function ManageMembersScreen() {
         .from('profiles')
         .select('id, username, role')
         .eq('workgroup_id', myProfile.workgroup_id)
-        .order('role', { ascending: true }) // Admins first usually (alphabetical)
+        .order('role', { ascending: true }) 
         .order('username', { ascending: true });
 
       if (error) throw error;
@@ -48,20 +71,13 @@ export default function ManageMembersScreen() {
   useFocusEffect(useCallback(() => { fetchMembers(); }, [fetchMembers]));
 
   const handleToggleRole = async (user: UserProfile) => {
-    // Prevent changing your own role to avoid locking yourself out
-    if (user.id === myProfile?.id) {
-      return; 
-    }
+    if (user.id === myProfile?.id) return; 
 
     const newRole = user.role === 'admin' ? 'member' : 'admin';
     const messageKey = newRole === 'admin' ? 'settings.promoteSuccess' : 'settings.demoteSuccess';
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ role: newRole })
-        .eq('id', user.id);
-
+      const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', user.id);
       if (error) throw error;
       showSuccess(t('general.success'), t(messageKey));
       fetchMembers();
@@ -80,12 +96,7 @@ export default function ManageMembersScreen() {
       isDestructive: true,
       onConfirm: async () => {
         try {
-          // Remove by setting workgroup_id to null
-          const { error } = await supabase
-            .from('profiles')
-            .update({ workgroup_id: null, role: null }) 
-            .eq('id', user.id);
-
+          const { error } = await supabase.from('profiles').update({ workgroup_id: null, role: null }).eq('id', user.id);
           if (error) throw error;
           showSuccess(t('general.success'), t('settings.removeSuccess'));
           fetchMembers();
@@ -106,10 +117,49 @@ export default function ManageMembersScreen() {
         data={members}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 16 }}
-        renderItem={({ item }) => {
+        renderItem={({ item, index }) => {
           const isMe = item.id === myProfile?.id;
           const isAdmin = item.role === 'admin';
 
+          // Use Walkable View only for the first item (likely the current user or first admin)
+          if (index === 0) {
+              return (
+                <CopilotStep text="Manage user roles and permissions here." order={1} name="memberCard">
+                    <WalkableView style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                        <View style={styles.userInfo}>
+                            <View style={[styles.avatar, { backgroundColor: colors.border }]}>
+                            <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.text }}>
+                                {item.username.charAt(0).toUpperCase()}
+                            </Text>
+                            </View>
+                            <View>
+                            <Text style={[typography.body, styles.username, { color: colors.text }]}>
+                                {item.username} {isMe && "(You)"}
+                            </Text>
+                            <View style={[styles.badge, { backgroundColor: isAdmin ? colors.primaryMuted : colors.border }]}>
+                                <Text style={[typography.caption, { color: isAdmin ? colors.primary : colors.subtext, fontWeight: 'bold' }]}>
+                                {isAdmin ? t('settings.admin') : t('settings.member')}
+                                </Text>
+                            </View>
+                            </View>
+                        </View>
+                        
+                        {!isMe && (
+                            <View style={styles.actions}>
+                                <Pressable style={[styles.iconButton, { backgroundColor: colors.background }]} onPress={() => handleToggleRole(item)}>
+                                    <FontAwesome name={isAdmin ? "arrow-down" : "arrow-up"} size={16} color={colors.text} />
+                                </Pressable>
+                                <Pressable style={[styles.iconButton, { backgroundColor: 'rgba(220, 38, 38, 0.1)' }]} onPress={() => handleRemoveMember(item)}>
+                                    <FontAwesome name="user-times" size={16} color={colors.danger} />
+                                </Pressable>
+                            </View>
+                        )}
+                    </WalkableView>
+                </CopilotStep>
+              );
+          }
+
+          // Normal render for other members
           return (
             <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={styles.userInfo}>
@@ -130,28 +180,32 @@ export default function ManageMembersScreen() {
                 </View>
               </View>
 
-              {/* Action Buttons (Hidden for self) */}
               {!isMe && (
                 <View style={styles.actions}>
-                  {/* Promote/Demote Button */}
-                  <Pressable 
-                    style={[styles.iconButton, { backgroundColor: colors.background }]} 
-                    onPress={() => handleToggleRole(item)}
-                  >
-                    <FontAwesome 
-                      name={isAdmin ? "arrow-down" : "arrow-up"} 
-                      size={16} 
-                      color={colors.text} 
-                    />
-                  </Pressable>
-
-                  {/* Kick Button */}
-                  <Pressable 
-                    style={[styles.iconButton, { backgroundColor: 'rgba(220, 38, 38, 0.1)' }]} 
-                    onPress={() => handleRemoveMember(item)}
-                  >
-                    <FontAwesome name="user-times" size={16} color={colors.danger} />
-                  </Pressable>
+                    {/* STEP 2 & 3: Highlight Actions on the first non-me user if available */}
+                    {index === 1 ? (
+                        <>
+                            <CopilotStep text="Tap to promote or demote this user." order={2} name="promoteUser">
+                                <WalkablePressable style={[styles.iconButton, { backgroundColor: colors.background }]} onPress={() => handleToggleRole(item)}>
+                                    <FontAwesome name={isAdmin ? "arrow-down" : "arrow-up"} size={16} color={colors.text} />
+                                </WalkablePressable>
+                            </CopilotStep>
+                            <CopilotStep text="Remove this user from the workgroup." order={3} name="removeUser">
+                                <WalkablePressable style={[styles.iconButton, { backgroundColor: 'rgba(220, 38, 38, 0.1)' }]} onPress={() => handleRemoveMember(item)}>
+                                    <FontAwesome name="user-times" size={16} color={colors.danger} />
+                                </WalkablePressable>
+                            </CopilotStep>
+                        </>
+                    ) : (
+                        <>
+                            <Pressable style={[styles.iconButton, { backgroundColor: colors.background }]} onPress={() => handleToggleRole(item)}>
+                                <FontAwesome name={isAdmin ? "arrow-down" : "arrow-up"} size={16} color={colors.text} />
+                            </Pressable>
+                            <Pressable style={[styles.iconButton, { backgroundColor: 'rgba(220, 38, 38, 0.1)' }]} onPress={() => handleRemoveMember(item)}>
+                                <FontAwesome name="user-times" size={16} color={colors.danger} />
+                            </Pressable>
+                        </>
+                    )}
                 </View>
               )}
             </View>
