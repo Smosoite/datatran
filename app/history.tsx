@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
 import { useFocusEffect, Stack } from 'expo-router';
 import { supabase } from '../lib/supabase';
@@ -11,7 +11,7 @@ import { typography } from '../styles/typography';
 import { CopilotStep, walkthroughable, useCopilot } from "react-native-copilot";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// FIX: Wrap the View directly, this usually works better than wrapping custom components
+// 1. Create the Walkable View
 const WalkableView = walkthroughable(View);
 
 const formatDate = (dateString: string) => {
@@ -37,27 +37,26 @@ export default function HistoryScreen() {
   const [loading, setLoading] = useState(true);
 
   // --- COPILOT HOOK ---
-  const { start: startTour, copilotEvents } = useCopilot();
-  const [tourReady, setTourReady] = useState(false);
+  const { start: startTour } = useCopilot();
 
-  // --- START TOUR LOGIC ---
   useEffect(() => {
-    // Only verify tour if data is loaded
+    // Wait until loading is done before checking tour
     if(loading) return;
 
     const checkFirstTime = async () => {
-        const hasSeen = await AsyncStorage.getItem(`HAS_SEEN_HISTORY_TOUR_${profile?.id}`);
-        if (!hasSeen) {
-             // Wait 1.5 seconds for the FlatList to fully settle layout
-             setTimeout(() => {
-                 startTour();
-             }, 1500);
-             await AsyncStorage.setItem(`HAS_SEEN_HISTORY_TOUR_${profile?.id}`, 'true');
+        try {
+            const hasSeen = await AsyncStorage.getItem(`HAS_SEEN_HISTORY_TOUR_${profile?.id}`);
+            if (!hasSeen) {
+                // 2. Longer delay (1.5s) to ensure the screen is physically drawn
+                setTimeout(() => startTour(), 1500);
+                await AsyncStorage.setItem(`HAS_SEEN_HISTORY_TOUR_${profile?.id}`, 'true');
+            }
+        } catch (e) {
+            console.warn("Tour check failed", e);
         }
     };
-    
     checkFirstTime();
-  }, [loading, profile?.id]); // Run when loading finishes
+  }, [loading, profile?.id]); 
 
   const fetchLogs = async () => {
     if (!profile?.workgroup_id) return;
@@ -100,16 +99,15 @@ export default function HistoryScreen() {
       {loading ? (
         <ActivityIndicator style={styles.centered} size="large" color={colors.primary} />
       ) : (
-        // FIX: The outer container needs to be the first step, NOT the FlatList itself.
-        // Wrapping FlatList directly often causes measurement errors.
+        // 3. TARGET THE CONTAINER, NOT THE LIST ITEMS
+        // IMPORTANT: collapsable={false} prevents the view from disappearing during optimization
         <CopilotStep text="This timeline tracks every action taken by your team." order={1} name="historyList">
-            <WalkableView style={{ flex: 1 }}>
+            <WalkableView style={{ flex: 1 }} collapsable={false}>
                 <FlatList
-                data={logs}
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.list}
-                renderItem={({ item, index }) => {
-                    const content = (
+                    data={logs}
+                    keyExtractor={(item) => item.id}
+                    contentContainerStyle={styles.list}
+                    renderItem={({ item }) => (
                         <View style={[styles.logItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
                         <View style={styles.row}>
                             <Text style={[typography.caption, { color: colors.subtext }]}>{formatDate(item.created_at)}</Text>
@@ -134,16 +132,10 @@ export default function HistoryScreen() {
                             )}
                         </View>
                         </View>
-                    );
-
-                    // FIX: Copilot inside FlatList renderItem is unstable.
-                    // For now, let's REMOVE the inner step on the specific item to see if the first step (the list container) works.
-                    // If the list container highlights correctly, we know the issue was the inner item ref.
-                    return content;
-                }}
-                ListEmptyComponent={() => (
-                    <Text style={[styles.empty, { color: colors.subtext }]}>No history found.</Text>
-                )}
+                    )}
+                    ListEmptyComponent={() => (
+                        <Text style={[styles.empty, { color: colors.subtext }]}>No history found.</Text>
+                    )}
                 />
             </WalkableView>
         </CopilotStep>
