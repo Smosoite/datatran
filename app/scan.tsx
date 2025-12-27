@@ -79,7 +79,7 @@ export default function ScanScreen() {
       <Text style={[typography.h3, styles.subtitle, { color: colors.subtext }]}>{t('scan.manualEntrySub')}</Text>
       
       {/* STEP 1: Input Field */}
-      <CopilotStep text= {t('scan.notavailable')} order={1} name="manualInput">
+      <CopilotStep text= {t('pilot.notavailable')} order={1} name="manualInput">
           <WalkableTextInput
             style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
             placeholder={t('scan.enterNum')}
