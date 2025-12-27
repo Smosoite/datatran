@@ -288,6 +288,7 @@
     "viewStorage": "Tap a storage unit to view items inside.",
     "tap": "Tap here to define a new shelf, row, or bin location.",
     "see": "See location details and assigned items here.",
+    "editloc": "Edit definitions or remove this location.",
   },
   "paywall": {
     "title": "Unlock StoreTool",
