@@ -301,8 +301,7 @@
     "timeline": "This timeline tracks actions taken by your workgroup.",
     "ataken": "View actions taken and the change amount in each event.",
     "details": "Modify item details, quantity, or alerts here.",
-    
-    
+    "save": "Tap here to save changes."
   },
   "paywall": {
     "title": "Unlock StoreTool",
