@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Text, View, StyleSheet, TextInput, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
@@ -7,16 +7,42 @@ import { useTheme } from '../providers/ThemeProvider';
 import { showError, showSuccess } from '../lib/toast';
 import { typography } from '../styles/typography';
 
+// --- COPILOT IMPORTS ---
+import { CopilotStep, walkthroughable, useCopilot } from "react-native-copilot";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const WalkableTextInput = walkthroughable(TextInput);
+const WalkablePressable = walkthroughable(Pressable);
+
 export default function ScanScreen() {
   const { t } = useTranslation();
-  const { colors } = useTheme(); // --- FIX: Correct way to get colors ---
+  const { colors } = useTheme(); 
   const [barcode, setBarcode] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  // --- COPILOT HOOK ---
+  const { start: startTour } = useCopilot();
+
+  // --- START TOUR ON MOUNT (ONCE) ---
+  useEffect(() => {
+    const checkFirstTime = async () => {
+        try {
+            const hasSeen = await AsyncStorage.getItem('HAS_SEEN_SCAN_TOUR');
+            if (!hasSeen) {
+                setTimeout(() => startTour(), 500);
+                await AsyncStorage.setItem('HAS_SEEN_SCAN_TOUR', 'true');
+            }
+        } catch (e) {
+            console.warn("Tour check failed", e);
+        }
+    };
+    checkFirstTime();
+  }, []);
+
   const handleManualScan = async () => {
     if (!barcode.trim()) {
-      showError(error.message);(t('general.addBarcode'));
+      showError(t('general.addBarcode'));
       return;
     }
 
@@ -28,16 +54,13 @@ export default function ScanScreen() {
         .eq('barcode', barcode.trim())
         .single();
 
-      // 'PGRST116' is the code for "no rows found", which is not an error in this case.
       if (error && error.code !== 'PGRST116') {
         throw error;
       }
       
       if (item) {
-        // Item exists, navigate to edit it.
         router.push(`/edit-item/${item.id}`);
       } else {
-        // Item does not exist, navigate to add it.
         router.push({ 
           pathname: '/select-location-modal', 
           params: { barcode: barcode.trim() } 
@@ -45,10 +68,9 @@ export default function ScanScreen() {
       }
 
     } catch (error: any) {
-      showError(error.message);(t('general.error'), error.message);
-      setLoading(false); // Only set loading false if an error occurs and we don't navigate
+      showError(t('general.error'), error.message);
+      setLoading(false);
     }
-    // On success, we navigate away, so we don't need to set loading to false.
   };
 
   return (
@@ -56,29 +78,33 @@ export default function ScanScreen() {
       <Text style={[typography.h1, styles.title, { color: colors.text }]}>{t('scan.manualEntryTitle')}</Text>
       <Text style={[typography.h3, styles.subtitle, { color: colors.subtext }]}>{t('scan.manualEntrySub')}</Text>
       
-      <TextInput
-        style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
-        placeholder={t('scan.enterNum')}
-        placeholderTextColor={colors.subtext}
-        value={barcode}
-        onChangeText={setBarcode}
-        keyboardType="numeric"
-        onSubmitEditing={handleManualScan}
-      />
+      {/* STEP 1: Input Field */}
+      <CopilotStep text="Can't scan? Type the barcode number here manually." order={1} name="manualInput">
+          <WalkableTextInput
+            style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+            placeholder={t('scan.enterNum')}
+            placeholderTextColor={colors.subtext}
+            value={barcode}
+            onChangeText={setBarcode}
+            keyboardType="numeric"
+            onSubmitEditing={handleManualScan}
+          />
+      </CopilotStep>
       
-      {/* --- FIX: Improved button with loading indicator inside --- */}
-      <Pressable style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleManualScan} disabled={loading}>
-        {loading ? (
-            <ActivityIndicator color={colors.text || '#fff'} />
-        ) : (
-            <Text style={[typography.button, styles.buttonText, { color: colors.text || '#fff' }]}>{t('scan.submitBarcode')}</Text>
-        )}
-      </Pressable>
+      {/* STEP 2: Submit Button */}
+      <CopilotStep text="Tap here to search the database for this barcode." order={2} name="submitBtn">
+          <WalkablePressable style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleManualScan} disabled={loading}>
+            {loading ? (
+                <ActivityIndicator color={colors.text || '#fff'} />
+            ) : (
+                <Text style={[typography.button, styles.buttonText, { color: colors.text || '#fff' }]}>{t('scan.submitBarcode')}</Text>
+            )}
+          </WalkablePressable>
+      </CopilotStep>
     </View>
   );
 }
 
-// --- FIX: Stylesheet cleaned of hard-coded colors ---
 const styles = StyleSheet.create({
   container: {
     flex: 1,
