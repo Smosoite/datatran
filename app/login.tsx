@@ -42,7 +42,7 @@ export default function LoginScreen() {
       <View style={styles.header}>
         <Text style={[typography.h1, { color: colors.text, textAlign: 'center' }]}>StoreTool</Text>
         <Text style={[typography.body, { color: colors.subtext, textAlign: 'center', marginTop: 8 }]}>
-          {t('login.subtitle', 'Sign in to manage your inventory')}
+          {t('auth.subtitle', 'Sign in to manage your inventory')}
         </Text>
       </View>
 
