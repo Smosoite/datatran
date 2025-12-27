@@ -81,7 +81,7 @@ export default function LoginScreen() {
         </Pressable>
 
         <Pressable onPress={() => router.push('/sign-up')} style={styles.linkButton}>
-          <Text style={[typography.body, { color: colors.primary }]}>{t('login.noAccount', "Don't have an account? Sign Up")}</Text>
+          <Text style={[typography.body, { color: colors.primary }]}>{t('auth.noAccount', "Don't have an account? Sign Up")}</Text>
         </Pressable>
       </View>
 
