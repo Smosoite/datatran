@@ -290,6 +290,8 @@
     "see": "See location details and assigned items here.",
     "editloc": "Edit definitions or remove this location.",
     "notavailable": "Can't scan? Type the barcode number here manually.",
+    "barcodescan": "Tap here to search the database for this barcode.",
+    
   },
   "paywall": {
     "title": "Unlock StoreTool",
