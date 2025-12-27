@@ -40,7 +40,7 @@ export default function ManageMembersScreen() {
         try {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_MEMBERS_TOUR');
             if (!hasSeen) {
-                setTimeout(() => startTour(), 500);
+                setTimeout(() => startTour(), 1500);
                 await AsyncStorage.setItem('HAS_SEEN_MEMBERS_TOUR', 'true');
             }
         } catch (e) { console.warn(e); }
