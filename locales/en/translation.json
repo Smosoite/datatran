@@ -286,6 +286,7 @@
     "adjust": "Quickly adjust stock levels.",
     "addStorage": "Tap here to add a storage unit to this warehouse.",
     "viewStorage": "Tap a storage unit to view items inside.",
+    "tap": "Tap here to define a new shelf, row, or bin location.",
   },
   "paywall": {
     "title": "Unlock StoreTool",
