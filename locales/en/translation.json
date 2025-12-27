@@ -298,6 +298,7 @@
     "highlight": "Tap check boxes to select multiple items for bulk restocking.",
     "promote": "Tap to promote or demote this user.",
     "permaban": "Remove this user from the workgroup.",
+    "timeline": "This timeline tracks actions taken by your workgroup.",
     
   },
   "paywall": {
