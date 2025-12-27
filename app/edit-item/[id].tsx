@@ -7,10 +7,18 @@ import { useTheme } from '../../providers/ThemeProvider';
 import { showError, showSuccess } from '../../lib/toast';
 import { typography } from '../../styles/typography';
 
+// --- COPILOT IMPORTS ---
+import { CopilotStep, walkthroughable, useCopilot } from "react-native-copilot";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const WalkableTextInput = walkthroughable(TextInput);
+const WalkablePressable = walkthroughable(Pressable);
+const WalkableView = walkthroughable(View);
+
 export default function EditItemScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { colors } = useTheme(); // --- FIX: Correct way to get color.s ---
+  const { colors } = useTheme(); 
   const router = useRouter();
 
   const [name, setName] = useState('');
@@ -18,6 +26,23 @@ export default function EditItemScreen() {
   const [restockThreshold, setRestockThreshold] = useState('');
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+
+  // --- COPILOT HOOK ---
+  const { start: startTour } = useCopilot();
+
+  // --- START TOUR ON MOUNT (ONCE) ---
+  useEffect(() => {
+    const checkFirstTime = async () => {
+        try {
+            const hasSeen = await AsyncStorage.getItem('HAS_SEEN_EDIT_ITEM_TOUR');
+            if (!hasSeen) {
+                setTimeout(() => startTour(), 800); // Delay for fetch
+                await AsyncStorage.setItem('HAS_SEEN_EDIT_ITEM_TOUR', 'true');
+            }
+        } catch (e) { console.warn(e); }
+    };
+    checkFirstTime();
+  }, []);
 
   useEffect(() => {
     const fetchItem = async () => {
@@ -30,7 +55,7 @@ export default function EditItemScreen() {
         .single();
       
       if (error) {
-       showError(error.message);(t('general.error'), t('general.failedItem'));
+       showError(t('general.error'), t('general.failedItem'));
       } else if (data) {
         setName(data.name);
         setQuantity(data.quantity.toString());
@@ -39,11 +64,11 @@ export default function EditItemScreen() {
       setLoading(false);
     };
     fetchItem();
-  }, [id, t]); // Added `t` to dependency array
+  }, [id, t]);
 
   const handleUpdate = async () => {
     if (!name || !quantity || !restockThreshold || !id) {
-      showError(error.message);(t('general.error'), t('general.fillFields'));
+      showError(t('general.error'), t('general.fillFields'));
       return;
     }
     setUpdating(true);
@@ -58,10 +83,10 @@ export default function EditItemScreen() {
         .eq('id', id);
 
       if (error) throw error;
-      showSuccess(error.message);(t('general.success'), t('general.itemSuccess'));
+      showSuccess(t('general.success'), t('general.itemSuccess'));
       router.back();
     } catch (error: any) {
-     showError(error.message);(t('general.error'), error.message);
+     showError(t('general.error'), error.message);
     } finally {
       setUpdating(false);
     }
@@ -73,29 +98,36 @@ export default function EditItemScreen() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={styles.contentContainer}>
-      <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.itemName*')}</Text>
-      <TextInput style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} value={name} onChangeText={setName} />
       
-      <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.quantity*')}</Text>
-      <TextInput style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} value={quantity} onChangeText={setQuantity} keyboardType="numeric" />
+      {/* STEP 1: Edit Fields */}
+      <CopilotStep text="Modify item details, quantity, or alerts here." order={1} name="editFields">
+        <WalkableView>
+            <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.itemName*')}</Text>
+            <TextInput style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} value={name} onChangeText={setName} />
+            
+            <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.quantity*')}</Text>
+            <TextInput style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} value={quantity} onChangeText={setQuantity} keyboardType="numeric" />
+            
+            <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.restockThreshold*')}</Text>
+            <TextInput style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} value={restockThreshold} onChangeText={setRestockThreshold} keyboardType="numeric" />
+        </WalkableView>
+      </CopilotStep>
       
-      {/* --- FIX: Applied theme styles to this input and its label --- */}
-      <Text style={typography.h3, [styles.label, { color: colors.text }]}>{t('item.restockThreshold*')}</Text>
-      <TextInput style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} value={restockThreshold} onChangeText={setRestockThreshold} keyboardType="numeric" />
-      
-      {/* --- FIX: Correctly styled the button and added a loading indicator --- */}
-      <Pressable style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleUpdate} disabled={updating}>
-        {updating ? (
-          <ActivityIndicator color={colors.text || '#fff'} />
-        ) : (
-          <Text style={[typography.button, styles.buttonText, { color: colors.text || '#fff' }]}>{t('general.save')}</Text>
-        )}
-      </Pressable>
+      {/* STEP 2: Save Button */}
+      <CopilotStep text="Tap here to save your changes." order={2} name="saveBtn">
+        <WalkablePressable style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleUpdate} disabled={updating}>
+            {updating ? (
+            <ActivityIndicator color={colors.text || '#fff'} />
+            ) : (
+            <Text style={[typography.button, styles.buttonText, { color: colors.text || '#fff' }]}>{t('general.save')}</Text>
+            )}
+        </WalkablePressable>
+      </CopilotStep>
+
     </ScrollView>
   );
 }
 
-// --- FIX: Stylesheet cleaned of hard-coded colors ---
 const styles = StyleSheet.create({
   contentContainer: { padding: 24 },
   label: { marginBottom: 8, fontWeight: '500' },
