@@ -37,6 +37,7 @@ export default function HomeScreen() {
 
   // --- START TOUR ON MOUNT (ONCE) ---
   useEffect(() => {
+    if (loading) return;
     const checkFirstTime = async () => {
         try {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_DASHBOARD_TOUR');
