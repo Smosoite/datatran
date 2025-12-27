@@ -563,7 +563,7 @@ export default function StockGridScreen() {
                     width: Math.max(screenWidth, contentWidth), 
                     padding: GRID_PADDING,
                     backgroundColor: showGridLines ? colors.border : 'transparent' 
-                }}>
+                }} collapsable={false}>
                 {visualGrid.map((shelf) => (
                     <View 
                         key={shelf.shelfLabel} 
