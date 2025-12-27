@@ -98,7 +98,7 @@ export default function StockGridScreen() {
         }
     };
     checkFirstTime();
-  }, []);
+  }, [loading]);
 
   const fetchData = useCallback(async () => {
     if (!storageId) return;
