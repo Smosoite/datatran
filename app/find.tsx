@@ -139,7 +139,7 @@ export default function FindScreen() {
                   return (
                     <View style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
                       <CopilotStep text={t('pilot.findlocation')} order={2} name="itemDetails">
-                          <WalkableView style={styles.detailsColumn}>
+                          <WalkableView style={styles.detailsColumn} collapsable={false}>
                             <Text style={[typography.body, styles.itemName, { color: colors.text }]}>{item.name}</Text>
                             <Text style={[typography.body, styles.itemLocation, { color: colors.subtext }]}>
                               {t('find.warehouse')}: {item.warehouses?.name || 'N/A'}
