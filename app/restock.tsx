@@ -161,7 +161,7 @@ export default function RestockScreen() {
             if (index === 0) {
                return (
                 <View style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: isSelected ? colors.primary : colors.border }]}>
-                  <CopilotStep text="Tap check boxes to select multiple items for bulk restocking." order={1} name="selectItem">
+                  <CopilotStep text= {t('pilot.highlight')} order={1} name="selectItem">
                     <WalkablePressable onPress={() => toggleSelectItem(item.id)} style={styles.checkbox}>
                         <FontAwesome name={isSelected ? 'check-square-o' : 'square-o'} size={24} color={colors.primary} />
                     </WalkablePressable>
