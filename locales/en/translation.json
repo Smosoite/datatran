@@ -300,6 +300,8 @@
     "permaban": "Remove this user from the workgroup.",
     "timeline": "This timeline tracks actions taken by your workgroup.",
     "ataken": "View actions taken and the change amount in each event.",
+    "details": "Modify item details, quantity, or alerts here.",
+    
     
   },
   "paywall": {
