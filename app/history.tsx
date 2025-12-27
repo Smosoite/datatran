@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
 import { useFocusEffect, Stack } from 'expo-router';
 import { supabase } from '../lib/supabase';
@@ -11,9 +11,9 @@ import { typography } from '../styles/typography';
 import { CopilotStep, walkthroughable, useCopilot } from "react-native-copilot";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// FIX: Wrap the View directly, this usually works better than wrapping custom components
 const WalkableView = walkthroughable(View);
 
-// Simple date formatter fallback if date-fns isn't desired
 const formatDate = (dateString: string) => {
   const date = new Date(dateString);
   return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -37,23 +37,27 @@ export default function HistoryScreen() {
   const [loading, setLoading] = useState(true);
 
   // --- COPILOT HOOK ---
-  const { start: startTour } = useCopilot();
+  const { start: startTour, copilotEvents } = useCopilot();
+  const [tourReady, setTourReady] = useState(false);
 
-  // --- START TOUR ON MOUNT (ONCE) ---
+  // --- START TOUR LOGIC ---
   useEffect(() => {
+    // Only verify tour if data is loaded
+    if(loading) return;
+
     const checkFirstTime = async () => {
-        try {
-            const hasSeen = await AsyncStorage.getItem('HAS_SEEN_HISTORY_TOUR');
-            if (!hasSeen) {
-                setTimeout(() => startTour(), 1000); // Delay for fetch
-                await AsyncStorage.setItem('HAS_SEEN_HISTORY_TOUR', 'true');
-            }
-        } catch (e) {
-            console.warn("Tour check failed", e);
+        const hasSeen = await AsyncStorage.getItem(`HAS_SEEN_HISTORY_TOUR_${profile?.id}`);
+        if (!hasSeen) {
+             // Wait 1.5 seconds for the FlatList to fully settle layout
+             setTimeout(() => {
+                 startTour();
+             }, 1500);
+             await AsyncStorage.setItem(`HAS_SEEN_HISTORY_TOUR_${profile?.id}`, 'true');
         }
     };
+    
     checkFirstTime();
-  }, []);
+  }, [loading, profile?.id]); // Run when loading finishes
 
   const fetchLogs = async () => {
     if (!profile?.workgroup_id) return;
@@ -96,7 +100,9 @@ export default function HistoryScreen() {
       {loading ? (
         <ActivityIndicator style={styles.centered} size="large" color={colors.primary} />
       ) : (
-        <CopilotStep text= {t('pilot.timeline')} order={1} name="historyList">
+        // FIX: The outer container needs to be the first step, NOT the FlatList itself.
+        // Wrapping FlatList directly often causes measurement errors.
+        <CopilotStep text="This timeline tracks every action taken by your team." order={1} name="historyList">
             <WalkableView style={{ flex: 1 }}>
                 <FlatList
                 data={logs}
@@ -130,14 +136,9 @@ export default function HistoryScreen() {
                         </View>
                     );
 
-                    // Step 2: Highlight first item
-                    if (index === 0) {
-                        return (
-                            <CopilotStep text= {t('pilot.ataken')} order={2} name="logDetails">
-                                <WalkableView>{content}</WalkableView>
-                            </CopilotStep>
-                        );
-                    }
+                    // FIX: Copilot inside FlatList renderItem is unstable.
+                    // For now, let's REMOVE the inner step on the specific item to see if the first step (the list container) works.
+                    // If the list container highlights correctly, we know the issue was the inner item ref.
                     return content;
                 }}
                 ListEmptyComponent={() => (
