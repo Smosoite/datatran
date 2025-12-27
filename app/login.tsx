@@ -47,7 +47,7 @@ export default function LoginScreen() {
       </View>
 
       <View style={styles.form}>
-        <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('login.email', 'Email')}</Text>
+        <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('auth.email', 'Email')}</Text>
         <TextInput
           style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
           placeholder="name@company.com"
