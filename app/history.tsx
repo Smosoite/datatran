@@ -1,12 +1,17 @@
 import { useTranslation } from 'react-i18next';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
 import { useFocusEffect, Stack } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../providers/ThemeProvider';
 import { useAuth } from '../providers/AuthProvider';
 import { typography } from '../styles/typography';
-import { format } from 'date-fns'; // You might need to install date-fns: npm install date-fns
+
+// --- COPILOT IMPORTS ---
+import { CopilotStep, walkthroughable, useCopilot } from "react-native-copilot";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const WalkableView = walkthroughable(View);
 
 // Simple date formatter fallback if date-fns isn't desired
 const formatDate = (dateString: string) => {
@@ -21,7 +26,7 @@ type LogEntry = {
   action: string;
   change_amount: number | null;
   final_quantity: number | null;
-  profiles: { username: string } | null; // Joined data
+  profiles: { username: string } | null; 
 };
 
 export default function HistoryScreen() {
@@ -30,6 +35,25 @@ export default function HistoryScreen() {
   const { profile } = useAuth();
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // --- COPILOT HOOK ---
+  const { start: startTour } = useCopilot();
+
+  // --- START TOUR ON MOUNT (ONCE) ---
+  useEffect(() => {
+    const checkFirstTime = async () => {
+        try {
+            const hasSeen = await AsyncStorage.getItem('HAS_SEEN_HISTORY_TOUR');
+            if (!hasSeen) {
+                setTimeout(() => startTour(), 1000); // Delay for fetch
+                await AsyncStorage.setItem('HAS_SEEN_HISTORY_TOUR', 'true');
+            }
+        } catch (e) {
+            console.warn("Tour check failed", e);
+        }
+    };
+    checkFirstTime();
+  }, []);
 
   const fetchLogs = async () => {
     if (!profile?.workgroup_id) return;
@@ -43,7 +67,7 @@ export default function HistoryScreen() {
         `)
         .eq('workgroup_id', profile.workgroup_id)
         .order('created_at', { ascending: false })
-        .limit(50); // Limit to last 50 actions for performance
+        .limit(50); 
 
       if (error) throw error;
       setLogs(data || []);
@@ -72,40 +96,56 @@ export default function HistoryScreen() {
       {loading ? (
         <ActivityIndicator style={styles.centered} size="large" color={colors.primary} />
       ) : (
-        <FlatList
-          data={logs}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
-            <View style={[styles.logItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={styles.row}>
-                <Text style={[typography.caption, { color: colors.subtext }]}>{formatDate(item.created_at)}</Text>
-                <Text style={[typography.caption, { color: colors.primary }]}>{item.profiles?.username || 'Unknown'}</Text>
-              </View>
-              
-              <View style={styles.mainRow}>
-                <Text style={[typography.body, styles.itemName, { color: colors.text }]}>{item.item_name}</Text>
-                <Text style={[typography.h3, { color: getActionColor(item.action) }]}>
-                   {item.change_amount && item.change_amount > 0 ? '+' : ''}{item.change_amount}
-                </Text>
-              </View>
+        <CopilotStep text="This timeline tracks every action taken by your team." order={1} name="historyList">
+            <WalkableView style={{ flex: 1 }}>
+                <FlatList
+                data={logs}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.list}
+                renderItem={({ item, index }) => {
+                    const content = (
+                        <View style={[styles.logItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                        <View style={styles.row}>
+                            <Text style={[typography.caption, { color: colors.subtext }]}>{formatDate(item.created_at)}</Text>
+                            <Text style={[typography.caption, { color: colors.primary }]}>{item.profiles?.username || 'Unknown'}</Text>
+                        </View>
+                        
+                        <View style={styles.mainRow}>
+                            <Text style={[typography.body, styles.itemName, { color: colors.text }]}>{item.item_name}</Text>
+                            <Text style={[typography.h3, { color: getActionColor(item.action) }]}>
+                                {item.change_amount && item.change_amount > 0 ? '+' : ''}{item.change_amount}
+                            </Text>
+                        </View>
 
-              <View style={styles.row}>
-                <Text style={[typography.caption, styles.actionBadge, { color: getActionColor(item.action), borderColor: getActionColor(item.action) }]}>
-                  {item.action}
-                </Text>
-                {item.final_quantity !== null && (
-                   <Text style={[typography.caption, { color: colors.subtext }]}>
-                     Total: {item.final_quantity}
-                   </Text>
+                        <View style={styles.row}>
+                            <Text style={[typography.caption, styles.actionBadge, { color: getActionColor(item.action), borderColor: getActionColor(item.action) }]}>
+                            {item.action}
+                            </Text>
+                            {item.final_quantity !== null && (
+                                <Text style={[typography.caption, { color: colors.subtext }]}>
+                                Total: {item.final_quantity}
+                                </Text>
+                            )}
+                        </View>
+                        </View>
+                    );
+
+                    // Step 2: Highlight first item
+                    if (index === 0) {
+                        return (
+                            <CopilotStep text="See the user, action, and quantity change for each event." order={2} name="logDetails">
+                                <WalkableView>{content}</WalkableView>
+                            </CopilotStep>
+                        );
+                    }
+                    return content;
+                }}
+                ListEmptyComponent={() => (
+                    <Text style={[styles.empty, { color: colors.subtext }]}>No history found.</Text>
                 )}
-              </View>
-            </View>
-          )}
-          ListEmptyComponent={() => (
-             <Text style={[styles.empty, { color: colors.subtext }]}>No history found.</Text>
-          )}
-        />
+                />
+            </WalkableView>
+        </CopilotStep>
       )}
     </View>
   );
