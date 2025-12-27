@@ -47,7 +47,7 @@ export default function ManageMembersScreen() {
         } catch (e) { console.warn(e); }
     };
     checkFirstTime();
-  }, []);
+  }, [loading]);
 
   const fetchMembers = useCallback(async () => {
     if (!myProfile?.workgroup_id) return;
