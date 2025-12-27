@@ -41,6 +41,7 @@ export default function ManageStorageScreen() {
 
   // --- START TOUR ON MOUNT (ONCE) ---
   useEffect(() => {
+    if (loading) return;
     const checkFirstTime = async () => {
         try {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_STORAGE_LOC_TOUR');
