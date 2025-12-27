@@ -214,7 +214,7 @@ export default function SettingsScreen() {
 
       {/* STEP 2: Security (Admin Only) */}
       {profile?.role === 'admin' && (
-        <CopilotStep text="Admins can view history logs and change the security passcode here." order={2} name="securitySection">
+        <CopilotStep text= {t('pilot.history')} order={2} name="securitySection">
             <WalkableView style={styles.section}>
                 <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.security')}</Text>
                 <Pressable style={[styles.card, styles.menuButton, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 8 }]} onPress={() => router.push('/history')}>
