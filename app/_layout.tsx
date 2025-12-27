@@ -36,7 +36,7 @@ interface CopilotTooltipProps {
     finish: string;
   };
 }
-const CustomTooltip = ({ isFirstStep, isLastStep, handleNext, handlePrev, handleStop, currentStep, labels }) => {
+const CustomTooltip = ({ isFirstStep, isLastStep, handleNext, handlePrev, handleStop, currentStep, labels }: CopilotTooltipProps) => {
   const { colors } = useTheme();
   return (
     <View style={{ backgroundColor: colors.card, padding: 16, borderRadius: 12, width: 250, borderWidth: 1, borderColor: colors.border }}>
