@@ -135,7 +135,11 @@ useFocusEffect(
 
         </View>
       </View>
-      
+      {isOfflineMode && (
+    <View style={{ backgroundColor: colors.warning, padding: 4, alignItems: 'center' }}>
+        <Text style={[typography.caption, { color: 'black' }]}>OFFLINE MODE - Viewing cached data</Text>
+    </View>
+)}
       {/* STEP 4: Restock List */}
       <CopilotStep text={t('pilot.restock')} order={4} name="restockList">
         <WalkableView>
