@@ -154,7 +154,7 @@ export default function ManageStorageScreen() {
                   </CopilotStep>
 
                   <CopilotStep text= {t('pilot.editloc')} order={3} name="locationActions">
-                      <WalkableView style={styles.buttonGroup}>
+                      <WalkableView style={styles.buttonGroup} collapsable={false}>
                         <Pressable style={styles.actionButton} onPress={() => router.push(`/edit-location/${item.id}`)}>
                           <FontAwesome name="pencil" size={18} color={colors.primary} />
                         </Pressable>
