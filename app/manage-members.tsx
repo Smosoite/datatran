@@ -36,6 +36,7 @@ export default function ManageMembersScreen() {
   const { start: startTour } = useCopilot();
 
   useEffect(() => {
+    if (loading) return;
     const checkFirstTime = async () => {
         try {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_MEMBERS_TOUR');
