@@ -190,7 +190,7 @@ export default function ManageMembersScreen() {
                                     <FontAwesome name={isAdmin ? "arrow-down" : "arrow-up"} size={16} color={colors.text} />
                                 </WalkablePressable>
                             </CopilotStep>
-                            <CopilotStep text="Remove this user from the workgroup." order={3} name="removeUser">
+                            <CopilotStep text= {t('pilot.permaban')} order={3} name="removeUser">
                                 <WalkablePressable style={[styles.iconButton, { backgroundColor: 'rgba(220, 38, 38, 0.1)' }]} onPress={() => handleRemoveMember(item)}>
                                     <FontAwesome name="user-times" size={16} color={colors.danger} />
                                 </WalkablePressable>
