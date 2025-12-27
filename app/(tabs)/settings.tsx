@@ -184,7 +184,7 @@ export default function SettingsScreen() {
       
       {/* STEP 1: Appearance */}
       <CopilotStep text= {t('pilot.custom')} order={1} name="appearance">
-        <WalkableView style={styles.section}>
+        <WalkableView style={styles.section} collapsable={false}>
             <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.appearance')}</Text>
             <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.appRow}>
