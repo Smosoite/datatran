@@ -54,7 +54,7 @@ export default function SettingsScreen() {
         try {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_SETTINGS_TOUR');
             if (!hasSeen) {
-                setTimeout(() => startTour(), 500);
+                setTimeout(() => startTour(), 1500);
                 await AsyncStorage.setItem('HAS_SEEN_SETTINGS_TOUR', 'true');
             }
         } catch (e) { console.warn(e); }
