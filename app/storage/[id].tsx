@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable, Alert } from 'react-native';
 import { useLocalSearchParams, useFocusEffect, useRouter, Stack } from 'expo-router';
 import { supabase } from '../../lib/supabase';
@@ -8,6 +8,13 @@ import { useTheme } from '../../providers/ThemeProvider';
 import { showError, showSuccess } from '../../lib/toast';
 import { useModal } from '../../providers/ModalProvider';
 import { typography } from '../../styles/typography';
+
+// --- COPILOT IMPORTS ---
+import { CopilotStep, walkthroughable, useCopilot } from "react-native-copilot";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const WalkablePressable = walkthroughable(Pressable);
+const WalkableView = walkthroughable(View);
 
 type DefinedLocation = {
   id: string;
@@ -21,19 +28,38 @@ type DefinedLocation = {
 export default function ManageStorageScreen() {
   const { t } = useTranslation();
   const { id: storageId } = useLocalSearchParams<{ id: string }>();
-  const { colors } = useTheme(); // --- FIX: Correct way to get colors ---
+  const { colors } = useTheme(); 
   const router = useRouter();
   const { showConfirmation } = useModal();
 
   const [locations, setLocations] = useState<DefinedLocation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [storageName, setStorageName] = useState(''); // State for dynamic title
+  const [storageName, setStorageName] = useState('');
+
+  // --- COPILOT HOOK ---
+  const { start: startTour } = useCopilot();
+
+  // --- START TOUR ON MOUNT (ONCE) ---
+  useEffect(() => {
+    const checkFirstTime = async () => {
+        try {
+            const hasSeen = await AsyncStorage.getItem('HAS_SEEN_STORAGE_LOC_TOUR');
+            if (!hasSeen) {
+                // Delay slightly to ensure list renders
+                setTimeout(() => startTour(), 500);
+                await AsyncStorage.setItem('HAS_SEEN_STORAGE_LOC_TOUR', 'true');
+            }
+        } catch (e) {
+            console.warn("Tour check failed", e);
+        }
+    };
+    checkFirstTime();
+  }, []);
 
   const fetchLocations = useCallback(async () => {
     if (!storageId) return;
     setLoading(true);
     try {
-      // Fetch storage name for the title
       const { data: storageData, error: storageError } = await supabase
         .from('storages')
         .select('name')
@@ -62,24 +88,19 @@ export default function ManageStorageScreen() {
   useFocusEffect(useCallback(() => { fetchLocations(); }, [fetchLocations]));
 
   const handleDeleteLocation = (locationId: string) => {
-    // --- FIX: Used translation keys for alert ---
     showConfirmation({
     title: t('location.confirmDeleteTitle'),
     message: t('location.confirmDeleteMessage'),
     confirmText: t('general.delete'),
-    isDestructive: true, // This will make the confirm button red
+    isDestructive: true, 
     onConfirm: async () => {
       try {
         const { error } = await supabase.from('defined_locations').delete().eq('id', locationId);
         if (error) throw error;
 
-        // Remove from local state for instant UI update
         setLocations(prevLocations => prevLocations.filter(loc => loc.id !== locationId));
-        // Optionally, show a success toast here
-        // showSuccess(t('location.deleteSuccess'));
       } catch (err: any) {
-        // Show a non-blocking esrror toast on failure
-        showError(err.message);
+        showError(t('general.error'), err.message);
       }
     },
   });
@@ -93,24 +114,60 @@ export default function ManageStorageScreen() {
     return <ActivityIndicator style={[styles.centered, { backgroundColor: colors.background }]} size="large" color={colors.primary} />;
   }
 
+  // Copilot Wrapper for Header Button
+  const renderHeaderRight = () => (
+      <CopilotStep text="Tap here to define a new shelf, row, or bin location." order={1} name="addLocation">
+        <WalkablePressable onPress={() => router.push({ pathname: '/create-location', params: { storageId } })}>
+          <FontAwesome name="plus" size={24} color={colors.selector} style={{ marginRight: 15 }} />
+        </WalkablePressable>
+      </CopilotStep>
+  );
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{
-        title: storageName || t('storage.manageLayout'), // Dynamic title
-        headerRight: () => (
-          <Pressable onPress={() => router.push({ pathname: '/create-location', params: { storageId } })}>
-            <FontAwesome name="plus" size={24} color={colors.selector
-            } style={{ marginRight: 15 }} />
-          </Pressable>
-        )
+        title: storageName || t('storage.manageLayout'),
+        headerRight: renderHeaderRight
       }} />
 
       <FlatList
         data={locations}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => { 
+        renderItem={({ item, index }) => { 
           const assignedItem = item.items && item.items.length > 0 ? item.items[0] : null;
           
+          // Highlight first item for tour
+          if (index === 0) {
+              return ( 
+                <View style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <CopilotStep text="See location details and assigned items here." order={2} name="viewLocation">
+                      <WalkableView style={styles.locationDetails}>
+                        <Text style={[typography.body, styles.itemName, { color: colors.text }]}>{formatLocationName(item)}</Text>
+                        {assignedItem ? (
+                          <Text style={[typography.body, styles.assignedItemText, { color: colors.success }]}>
+                            <FontAwesome name="cube" size={14} color={colors.success} /> {assignedItem.name}
+                          </Text>
+                        ) : (
+                          <Text style={[typography.caption, styles.emptySlotText, { color: colors.subtext }]}>- {t('general.empty')} -</Text>
+                        )}
+                      </WalkableView>
+                  </CopilotStep>
+
+                  <CopilotStep text="Edit definitions or remove this location." order={3} name="locationActions">
+                      <WalkableView style={styles.buttonGroup}>
+                        <Pressable style={styles.actionButton} onPress={() => router.push(`/edit-location/${item.id}`)}>
+                          <FontAwesome name="pencil" size={18} color={colors.primary} />
+                        </Pressable>
+                        <Pressable style={styles.actionButton} onPress={() => handleDeleteLocation(item.id)}>
+                          <FontAwesome name="trash" size={18} color={colors.danger} />
+                        </Pressable>
+                      </WalkableView>
+                  </CopilotStep>
+                </View>
+              );
+          }
+
+          // Normal Render
           return ( 
             <View style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={styles.locationDetails}>
@@ -147,9 +204,7 @@ export default function ManageStorageScreen() {
     </View>
   );
 }
-// --- FIX: Removed stray closing braces and parentheses that caused a syntax error ---
 
-// --- FIX: Stylesheet cleaned of hard-coded colors ---
 const styles = StyleSheet.create({
   container: { flex: 1 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 50, paddingHorizontal: 24 },
@@ -157,11 +212,11 @@ const styles = StyleSheet.create({
   itemContainer: { 
     padding: 16, 
     borderRadius: 8, 
-    marginHorizontal: 16,
-    marginBottom: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    marginHorizontal: 16, 
+    marginBottom: 8, 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between', 
     borderWidth: 1,
   },
   locationDetails: {
