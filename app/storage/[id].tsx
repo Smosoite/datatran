@@ -46,7 +46,7 @@ export default function ManageStorageScreen() {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_STORAGE_LOC_TOUR');
             if (!hasSeen) {
                 // Delay slightly to ensure list renders
-                setTimeout(() => startTour(), 500);
+                setTimeout(() => startTour(), 1500);
                 await AsyncStorage.setItem('HAS_SEEN_STORAGE_LOC_TOUR', 'true');
             }
         } catch (e) {
