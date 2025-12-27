@@ -246,7 +246,7 @@ export default function SettingsScreen() {
       </View>
 
       {/* STEP 3: Export */}
-      <CopilotStep text="Tap here to export your entire inventory data to a CSV file." order={3} name="dataExport">
+      <CopilotStep text= {t('pilot.export')} order={3} name="dataExport">
         <WalkableView style={styles.section}>
             <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.data')}</Text>
             <Pressable 
