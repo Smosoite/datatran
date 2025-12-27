@@ -64,7 +64,7 @@ export default function AddItemScreen() {
         try {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_ADD_ITEM_TOUR');
             if (!hasSeen) {
-                setTimeout(() => startTour(), 500);
+                setTimeout(() => startTour(), 1500);
                 await AsyncStorage.setItem('HAS_SEEN_ADD_ITEM_TOUR', 'true');
             }
         } catch (e) {
