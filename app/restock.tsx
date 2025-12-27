@@ -15,6 +15,7 @@ import { CopilotStep, walkthroughable, useCopilot } from "react-native-copilot";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const WalkablePressable = walkthroughable(Pressable);
+const WalkableView = walkthroughable(View);
 
 type RestockItem = {
   id: string;
@@ -23,7 +24,7 @@ type RestockItem = {
   restock_threshold: number;
 };
 
-// ... BulkStockModal Component remains the same ...
+// --- SUB-COMPONENT: BULK MODAL ---
 const BulkStockModal = ({ visible, onClose, onSubmit }: { visible: boolean; onClose: () => void; onSubmit: (amount: number) => void }) => {
   const { t } = useTranslation();
   const { colors } = useTheme(); 
@@ -85,7 +86,6 @@ export default function RestockScreen() {
         try {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_RESTOCK_TOUR');
             if (!hasSeen) {
-                // Wait for data load if possible, or just delay
                 setTimeout(() => startTour(), 1000); 
                 await AsyncStorage.setItem('HAS_SEEN_RESTOCK_TOUR', 'true');
             }
@@ -158,11 +158,10 @@ export default function RestockScreen() {
           renderItem={({ item, index }) => {
             const isSelected = selectedItems.includes(item.id);
             
-            // Step 1: Highlight selection box on first item
             if (index === 0) {
                return (
                 <View style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: isSelected ? colors.primary : colors.border }]}>
-                  <CopilotStep text= {t('pilot.highlight')} order={1} name="selectItem">
+                  <CopilotStep text="Tap check boxes to select multiple items for bulk restocking." order={1} name="selectItem">
                     <WalkablePressable onPress={() => toggleSelectItem(item.id)} style={styles.checkbox}>
                         <FontAwesome name={isSelected ? 'check-square-o' : 'square-o'} size={24} color={colors.primary} />
                     </WalkablePressable>
@@ -212,9 +211,8 @@ export default function RestockScreen() {
         />
       )}
       
-      {/* STEP 2: Bulk Action Button */}
       {selectedItems.length > 0 && (
-        <CopilotStep text= {t('pilot.stockbulk')} order={2} name="bulkAction">
+        <CopilotStep text="Tap here to restock all selected items at once." order={2} name="bulkAction">
             <WalkableView style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
                 <Pressable style={[styles.bulkButton, { backgroundColor: colors.success }]} onPress={openBulkStockModal}>
                     <Text style={[typography.button, styles.bulkButtonText, { color: colors.primaryText }]}>{t('restock.bulkButton', { count: selectedItems.length })}</Text>
