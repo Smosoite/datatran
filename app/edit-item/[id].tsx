@@ -32,6 +32,7 @@ export default function EditItemScreen() {
 
   // --- START TOUR ON MOUNT (ONCE) ---
   useEffect(() => {
+    if (loading) return;
     const checkFirstTime = async () => {
         try {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_EDIT_ITEM_TOUR');
@@ -42,7 +43,7 @@ export default function EditItemScreen() {
         } catch (e) { console.warn(e); }
     };
     checkFirstTime();
-  }, []);
+  }, [loading]);
 
   useEffect(() => {
     const fetchItem = async () => {
