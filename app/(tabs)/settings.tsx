@@ -156,7 +156,7 @@ export default function SettingsScreen() {
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={styles.container}>
       
       {/* STEP 1: Appearance */}
-      <CopilotStep text="Customize the app look and feel here." order={1} name="appearance">
+      <CopilotStep text= {t('pilot.custom')} order={1} name="appearance">
         <WalkableView style={styles.section}>
             <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.appearance')}</Text>
             <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
