@@ -26,6 +26,7 @@ export default function ScanScreen() {
 
   // --- START TOUR ON MOUNT (ONCE) ---
   useEffect(() => {
+    if (loading) return;
     const checkFirstTime = async () => {
         try {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_SCAN_TOUR');
