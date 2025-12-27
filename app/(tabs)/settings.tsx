@@ -13,6 +13,13 @@ import { showError, showSuccess } from '../../lib/toast';
 import { useModal } from '../../providers/ModalProvider';
 import { typography } from '../../styles/typography';
 
+// --- COPILOT IMPORTS ---
+import { CopilotStep, walkthroughable, useCopilot } from "react-native-copilot";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const WalkableView = walkthroughable(View);
+const WalkablePressable = walkthroughable(Pressable);
+
 const { width } = Dimensions.get('window');
 const buttonMargin = 8;
 const containerPadding = 24;
@@ -35,56 +42,52 @@ export default function SettingsScreen() {
   const { t, i18n } = useTranslation();
   const { showConfirmation, showPasscodeModal } = useModal();
   const router = useRouter();
-  const { profile, workgroup, refreshProfile } = useAuth(); // Added workgroup & refreshProfile
+  const { profile, workgroup, refreshProfile } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
 
-// --- NEW: Handle Passcode Change/Creation ---
+  // --- COPILOT HOOK ---
+  const { start: startTour } = useCopilot();
+
+  // --- START TOUR ON MOUNT (ONCE) ---
+  useEffect(() => {
+    const checkFirstTime = async () => {
+        try {
+            const hasSeen = await AsyncStorage.getItem('HAS_SEEN_SETTINGS_TOUR');
+            if (!hasSeen) {
+                setTimeout(() => startTour(), 500);
+                await AsyncStorage.setItem('HAS_SEEN_SETTINGS_TOUR', 'true');
+            }
+        } catch (e) { console.warn(e); }
+    };
+    checkFirstTime();
+  }, []);
+
+  // --- HANDLERS (Passcode, Delete, Logout, Export) ---
+  // (Logic kept identical to your provided code)
+  
   const handleChangePasscode = () => {
-    
-    // Helper function to perform the DB update and state refresh
     const performUpdate = async (newCode: string) => {
       try {
-        // 1. Update Supabase
-        const { error } = await supabase
-          .from('workgroups')
-          .update({ admin_passcode: newCode })
-          .eq('id', workgroup?.id);
-
+        const { error } = await supabase.from('workgroups').update({ admin_passcode: newCode }).eq('id', workgroup?.id);
         if (error) throw error;
-        
-        // 2. Refresh local state (This will now work without crashing because of the AuthProvider fix)
         await refreshProfile(); 
-        
-        // 3. Show success
         showSuccess(t('general.success'), t('settings.passcodeSet'));
-      } catch (err: any) {
-        showError(t('general.error'), err.message);
-      }
+      } catch (err: any) { showError(t('general.error'), err.message); }
     };
 
     const promptForNewCode = () => {
-      // Small delay ensures the previous modal is fully closed visually
       setTimeout(() => {
-        showPasscodeModal({
-          title: 'settings.enterNewPasscode',
-          message: '', 
-          onSubmit: (newCode) => performUpdate(newCode)
-        });
+        showPasscodeModal({ title: 'settings.enterNewPasscode', message: '', onSubmit: performUpdate });
       }, 300);
     };
 
-    // Logic: If code exists, verify old one first. If not, just set new one.
     if (workgroup?.admin_passcode) {
       showPasscodeModal({
         title: 'settings.enterCurrentPasscode',
         message: '',
         onSubmit: (inputCode) => {
-          // Important: Compare inputCode to workgroup.admin_passcode
-          if (inputCode === workgroup.admin_passcode) {
-            promptForNewCode();
-          } else {
-            showError(t('general.error'), t('stockGrid.invalidPasscode'));
-          }
+          if (inputCode === workgroup.admin_passcode) promptForNewCode();
+          else showError(t('general.error'), t('stockGrid.invalidPasscode'));
         }
       });
     } else {
@@ -92,135 +95,101 @@ export default function SettingsScreen() {
     }
   };
 
-  // --- MODIFIED: Secured Delete Workgroup ---
   const handleDeleteWorkgroup = () => {
     const proceedToDelete = () => {
-      // Add a small delay if coming from passcode modal
       setTimeout(() => {
         showConfirmation({
-          title: 'settings.del',
-          message: t('settings.warning'),
-          confirmText: 'settings.everything',
-          isDestructive: true,
+          title: 'settings.del', message: t('settings.warning'), confirmText: 'settings.everything', isDestructive: true,
           onConfirm: async () => {
             try {
               const { error } = await supabase.rpc('delete_current_workgroup');
               if (error) throw error;
               showSuccess(t('general.groupDeleted'));
               await supabase.auth.signOut();
-            } catch (err: any) {
-              showError(err.message || "An unknown error occurred.");
-            }
+            } catch (err: any) { showError(err.message || "An unknown error occurred."); }
           },
         });
       }, workgroup?.admin_passcode ? 500 : 0);
     };
 
-    // If a passcode is set, require it before showing the delete confirmation
     if (workgroup?.admin_passcode) {
       showPasscodeModal({
-        title: 'stockGrid.passcodeTitle',
-        message: 'stockGrid.passcodeMessage',
+        title: 'stockGrid.passcodeTitle', message: 'stockGrid.passcodeMessage',
         onSubmit: (passcode) => {
-          if (passcode === workgroup.admin_passcode) {
-            proceedToDelete();
-          } else {
-            showError(t('stockGrid.invalidPasscode'));
-          }
+          if (passcode === workgroup.admin_passcode) proceedToDelete();
+          else showError(t('stockGrid.invalidPasscode'));
         }
       });
     } else {
-      // If no passcode is set, proceed directly (legacy behavior)
       proceedToDelete();
     }
   };
   
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
-    if (error) {
-      showError(t('general.error'), error.message);
-    }
+    if (error) showError(t('general.error'), error.message);
   };
 
-  const toggleMode = () => {
-    setMode(isDarkMode ? 'light' : 'dark');
-  };
+  const toggleMode = () => setMode(isDarkMode ? 'light' : 'dark');
 
   const handleExportData = async () => {
     setIsExporting(true);
     try {
-      const { data: items, error } = await supabase
-        .from('items')
-        .select(`name, quantity, cost, restock_threshold, barcode, warehouses ( name ), storages ( name ), defined_locations ( shelf, row, "column", container )`);
-
+      const { data: items, error } = await supabase.from('items').select(`name, quantity, cost, restock_threshold, barcode, warehouses ( name ), storages ( name ), defined_locations ( shelf, row, "column", container )`);
       if (error) throw error;
-      if (!items || items.length === 0) {
-        showError(t('general.noData'), t('general.noDataToExport'));
-        return;
-      }
+      if (!items || items.length === 0) { showError(t('general.noData'), t('general.noDataToExport')); return; }
       
       const formattedData = items.map(item => ({
-        'Item Name': item.name, 'Quantity': item.quantity, 'Cost': item.cost,
-        'Barcode': item.barcode, 'Restock Threshold': item.restock_threshold,
-        'Warehouse': item.warehouses?.name, 'Storage Unit': item.storages?.name,
-        'Shelf': item.defined_locations?.shelf, 'Row': item.defined_locations?.row,
+        'Item Name': item.name, 'Quantity': item.quantity, 'Cost': item.cost, 'Barcode': item.barcode, 'Restock Threshold': item.restock_threshold,
+        'Warehouse': item.warehouses?.name, 'Storage Unit': item.storages?.name, 'Shelf': item.defined_locations?.shelf, 'Row': item.defined_locations?.row,
         'Column': item.defined_locations?.column, 'Container': item.defined_locations?.container,
       }));
 
       const csvString = Papa.unparse(formattedData);
-      const filename = `inventory_export_${new Date().getTime()}.csv`;
-      const fileUri = FileSystem.documentDirectory + filename;
-      
+      const fileUri = FileSystem.documentDirectory + `inventory_export_${new Date().getTime()}.csv`;
       await FileSystem.writeAsStringAsync(fileUri, csvString, { encoding: FileSystem.EncodingType.UTF8 });
       await Sharing.shareAsync(fileUri);
-    } catch (error: any) {
-      showError(t('general.error'), t('general.exportError', { message: error.message }));
-    } finally {
-      setIsExporting(false);
-    }
+    } catch (error: any) { showError(t('general.error'), t('general.exportError', { message: error.message })); } finally { setIsExporting(false); }
   };
   
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={styles.container}>
       
-      <View style={styles.section}>
-        <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.appearance')}</Text>
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.appRow}>
-            <Text style={[typography.button, styles.label, { color: colors.text }]}>{t('settings.dark')}</Text>
-            <Switch
-              trackColor={{ false: colors.background, true: colors.background }}
-              thumbColor={colors.selector}
-              onValueChange={toggleMode}
-              value={isDarkMode}
-            />
-          </View>
-        </View>
+      {/* STEP 1: Appearance */}
+      <CopilotStep text="Customize the app look and feel here." order={1} name="appearance">
+        <WalkableView style={styles.section}>
+            <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.appearance')}</Text>
+            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.appRow}>
+                <Text style={[typography.button, styles.label, { color: colors.text }]}>{t('settings.dark')}</Text>
+                <Switch
+                trackColor={{ false: colors.background, true: colors.background }}
+                thumbColor={colors.selector}
+                onValueChange={toggleMode}
+                value={isDarkMode}
+                />
+            </View>
+            </View>
 
-        <View style={[styles.card, styles.themeButtonsContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          {themes.map(themeOption => (
-            <Pressable
-              key={themeOption.key}
-              onPress={() => setTheme(themeOption.key as any)}
-              style={[
-                styles.themeButton,
-                { width: themeButtonWidth, borderWidth: 2, borderColor: themeOption.representativeColor },
-                theme === themeOption.key && { backgroundColor: colors.selector }
-              ]}
-            >
-              <Text
+            <View style={[styles.card, styles.themeButtonsContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            {themes.map(themeOption => (
+                <Pressable
+                key={themeOption.key}
+                onPress={() => setTheme(themeOption.key as any)}
                 style={[
-                  typography.button, typography.shadow,
-                  styles.themeButtonText,
-                  { color: colors.text, textShadowColor: colors.textShadow }
+                    styles.themeButton,
+                    { width: themeButtonWidth, borderWidth: 2, borderColor: themeOption.representativeColor },
+                    theme === themeOption.key && { backgroundColor: colors.selector }
                 ]}
-              >
-                {t(`themes.${themeOption.key}`)}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
+                >
+                <Text style={[typography.button, typography.shadow, styles.themeButtonText, { color: colors.text, textShadowColor: colors.textShadow }]}>
+                    {t(`themes.${themeOption.key}`)}
+                </Text>
+                </Pressable>
+            ))}
+            </View>
+        </WalkableView>
+      </CopilotStep>
 
       <View style={styles.section}>
         <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.account')}</Text>
@@ -243,38 +212,25 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      {/* --- NEW: Security Section (Admin Only) --- */}
+      {/* STEP 2: Security (Admin Only) */}
       {profile?.role === 'admin' && (
-        <View style={styles.section}>
-           <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.security')}</Text>
-          <Pressable 
-             style={[styles.card, styles.menuButton, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 8 }]} 
-             onPress={() => router.push('/history')}
-           >
-             <FontAwesome name="history" size={20} color={colors.primary} />
-             <Text style={[typography.button, styles.menuButtonText, { color: colors.text }]}>
-               {t('settings.history')}
-             </Text>
-           </Pressable> 
-          <Pressable 
-             style={[styles.card, styles.menuButton, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 8 }]} 
-             onPress={handleChangePasscode}
-           >
-             <FontAwesome name="lock" size={20} color={colors.primary} />
-             <Text style={[typography.button, styles.menuButtonText, { color: colors.text }]}>
-               {t('settings.changePasscode')}
-             </Text>
-           </Pressable>
-          <Pressable 
-             style={[styles.card, styles.menuButton, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 8 }]} 
-             onPress={() => router.push('/manage-members')}
-           >
-             <FontAwesome name="users" size={20} color={colors.primary} />
-             <Text style={[typography.button, styles.menuButtonText, { color: colors.text }]}>
-               {t('settings.members')}
-             </Text>
-           </Pressable>
-        </View>
+        <CopilotStep text="Admins can view history logs and change the security passcode here." order={2} name="securitySection">
+            <WalkableView style={styles.section}>
+                <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.security')}</Text>
+                <Pressable style={[styles.card, styles.menuButton, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 8 }]} onPress={() => router.push('/history')}>
+                    <FontAwesome name="history" size={20} color={colors.primary} />
+                    <Text style={[typography.button, styles.menuButtonText, { color: colors.text }]}>{t('settings.history')}</Text>
+                </Pressable> 
+                <Pressable style={[styles.card, styles.menuButton, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 8 }]} onPress={handleChangePasscode}>
+                    <FontAwesome name="lock" size={20} color={colors.primary} />
+                    <Text style={[typography.button, styles.menuButtonText, { color: colors.text }]}>{t('settings.changePasscode')}</Text>
+                </Pressable>
+                <Pressable style={[styles.card, styles.menuButton, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 8 }]} onPress={() => router.push('/manage-members')}>
+                    <FontAwesome name="users" size={20} color={colors.primary} />
+                    <Text style={[typography.button, styles.menuButtonText, { color: colors.text }]}>{t('settings.members')}</Text>
+                </Pressable>
+            </WalkableView>
+        </CopilotStep>
       )}
 
       <View style={styles.section}>
@@ -289,27 +245,27 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      <View style={styles.section}>
-        <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.data')}</Text>
-        <Pressable 
-          style={[styles.card, styles.menuButton, { backgroundColor: colors.card, borderColor: colors.border }, isExporting && styles.disabledButton]} 
-          onPress={handleExportData} 
-          disabled={isExporting}
-        >
-          {isExporting ? <ActivityIndicator color={colors.primary} style={{ marginRight: 10 }}/> : <FontAwesome name="download" size={16} color={colors.primary} /> }
-          <Text style={[typography.button, styles.menuButtonText, { color: isExporting ? colors.subtext : colors.primary }]}>
-            {isExporting ? t('settings.expo') : t('settings.expoAll')}
-          </Text>
-        </Pressable>
-      </View>
+      {/* STEP 3: Export */}
+      <CopilotStep text="Tap here to export your entire inventory data to a CSV file." order={3} name="dataExport">
+        <WalkableView style={styles.section}>
+            <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.data')}</Text>
+            <Pressable 
+            style={[styles.card, styles.menuButton, { backgroundColor: colors.card, borderColor: colors.border }, isExporting && styles.disabledButton]} 
+            onPress={handleExportData} 
+            disabled={isExporting}
+            >
+            {isExporting ? <ActivityIndicator color={colors.primary} style={{ marginRight: 10 }}/> : <FontAwesome name="download" size={16} color={colors.primary} /> }
+            <Text style={[typography.button, styles.menuButtonText, { color: isExporting ? colors.subtext : colors.primary }]}>
+                {isExporting ? t('settings.expo') : t('settings.expoAll')}
+            </Text>
+            </Pressable>
+        </WalkableView>
+      </CopilotStep>
       
       {profile?.role === 'admin' && (
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}></Text>
-          <Pressable 
-            style={[styles.deleteButton, { backgroundColor: colors.card, borderColor: colors.danger }]} 
-            onPress={handleDeleteWorkgroup}
-          >
+          <Pressable style={[styles.deleteButton, { backgroundColor: colors.card, borderColor: colors.danger }]} onPress={handleDeleteWorkgroup}>
             <Text style={[typography.button, styles.deleteButtonText, { color: colors.danger }]}>{t('settings.del')}</Text>
           </Pressable>
         </View>
@@ -322,7 +278,6 @@ export default function SettingsScreen() {
       </View>
         
     </ScrollView>
-    
   );
 }
 
