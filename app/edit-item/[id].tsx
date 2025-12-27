@@ -100,7 +100,7 @@ export default function EditItemScreen() {
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={styles.contentContainer}>
       
       {/* STEP 1: Edit Fields */}
-      <CopilotStep text="Modify item details, quantity, or alerts here." order={1} name="editFields">
+      <CopilotStep text= {t('pilot.details')} order={1} name="editFields">
         <WalkableView>
             <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.itemName*')}</Text>
             <TextInput style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} value={name} onChangeText={setName} />
