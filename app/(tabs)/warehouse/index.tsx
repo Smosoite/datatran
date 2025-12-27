@@ -47,7 +47,7 @@ export default function WarehouseScreen() {
         }
     };
     checkFirstTime();
-  }, []);
+  }, [loading]);
 
   const fetchWarehouses = useCallback(async () => {
     try {
