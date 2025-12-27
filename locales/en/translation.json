@@ -293,6 +293,7 @@
     "barcodescan": "Tap here to search the database for this barcode.",
     "export": "Tap here to export your entire inventory data to a CSV file.",
     "history": "Admins can view history logs and change the security passcode here.",
+    "custom": "Customize the app look and feel here.",
     
   },
   "paywall": {
