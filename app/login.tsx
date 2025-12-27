@@ -8,107 +8,133 @@ import { showError, showSuccess } from '../lib/toast';
 import { typography } from '../styles/typography';
 
 export default function LoginScreen() {
-  const { t } = useTranslation();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const { colors } = useTheme(); // --- FIX: Correct way to get colors ---
-  const [loading, setLoading] = useState(false);
+  const { t, i18n } = useTranslation();
+  const { colors } = useTheme();
   const router = useRouter();
 
-  async function signInWithEmail() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({
-      email: email,
-      password: password,
+      email,
+      password,
     });
 
     if (error) {
-      showError(error.message);(t('general.error'), error.message);
+      showError(t('general.error'), error.message);
+      setLoading(false);
+    } else {
+      // Router will handle redirection via AuthProvider
     }
-    setLoading(false);
-  }
+  };
 
-  // --- FIX: Re-introduced KeyboardAvoidingView ---
+  // --- NEW: Language Toggle ---
+  const changeLanguage = (lang: string) => {
+    i18n.changeLanguage(lang);
+  };
+
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.keyboardAvoidingContainer}
-    >
-      <ScrollView contentContainerStyle={[styles.container, { backgroundColor: colors.background }]}>
-        <Text style={[typography.h1, styles.header, { color: colors.text }]}>{t('auth.loginHeader')}</Text>
-        <Text style={[typography.h2, styles.subHeader, { color: colors.subtext }]}>{t('auth.loginSubheader')}</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      
+      <View style={styles.header}>
+        <Text style={[typography.h1, { color: colors.text, textAlign: 'center' }]}>Warehouse Pro</Text>
+        <Text style={[typography.body, { color: colors.subtext, textAlign: 'center', marginTop: 8 }]}>
+          {t('login.subtitle', 'Sign in to manage your inventory')}
+        </Text>
+      </View>
 
+      <View style={styles.form}>
+        <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('login.email', 'Email')}</Text>
         <TextInput
-          style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
-          placeholder={t('auth.email')}
+          style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+          placeholder="name@company.com"
           placeholderTextColor={colors.subtext}
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
           keyboardType="email-address"
         />
+
+        <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('login.password', 'Password')}</Text>
         <TextInput
-          style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
-          placeholder={t('auth.password')}
+          style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+          placeholder="********"
           placeholderTextColor={colors.subtext}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
         />
 
-        {/* --- FIX: Improved button with loading indicator --- */}
-        <Pressable style={[styles.button, { backgroundColor: colors.primary }]} onPress={signInWithEmail} disabled={loading}>
+        <Pressable 
+          style={[styles.button, { backgroundColor: colors.primary }]} 
+          onPress={handleLogin} 
+          disabled={loading}
+        >
           {loading ? (
-            <ActivityIndicator color={colors.text || '#fff'} />
+            <ActivityIndicator color={colors.primaryText} />
           ) : (
-            <Text style={[typography.button, styles.buttonText, { color: colors.text || '#fff' }]}>{t('auth.signIn')}</Text>
+            <Text style={[typography.button, { color: colors.primaryText }]}>{t('login.signIn', 'Sign In')}</Text>
           )}
         </Pressable>
 
-        <Pressable onPress={() => router.push('/paywall')}>
-          <Text style={[typography.caption, styles.link, { color: colors.primary }]}>{t('auth.noAccount')}</Text>
+        <Pressable onPress={() => router.push('/sign-up')} style={styles.linkButton}>
+          <Text style={[typography.body, { color: colors.primary }]}>{t('login.noAccount', "Don't have an account? Sign Up")}</Text>
         </Pressable>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </View>
+
+      {/* --- LANGUAGE OPTIONS --- */}
+      <View style={styles.langContainer}>
+        <Pressable 
+            onPress={() => changeLanguage('en')} 
+            style={[styles.langButton, i18n.language === 'en' && { backgroundColor: colors.selector }]}
+        >
+            <Text style={{ fontSize: 24 }}>🇺🇸</Text>
+            <Text style={[typography.caption, { color: colors.text, fontWeight: i18n.language === 'en' ? 'bold' : 'normal' }]}>English</Text>
+        </Pressable>
+
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+        <Pressable 
+            onPress={() => changeLanguage('fi')} 
+            style={[styles.langButton, i18n.language === 'fi' && { backgroundColor: colors.selector }]}
+        >
+            <Text style={{ fontSize: 24 }}>🇫🇮</Text>
+            <Text style={[typography.caption, { color: colors.text, fontWeight: i18n.language === 'fi' ? 'bold' : 'normal' }]}>Suomi</Text>
+        </Pressable>
+      </View>
+
+    </View>
   );
 }
 
-// --- FIX: Stylesheet cleaned and corrected for KeyboardAvoidingView ---
 const styles = StyleSheet.create({
-  keyboardAvoidingContainer: {
-    flex: 1,
+  container: { flex: 1, justifyContent: 'center', padding: 24 },
+  header: { marginBottom: 40 },
+  form: { width: '100%' },
+  label: { marginBottom: 8, fontWeight: '600' },
+  input: { borderWidth: 1, borderRadius: 8, padding: 16, marginBottom: 20 },
+  button: { padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 10 },
+  linkButton: { marginTop: 20, alignItems: 'center' },
+  
+  // Language Styles
+  langContainer: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginTop: 60,
+      gap: 20
   },
-  container: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: 24,
+  langButton: {
+      alignItems: 'center',
+      padding: 10,
+      borderRadius: 8,
+      minWidth: 80
   },
-  header: {
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subHeader: {
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  input: {
-    borderWidth: 1,
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  button: {
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  buttonText: {
-    fontWeight: 'bold',
-  },
-  link: {
-    marginTop: 16,
-    textAlign: 'center',
-    padding: 8,
-  },
+  divider: {
+      width: 1,
+      height: 40,
+  }
 });
