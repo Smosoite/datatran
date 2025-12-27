@@ -93,7 +93,7 @@ export default function RestockScreen() {
         } catch (e) { console.warn(e); }
     };
     checkFirstTime();
-  }, []);
+  }, [loading]);
 
   const fetchRestockItems = useCallback(async () => {
     setLoading(true);
