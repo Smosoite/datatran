@@ -51,7 +51,7 @@ export default function HomeScreen() {
         }
     };
     checkFirstTime();
-  }, []);
+  }, [loading]);
 
   const [isOfflineMode, setIsOfflineMode] = useState(false);
 
