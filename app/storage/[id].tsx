@@ -55,7 +55,7 @@ export default function ManageStorageScreen() {
         }
     };
     checkFirstTime();
-  }, []);
+  }, [loading]);
 
   const fetchLocations = useCallback(async () => {
     if (!storageId) return;
