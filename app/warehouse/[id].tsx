@@ -50,7 +50,7 @@ export default function ManageWarehouseScreen() {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_WAREHOUSE_DETAIL_TOUR');
             if (!hasSeen) {
                 // Short delay to ensure layout is ready
-                setTimeout(() => startTour(), 500);
+                setTimeout(() => startTour(), 1500);
                 await AsyncStorage.setItem('HAS_SEEN_WAREHOUSE_DETAIL_TOUR', 'true');
             }
         } catch (e) {
