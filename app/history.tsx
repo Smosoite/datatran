@@ -96,7 +96,7 @@ export default function HistoryScreen() {
       {loading ? (
         <ActivityIndicator style={styles.centered} size="large" color={colors.primary} />
       ) : (
-        <CopilotStep text="This timeline tracks every action taken by your team." order={1} name="historyList">
+        <CopilotStep text= {t('pilot.timeline')} order={1} name="historyList">
             <WalkableView style={{ flex: 1 }}>
                 <FlatList
                 data={logs}
