@@ -62,6 +62,33 @@ export default function SettingsScreen() {
     checkFirstTime();
   }, []);
 
+// ... inside SettingsScreen component
+  
+  const handleResetTours = async () => {
+     try {
+         const keys = [
+             `HAS_SEEN_DASHBOARD_${profile?.id}`,
+             `HAS_SEEN_WAREHOUSE_TOUR_${profile?.id}`,
+             `HAS_SEEN_GRID_TOUR_${profile?.id}`,
+             `HAS_SEEN_ADD_ITEM_TOUR_${profile?.id}`,
+             // Add other keys as you implement them...
+         ];
+         
+         // If you used the old keys (without ID), clear them too just in case
+         const legacyKeys = [
+             'HAS_SEEN_DASHBOARD_TOUR', 'HAS_SEEN_WAREHOUSE_TOUR', 
+             'HAS_SEEN_GRID_TOUR', 'HAS_SEEN_ADD_ITEM_TOUR', 
+             'HAS_SEEN_SETTINGS_TOUR', 'HAS_SEEN_HISTORY_TOUR'
+         ];
+
+         await AsyncStorage.multiRemove([...keys, ...legacyKeys]);
+         
+         showSuccess(t('general.success'), "Tours have been reset. Go to the dashboard to see them again.");
+     } catch (e) {
+         showError(t('general.error'), "Failed to reset tours.");
+     }
+  };
+  
   // --- HANDLERS (Passcode, Dessete, Logout, Export) ---
   // (Logic kept identical to your provided code)
   
