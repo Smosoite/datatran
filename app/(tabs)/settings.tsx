@@ -274,7 +274,7 @@ export default function SettingsScreen() {
 
       {/* STEP 3: Export */}
       <CopilotStep text= {t('pilot.export')} order={3} name="dataExport">
-        <WalkableView style={styles.section}>
+        <WalkableView style={styles.section} collapsable={false}>
             <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.data')}</Text>
             <Pressable 
             style={[styles.card, styles.menuButton, { backgroundColor: colors.card, borderColor: colors.border }, isExporting && styles.disabledButton]} 
