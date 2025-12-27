@@ -10,7 +10,7 @@ import { typography } from '../styles/typography';
 export default function SignUpScreen() {
   const { t } = useTranslation();
   const [email, setEmail] = useState('');
-  const { colors } = useTheme(); // --- FIX: Correct way to get colors ---
+  const { colors } = useTheme(); // --- FIX: Correct way to get colosrs ---
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
