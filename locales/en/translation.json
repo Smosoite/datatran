@@ -299,6 +299,7 @@
     "promote": "Tap to promote or demote this user.",
     "permaban": "Remove this user from the workgroup.",
     "timeline": "This timeline tracks actions taken by your workgroup.",
+    "ataken": "View actions taken and the change amount in each event.",
     
   },
   "paywall": {
