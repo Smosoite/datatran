@@ -50,6 +50,7 @@ export default function SettingsScreen() {
 
   // --- START TOUR ON MOUNT (ONCE) ---
   useEffect(() => {
+    if (loading) return;
     const checkFirstTime = async () => {
         try {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_SETTINGS_TOUR');
@@ -60,7 +61,7 @@ export default function SettingsScreen() {
         } catch (e) { console.warn(e); }
     };
     checkFirstTime();
-  }, []);
+  }, [loading]);
 
 // ... inside SettingsScreen component
   
