@@ -287,6 +287,7 @@
     "addStorage": "Tap here to add a storage unit to this warehouse.",
     "viewStorage": "Tap a storage unit to view items inside.",
     "tap": "Tap here to define a new shelf, row, or bin location.",
+    "see": "See location details and assigned items here.",
   },
   "paywall": {
     "title": "Unlock StoreTool",
