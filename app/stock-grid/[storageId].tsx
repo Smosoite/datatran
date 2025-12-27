@@ -89,7 +89,7 @@ export default function StockGridScreen() {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_GRID_TOUR');
             if (!hasSeen) {
                 // Short delay to ensure layout renders before spotlight
-                setTimeout(() => startTour(), 500);
+                setTimeout(() => startTour(), 1500);
                 await AsyncStorage.setItem('HAS_SEEN_GRID_TOUR', 'true');
             }
         } catch (e) {
