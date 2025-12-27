@@ -76,7 +76,7 @@ export default function LoginScreen() {
           {loading ? (
             <ActivityIndicator color={colors.primaryText} />
           ) : (
-            <Text style={[typography.button, { color: colors.primaryText }]}>{t('login.signIn', 'Sign In')}</Text>
+            <Text style={[typography.button, { color: colors.primaryText }]}>{t('auth.signIn', 'Sign In')}</Text>
           )}
         </Pressable>
 
