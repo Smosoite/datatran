@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
-import { Alert, StyleSheet, View, Text, TextInput, Pressable, ActivityIndicator, Platform } from 'react-native';
+import { StyleSheet, View, Text, TextInput, Pressable, ActivityIndicator } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../providers/AuthProvider';
 import { useTheme } from '../providers/ThemeProvider';
@@ -11,7 +11,7 @@ export default function JoinWorkgroupScreen() {
   const { t } = useTranslation();
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
-  const { colors } = useTheme(); // --- FIX: Correct way to get colors ---
+  const { colors } = useTheme(); 
   const { session, refreshProfile } = useAuth();
 
   const handleJoin = async () => {
@@ -27,24 +27,26 @@ export default function JoinWorkgroupScreen() {
         .select('id')
         .eq('join_code', code.trim().toUpperCase())
         .single();
+
       if (workgroupError || !workgroupData) {
-        throw new Error(t('restock.invalidNo'));
+        throw new Error(t('restock.invalidNo')); // Using existing key for "Invalid"
       }
       
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ workgroup_id: workgroupData.id, role: 'member' })
         .eq('id', session.user.id);
+
       if (profileError) throw profileError;
 
-      showSuccess(error.message);(
-        t('general.success'),
-        t('auth.joinedGroup'),
-        [{ text: 'OK', onPress: async () => await refreshProfile() }]
-      );
+      // --- FIX: Corrected Success Logic ---
+      showSuccess(t('general.success'), t('auth.joinedGroup'));
+      
+      // Force profile refresh to update global state and trigger navigation
+      await refreshProfile();
 
     } catch (error: any) {
-      showError(error.message);(t('general.error'), error.message);
+      showError(t('general.error'), error.message);
     } finally {
       setLoading(false);
     }
@@ -61,7 +63,6 @@ export default function JoinWorkgroupScreen() {
         onChangeText={setCode}
         autoCapitalize="characters"
       />
-      {/* --- FIX: Improved button with loading indicator --- */}
       <Pressable style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleJoin} disabled={loading}>
         {loading ? (
           <ActivityIndicator color={colors.text || '#fff'} />
@@ -73,7 +74,6 @@ export default function JoinWorkgroupScreen() {
   );
 }
 
-// --- FIX: Stylesheet cleaned of hard-coded colors ---
 const styles = StyleSheet.create({
     container: { flex: 1, justifyContent: 'center', padding: 24 },
     header: { fontWeight: 'bold', textAlign: 'center', marginBottom: 24 },
