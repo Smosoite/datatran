@@ -15,6 +15,27 @@ import { CopilotProvider } from "react-native-copilot";
 
 // --- CUSTOM TOOLTIP COMPONENT ---
 // This ensures the "Tour" popup matches your App's Theme
+
+interface CopilotTooltipProps {
+  isFirstStep: boolean;
+  isLastStep: boolean;
+  handleNext: () => void;
+  handlePrev: () => void;
+  handleStop: () => void;
+  currentStep: {
+    name: string;
+    text: string;
+    order: number;
+    target: any;
+    wrapper: any;
+  };
+  labels: {
+    skip: string;
+    previous: string;
+    next: string;
+    finish: string;
+  };
+}
 const CustomTooltip = ({ isFirstStep, isLastStep, handleNext, handlePrev, handleStop, currentStep, labels }) => {
   const { colors } = useTheme();
   return (
