@@ -39,7 +39,7 @@ export default function ScanScreen() {
         }
     };
     checkFirstTime();
-  }, []);
+  }, [loading]);
 
   const handleManualScan = async () => {
     if (!barcode.trim()) {
