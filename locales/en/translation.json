@@ -297,6 +297,7 @@
     "stockbulk": "Tap here to restock all selected items at once.",
     "highlight": "Tap check boxes to select multiple items for bulk restocking.",
     "promote": "Tap to promote or demote this user.",
+    "permaban": "Remove this user from the workgroup.",
     
   },
   "paywall": {
