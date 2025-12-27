@@ -58,7 +58,7 @@ export default function LoginScreen() {
           keyboardType="email-address"
         />
 
-        <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('login.password')}</Text>
+        <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('auth.password')}</Text>
         <TextInput
           style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
           placeholder="********"
