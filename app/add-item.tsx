@@ -319,7 +319,7 @@ export default function AddItemScreen() {
 
                     {/* 2. Grid Tour Step */}
                     <CopilotStep text="Tap available slots to place your item. You can select multiple!" order={2} name="gridSelection">
-                        <WalkableView style={styles.slotsGrid}>
+                        <WalkableView style={styles.slotsGrid} collapsable={false}>
                             {shelfLocations.map((loc) => {
                                 const isOccupied = loc.items && loc.items.length > 0;
                                 const isSelected = selectedLocationIds.includes(loc.id);
