@@ -52,6 +52,38 @@ export default function HomeScreen() {
     checkFirstTime();
   }, []);
 
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
+
+useFocusEffect(
+  useCallback(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      
+      // WRAP YOUR SUPABASE CALL:
+      const { data, error, isOfflineData } = await fetchWithCache('restock_items', async () => {
+          return await supabase.rpc('get_restock_items');
+      });
+
+      setIsOfflineMode(isOfflineData);
+
+      if (error) {
+        // Only show error if we have NO data at all
+        if (!data) console.error(t('general.errorFetch'), error.message);
+      } else {
+        setRestockItems(data || []);
+        if (isOfflineData) {
+            // Optional: Show a toast letting them know they are viewing old data
+            // showError("You are offline. Viewing cached data.");
+        }
+      }
+
+      setLoading(false);
+    };
+
+    fetchData();
+  }, [t])
+);
+
   useFocusEffect(
     useCallback(() => {
       const fetchData = async () => {
