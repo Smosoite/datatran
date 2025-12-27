@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, FlatList, Modal, TextInput } from 'react-native';
 import { useFocusEffect, Stack } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
@@ -10,6 +10,12 @@ import { typography } from '../styles/typography';
 import { useAuth } from '../providers/AuthProvider';
 import { logActivity } from '../lib/logger';
 
+// --- COPILOT IMPORTS ---
+import { CopilotStep, walkthroughable, useCopilot } from "react-native-copilot";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const WalkablePressable = walkthroughable(Pressable);
+
 type RestockItem = {
   id: string;
   name: string;
@@ -17,6 +23,7 @@ type RestockItem = {
   restock_threshold: number;
 };
 
+// ... BulkStockModal Component remains the same ...
 const BulkStockModal = ({ visible, onClose, onSubmit }: { visible: boolean; onClose: () => void; onSubmit: (amount: number) => void }) => {
   const { t } = useTranslation();
   const { colors } = useTheme(); 
@@ -66,9 +73,26 @@ export default function RestockScreen() {
   const [restockItems, setRestockItems] = useState<RestockItem[]>([]);
   const [loading, setLoading] = useState(true);
   const { colors } = useTheme();
-  const { workgroup } = useAuth(); // --- NEW: Get workgroup for logging ---
+  const { workgroup } = useAuth(); 
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
+
+  // --- COPILOT HOOK ---
+  const { start: startTour } = useCopilot();
+
+  useEffect(() => {
+    const checkFirstTime = async () => {
+        try {
+            const hasSeen = await AsyncStorage.getItem('HAS_SEEN_RESTOCK_TOUR');
+            if (!hasSeen) {
+                // Wait for data load if possible, or just delay
+                setTimeout(() => startTour(), 1000); 
+                await AsyncStorage.setItem('HAS_SEEN_RESTOCK_TOUR', 'true');
+            }
+        } catch (e) { console.warn(e); }
+    };
+    checkFirstTime();
+  }, []);
 
   const fetchRestockItems = useCallback(async () => {
     setLoading(true);
@@ -85,21 +109,11 @@ export default function RestockScreen() {
     const { error } = await supabase.from('items').update({ quantity: newQuantity }).eq('id', item.id);
     if (error) { showError(t('general.error'), t('general.errorQuantity')); return; }
     
-    // --- NEW: Log Activity ---
     if (workgroup?.id) {
       const change = newQuantity - item.quantity;
-      logActivity({
-        workgroup_id: workgroup.id,
-        item_id: item.id,
-        item_name: item.name,
-        action: 'RESTOCK', 
-        change_amount: change,
-        final_quantity: newQuantity
-      });
+      logActivity({ workgroup_id: workgroup.id, item_id: item.id, item_name: item.name, action: 'RESTOCK', change_amount: change, final_quantity: newQuantity });
     }
-    // -------------------------
 
-    // Optimistically update UI
     const updatedItems = restockItems.map(i => i.id === item.id ? { ...i, quantity: newQuantity } : i);
     setRestockItems(updatedItems.filter(i => i.quantity <= i.restock_threshold));
   };
@@ -116,28 +130,15 @@ export default function RestockScreen() {
     const itemsToUpdate = restockItems.filter(item => selectedItems.includes(item.id));
     const updates = itemsToUpdate.map(item => ({ id: item.id, new_quantity: item.quantity + amountToAdd }));
     
-    // Using an RPC call for bulk updates is more efficient
     const { error } = await supabase.rpc('bulk_update_item_quantities', { updates });
     if (error) {
       showError(t('general.error'), error.message);
     } else {
-      
-      // --- NEW: Log Bulk Activity ---
       if (workgroup?.id) {
-        // We log each item individually so the history is granular
         itemsToUpdate.forEach(item => {
-          logActivity({
-            workgroup_id: workgroup.id,
-            item_id: item.id,
-            item_name: item.name,
-            action: 'RESTOCK',
-            change_amount: amountToAdd,
-            final_quantity: item.quantity + amountToAdd
-          });
+          logActivity({ workgroup_id: workgroup.id, item_id: item.id, item_name: item.name, action: 'RESTOCK', change_amount: amountToAdd, final_quantity: item.quantity + amountToAdd });
         });
       }
-      // -----------------------------
-
       showSuccess(t('general.success'), t('restock.restocked', { count: selectedItems.length }));
     }
     
@@ -154,8 +155,34 @@ export default function RestockScreen() {
         <FlatList
           data={restockItems}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => {
+          renderItem={({ item, index }) => {
             const isSelected = selectedItems.includes(item.id);
+            
+            // Step 1: Highlight selection box on first item
+            if (index === 0) {
+               return (
+                <View style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: isSelected ? colors.primary : colors.border }]}>
+                  <CopilotStep text="Tap check boxes to select multiple items for bulk restocking." order={1} name="selectItem">
+                    <WalkablePressable onPress={() => toggleSelectItem(item.id)} style={styles.checkbox}>
+                        <FontAwesome name={isSelected ? 'check-square-o' : 'square-o'} size={24} color={colors.primary} />
+                    </WalkablePressable>
+                  </CopilotStep>
+                  <View style={styles.itemDetails}>
+                    <Text style={[typography.body, styles.itemName, { color: colors.text }]}>{item.name}</Text>
+                    <Text style={[typography.body, styles.itemQuantityText, { color: colors.subtext }]}>{t('restock.current')} {item.quantity} | {t('restock.needs')} {item.restock_threshold}</Text>
+                  </View>
+                  <View style={styles.quantityControls}>
+                    <Pressable style={[styles.quantityButton, { backgroundColor: colors.background }]} onPress={() => updateItemQuantity(item, item.quantity - 1)}>
+                      <FontAwesome name="minus" size={16} color={colors.primary} />
+                    </Pressable>
+                    <Pressable style={[styles.quantityButton, { backgroundColor: colors.background }]} onPress={() => updateItemQuantity(item, item.quantity + 1)}>
+                      <FontAwesome name="plus" size={16} color={colors.primary} />
+                    </Pressable>
+                  </View>
+                </View>
+               );
+            }
+
             return (
               <View style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: isSelected ? colors.primary : colors.border }]}>
                 <Pressable onPress={() => toggleSelectItem(item.id)} style={styles.checkbox}>
@@ -184,12 +211,16 @@ export default function RestockScreen() {
           contentContainerStyle={{ padding: 10 }}
         />
       )}
+      
+      {/* STEP 2: Bulk Action Button */}
       {selectedItems.length > 0 && (
-        <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
-            <Pressable style={[styles.bulkButton, { backgroundColor: colors.success }]} onPress={openBulkStockModal}>
-                <Text style={[typography.button, styles.bulkButtonText, { color: colors.primaryText }]}>{t('restock.bulkButton', { count: selectedItems.length })}</Text>
-            </Pressable>
-        </View>
+        <CopilotStep text= {t('pilot.stockbulk')} order={2} name="bulkAction">
+            <WalkableView style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+                <Pressable style={[styles.bulkButton, { backgroundColor: colors.success }]} onPress={openBulkStockModal}>
+                    <Text style={[typography.button, styles.bulkButtonText, { color: colors.primaryText }]}>{t('restock.bulkButton', { count: selectedItems.length })}</Text>
+                </Pressable>
+            </WalkableView>
+        </CopilotStep>
       )}
     </View>
   );
