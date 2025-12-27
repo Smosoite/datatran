@@ -59,7 +59,7 @@ export default function ManageWarehouseScreen() {
         }
     };
     checkFirstTime();
-  }, []);
+  }, [loading]);
 
   const fetchDetails = useCallback(async () => {
     if (!id) return;
