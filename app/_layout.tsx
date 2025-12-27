@@ -15,49 +15,67 @@ import { CopilotProvider } from "react-native-copilot";
 
 // --- CUSTOM TOOLTIP COMPONENT ---
 // Defined safely outside of other components
-const CustomTooltip = (props: any) => {
-  const { isFirstStep, isLastStep, handleNext, handlePrev, handleStop, currentStep, labels } = props;
+const CustomTooltip = ({ isFirstStep, isLastStep, handleNext, handlePrev, handleStop, currentStep, labels }: any) => {
   const { colors } = useTheme();
 
+  // Debugging: If this logs "undefined", the step isn't loading correctly
+  // console.log("Tooltip Step Data:", currentStep);
+
   return (
-    // Only ONE View here with your card styles
     <View style={{ 
-        backgroundColor: colors.card, 
-        padding: 16, 
-        borderRadius: 12, 
-        width: 250, 
-        borderWidth: 1, 
-        borderColor: colors.border,
-        // Shadow for depth
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-        elevation: 5,
+      backgroundColor: colors.card, 
+      padding: 16, 
+      borderRadius: 12, 
+      maxWidth: 300, 
+      borderWidth: 1, 
+      borderColor: colors.border,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.2,
+      shadowRadius: 8,
+      elevation: 5,
     }}>
-      <Text style={[typography.h3, { color: colors.text, marginBottom: 8 }]}>{currentStep?.name}</Text>
-      <Text style={[typography.body, { color: colors.subtext, marginBottom: 16 }]}>{currentStep?.text}</Text>
-      
+      {/* Title */}
+      {currentStep?.name ? (
+         <Text style={[typography.h3, { color: colors.text, marginBottom: 8 }]}>
+           {currentStep.name}
+         </Text>
+      ) : null}
+
+      {/* Body Text - Check 'text' property specifically */}
+      <Text style={[typography.body, { color: colors.subtext, marginBottom: 20 }]}>
+        {currentStep?.text || "Loading info..."} 
+      </Text>
+
+      {/* Buttons */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <TouchableOpacity onPress={handleStop}>
-            <Text style={{ color: colors.subtext, fontSize: 12 }}>{labels?.skip || 'Skip'}</Text>
+            <Text style={[typography.caption, { color: colors.subtext, padding: 8 }]}>
+              {labels?.skip || 'Skip'}
+            </Text>
         </TouchableOpacity>
 
-        <View style={{ flexDirection: 'row', gap: 15 }}>
-            {!isFirstStep && (
-                <TouchableOpacity onPress={handlePrev}>
-                    <Text style={{ color: colors.primary, fontWeight: '600' }}>{labels?.previous || 'Back'}</Text>
-                </TouchableOpacity>
-            )}
-            {!isLastStep ? (
-                <TouchableOpacity onPress={handleNext}>
-                    <Text style={{ color: colors.primary, fontWeight: 'bold' }}>{labels?.next || 'Next'}</Text>
-                </TouchableOpacity>
-            ) : (
-                <TouchableOpacity onPress={handleStop}>
-                    <Text style={{ color: colors.success, fontWeight: 'bold' }}>{labels?.finish || 'Done'}</Text>
-                </TouchableOpacity>
-            )}
+        <View style={{ flexDirection: 'row', gap: 16 }}>
+          {!isFirstStep && (
+            <TouchableOpacity onPress={handlePrev}>
+                <Text style={[typography.button, { color: colors.primary, fontSize: 14, padding: 8 }]}>
+                {labels?.previous || 'Back'}
+                </Text>
+            </TouchableOpacity>
+          )}
+          {!isLastStep ? (
+            <TouchableOpacity onPress={handleNext}>
+                <Text style={[typography.button, { color: colors.primary, fontWeight: 'bold', fontSize: 14, padding: 8 }]}>
+                {labels?.next || 'Next'}
+                </Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity onPress={handleStop}>
+                <Text style={[typography.button, { color: colors.success, fontWeight: 'bold', fontSize: 14, padding: 8 }]}>
+                {labels?.finish || 'Done'}
+                </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </View>
