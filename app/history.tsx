@@ -133,7 +133,7 @@ export default function HistoryScreen() {
                     // Step 2: Highlight first item
                     if (index === 0) {
                         return (
-                            <CopilotStep text="See the user, action, and quantity change for each event." order={2} name="logDetails">
+                            <CopilotStep text= {t('pilot.ataken')} order={2} name="logDetails">
                                 <WalkableView>{content}</WalkableView>
                             </CopilotStep>
                         );
