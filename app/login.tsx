@@ -1,11 +1,12 @@
-import { useTranslation } from 'react-i18next';
 import React, { useState } from 'react';
-import { Alert, StyleSheet, View, Text, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../providers/ThemeProvider';
-import { showError, showSuccess } from '../lib/toast';
 import { typography } from '../styles/typography';
+import { showError } from '../lib/toast';
+import { Feather } from '@expo/vector-icons';
 
 export default function LoginScreen() {
   const { t, i18n } = useTranslation();
@@ -15,39 +16,65 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // Dropdown state
+  const [langOpen, setLangOpen] = useState(false);
 
   const handleLogin = async () => {
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       showError(t('general.error'), error.message);
       setLoading(false);
-    } else {
-      // Router will handle redirection via AuthProvider
-    }
+    } 
   };
 
-  // --- NEW: Language Toggle ---
   const changeLanguage = (lang: string) => {
     i18n.changeLanguage(lang);
+    setLangOpen(false);
   };
+
+  // Helper to get current flag
+  const getCurrentFlag = () => i18n.language === 'fi' ? '🇫🇮' : '🇺🇸';
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       
+      {/* --- LANGUAGE DROPDOWN (Top Right) --- */}
+      <View style={styles.languageContainer}>
+        <TouchableOpacity 
+            style={[styles.langTrigger, { backgroundColor: colors.card, borderColor: colors.border }]} 
+            onPress={() => setLangOpen(!langOpen)}
+        >
+            <Text style={{ fontSize: 20 }}>{getCurrentFlag()}</Text>
+            <Feather name={langOpen ? "chevron-up" : "chevron-down"} size={16} color={colors.subtext} />
+        </TouchableOpacity>
+
+        {langOpen && (
+            <View style={[styles.langDropdown, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <TouchableOpacity style={styles.langOption} onPress={() => changeLanguage('en')}>
+                    <Text style={{ fontSize: 20 }}>🇺🇸</Text>
+                    <Text style={[typography.caption, { color: colors.text, marginLeft: 8 }]}>English</Text>
+                </TouchableOpacity>
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                <TouchableOpacity style={styles.langOption} onPress={() => changeLanguage('fi')}>
+                    <Text style={{ fontSize: 20 }}>🇫🇮</Text>
+                    <Text style={[typography.caption, { color: colors.text, marginLeft: 8 }]}>Suomi</Text>
+                </TouchableOpacity>
+            </View>
+        )}
+      </View>
+
       <View style={styles.header}>
-        <Text style={[typography.h1, { color: colors.text, textAlign: 'center' }]}>StoreTool</Text>
+        <Text style={[typography.h1, { color: colors.text, textAlign: 'center' }]}>Warehouse Pro</Text>
         <Text style={[typography.body, { color: colors.subtext, textAlign: 'center', marginTop: 8 }]}>
-          {t('auth.loginSubheader', 'Sign in to manage your inventory')}
+          {t('login.subtitle', 'Sign in to manage your inventory')}
         </Text>
       </View>
 
       <View style={styles.form}>
-        <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('auth.email', 'Email')}</Text>
+        <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('login.email', 'Email')}</Text>
         <TextInput
           style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
           placeholder="name@company.com"
@@ -58,7 +85,7 @@ export default function LoginScreen() {
           keyboardType="email-address"
         />
 
-        <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('auth.password')}</Text>
+        <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('login.password', 'Password')}</Text>
         <TextInput
           style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
           placeholder="********"
@@ -76,36 +103,14 @@ export default function LoginScreen() {
           {loading ? (
             <ActivityIndicator color={colors.primaryText} />
           ) : (
-            <Text style={[typography.button, { color: colors.primaryText }]}>{t('auth.signIn', 'Sign In')}</Text>
+            <Text style={[typography.button, { color: colors.primaryText }]}>{t('login.signIn', 'Sign In')}</Text>
           )}
         </Pressable>
 
         <Pressable onPress={() => router.push('/sign-up')} style={styles.linkButton}>
-          <Text style={[typography.body, { color: colors.primary }]}>{t('auth.noAccount', "Don't have an account? Sign Up")}</Text>
+          <Text style={[typography.body, { color: colors.primary }]}>{t('login.noAccount', "Don't have an account? Sign Up")}</Text>
         </Pressable>
       </View>
-
-      {/* --- LANGUAGE OPTIONS --- */}
-      <View style={styles.langContainer}>
-        <Pressable 
-            onPress={() => changeLanguage('en')} 
-            style={[styles.langButton, i18n.language === 'en' && { backgroundColor: colors.selector }]}
-        >
-            <Text style={{ fontSize: 24 }}>🇺🇸</Text>
-            <Text style={[typography.caption, { color: colors.text, fontWeight: i18n.language === 'en' ? 'bold' : 'normal' }]}>English</Text>
-        </Pressable>
-
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-        <Pressable 
-            onPress={() => changeLanguage('fi')} 
-            style={[styles.langButton, i18n.language === 'fi' && { backgroundColor: colors.selector }]}
-        >
-            <Text style={{ fontSize: 24 }}>🇫🇮</Text>
-            <Text style={[typography.caption, { color: colors.text, fontWeight: i18n.language === 'fi' ? 'bold' : 'normal' }]}>Suomi</Text>
-        </Pressable>
-      </View>
-
     </View>
   );
 }
@@ -120,21 +125,43 @@ const styles = StyleSheet.create({
   linkButton: { marginTop: 20, alignItems: 'center' },
   
   // Language Styles
-  langContainer: {
-      flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginTop: 60,
-      gap: 20
+  languageContainer: {
+      position: 'absolute',
+      top: 50,
+      right: 24,
+      zIndex: 10,
   },
-  langButton: {
+  langTrigger: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 20,
+      borderWidth: 1,
+  },
+  langDropdown: {
+      position: 'absolute',
+      top: 45,
+      right: 0,
+      borderRadius: 12,
+      borderWidth: 1,
+      padding: 4,
+      minWidth: 120,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 5,
+  },
+  langOption: {
+      flexDirection: 'row',
       alignItems: 'center',
       padding: 10,
-      borderRadius: 8,
-      minWidth: 80
   },
   divider: {
-      width: 1,
-      height: 40,
+      height: 1,
+      width: '100%',
+      opacity: 0.5,
   }
 });
