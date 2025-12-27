@@ -297,7 +297,18 @@ export default function SettingsScreen() {
           </Pressable>
         </View>
       )}
-
+{/* Add this near the bottom of your settings scrollview */}
+      <View style={styles.section}>
+        <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>Development</Text>
+        <Pressable 
+            style={[styles.card, styles.menuButton, { backgroundColor: colors.card, borderColor: colors.border }]} 
+            onPress={handleResetTours}
+        >
+          <FontAwesome name="refresh" size={20} color={colors.primary} />
+          <Text style={[typography.button, styles.menuButtonText, { color: colors.text }]}>Reset Onboarding Tours</Text>
+        </Pressable>
+      </View>
+      
       <View style={[styles.section, { marginTop: 'auto' }]}>
         <Pressable style={[styles.logoutButton, { backgroundColor: colors.selector, borderColor: colors.border }]} onPress={handleLogout}>
           <Text style={[typography.button, typography.shadow, styles.logoutButtonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('settings.logout')}</Text>
