@@ -28,18 +28,23 @@ export default function WarehouseScreen() {
   const { colors } = useTheme(); 
   const router = useRouter();
 
+  // --- 1. LAYOUT STATE ---
+  const [isLayoutReady, setIsLayoutReady] = useState(false);
+
   // --- COPILOT HOOK ---
   const { start: startTour } = useCopilot();
 
-  // --- START TOUR ON MOUNT (ONCE) ---
+  // --- 2. UPDATED TOUR LOGIC ---
   useEffect(() => {
-    if (loading) return;
+    // Wait until data is loaded AND the screen layout is physically ready
+    if (loading || !isLayoutReady) return;
+
     const checkFirstTime = async () => {
         try {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_WAREHOUSE_TOUR');
             if (!hasSeen) {
-                // Short delay to ensure layout is ready
-                setTimeout(() => startTour(), 1500);
+                // Short delay to ensure list items or empty state buttons are stable
+                setTimeout(() => startTour(), 600);
                 await AsyncStorage.setItem('HAS_SEEN_WAREHOUSE_TOUR', 'true');
             }
         } catch (e) {
@@ -47,7 +52,7 @@ export default function WarehouseScreen() {
         }
     };
     checkFirstTime();
-  }, [loading]);
+  }, [loading, isLayoutReady]);
 
   const fetchWarehouses = useCallback(async () => {
     try {
@@ -57,7 +62,6 @@ export default function WarehouseScreen() {
         .select('id, name, icon, description');
 
       if (error) throw error;
-      
       setWarehouses(data || []);
     } catch (error: any) {
       console.error(t('general.warehouseFetch'), error.message);
@@ -76,40 +80,53 @@ export default function WarehouseScreen() {
     return <ActivityIndicator style={[styles.centered, { backgroundColor: colors.background }]} size="large" color={colors.primary} />;
   }
 
+  // --- 4. HEADER FIX ---
+  const renderHeaderRight = () => (
+      <CopilotStep text={t('pilot.newWarehouse')} order={1} name="addWarehouseHeader">
+        <WalkablePressable 
+            collapsable={false} // Android fix
+            onPress={() => router.push('/create-warehouse')}
+        >
+          <FontAwesome name="plus" size={24} color={colors.selector} style={{ marginRight: 15 }}/>
+        </WalkablePressable>
+      </CopilotStep>
+  );
+
   const renderEmptyComponent = () => (
     <View style={[styles.centered, { backgroundColor: colors.background }]}>
       <Text style={[typography.caption, styles.emptyText, { color: colors.subtext }]}>{t('warehouse.noWarehouses')}</Text>
       
-      {/* STEP 1: Add Button (Empty State) */}
+      {/* STEP 1 (Empty State Version) */}
       <CopilotStep text={t('pilot.firstWarehouse')} order={1} name="createFirst">
-        <WalkablePressable collapsable={false} style={[styles.button, { backgroundColor: colors.primary }]} onPress={() => router.push('/create-warehouse')}>
+        <WalkablePressable 
+            collapsable={false} // Android fix
+            style={[styles.button, { backgroundColor: colors.primary }]} 
+            onPress={() => router.push('/create-warehouse')}
+        >
             <Text style={[typography.button, styles.buttonText, { color: colors.primaryText }]}>{t('warehouse.createFirst')}</Text>
         </WalkablePressable>
       </CopilotStep>
     </View>
   );
 
-  // Helper to render header button only if warehouses exist, wrapped in Copilot
-  const renderHeaderRight = () => (
-      <CopilotStep text={t('pilot.newWarehouse')} order={1} name="addWarehouseHeader">
-        <WalkablePressable collapsable={false} onPress={() => router.push('/create-warehouse')}>
-          <FontAwesome name="plus" size={24} color={colors.selector} style={{ marginRight: 15 }}/>
-        </WalkablePressable>
-      </CopilotStep>
-  );
-
   if (warehouses.length === 0) {
-    // We still render Stack.Screen to ensure header exists, but empty component handles the button logic
     return (
-        <>
-            <Stack.Screen options={{ headerRight: undefined }} /> 
-            {renderEmptyComponent()}
-        </>
+        <View 
+            style={{ flex: 1, backgroundColor: colors.background }}
+            onLayout={() => setIsLayoutReady(true)}
+        >
+          <Stack.Screen options={{ headerRight: undefined }} /> 
+          {renderEmptyComponent()}
+        </View>
     );
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <View 
+        style={{ flex: 1, backgroundColor: colors.background }}
+        // --- 3. TRIGGER LAYOUT READY ---
+        onLayout={() => setIsLayoutReady(true)}
+    >
       <Stack.Screen
         options={{
           headerRight: renderHeaderRight,
@@ -120,12 +137,13 @@ export default function WarehouseScreen() {
       data={warehouses}
       keyExtractor={(item) => item.id}
       renderItem={({ item, index }) => {
-          // STEP 2: Highlight first item as example
+          // Highlight the first warehouse as the example
           if (index === 0) {
               return (
                 <CopilotStep text={t('pilot.openWarehouse')} order={2} name="viewWarehouse">
                     <WalkablePressable
-                        collapsable={false} style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: colors.border }]}
+                        collapsable={false} // Android fix
+                        style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: colors.border }]}
                         onPress={() => router.push(`/warehouse/${item.id}`)}
                     >
                         <Feather name={item.icon || 'archive'} size={32} color={colors.text} style={styles.itemIcon} />
@@ -137,7 +155,6 @@ export default function WarehouseScreen() {
                 </CopilotStep>
               );
           }
-          // Render normal items without tour step
           return (
             <Pressable
                 style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -164,43 +181,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 24,
   },
-  list: {
-    padding: 8,
-  },
-  emptyText: {
-    marginBottom: 24,
-  },
-  button: {
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-  },
-  buttonText: {
-    fontWeight: '600',
-  },
+  list: { padding: 8 },
+  emptyText: { marginBottom: 24 },
+  button: { paddingVertical: 16, paddingHorizontal: 24, borderRadius: 8 },
+  buttonText: { fontWeight: '600' },
   itemContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
     borderRadius: 8,
     marginBottom: 8,
-    elevation: 1, 
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
     borderWidth: 1,
   },
-  itemIcon: {
-    marginRight: 16,
-  },
-  itemTextContainer: {
-    flex: 1,
-  },
-  itemName: {
-    fontWeight: 'bold',
-  },
-  itemDescription: {
-    marginTop: 8,
-  },
+  itemIcon: { marginRight: 16 },
+  itemTextContainer: { flex: 1 },
+  itemName: { fontWeight: 'bold' },
+  itemDescription: { marginTop: 8 },
 });
