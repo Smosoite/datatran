@@ -102,7 +102,7 @@ export default function HistoryScreen() {
         // 3. TARGET THE CONTAINER, NOT THE LIST ITEMS
         // IMPORTANT: collapsable={false} prevents the view from disappearing during optimization
         <CopilotStep text="This timeline tracks every action taken by your team." order={1} name="historyList">
-            <WalkableView style={{ flex: 1 }} collapsable={false}>
+            <WalkableView collapsable={false} style={{ flex: 1 }} collapsable={false}>
                 <FlatList
                     data={logs}
                     keyExtractor={(item) => item.id}
