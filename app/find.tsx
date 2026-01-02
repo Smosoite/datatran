@@ -1,4 +1,3 @@
-App/find.tsx
 import { useTranslation } from 'react-i18next';
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, FlatList, ActivityIndicator, Pressable, Alert, ScrollView } from 'react-native';
