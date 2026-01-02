@@ -116,7 +116,7 @@ export default function EditItemScreen() {
       
       {/* STEP 2: Save Button */}
       <CopilotStep text= {t('pilot.save')} order={2} name="saveBtn">
-        <WalkablePressable style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleUpdate} disabled={updating}>
+        <WalkablePressable collapsable={false} style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleUpdate} disabled={updating}>
             {updating ? (
             <ActivityIndicator color={colors.text || '#fff'} />
             ) : (
