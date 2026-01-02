@@ -20,88 +20,55 @@ export default function ScanScreen() {
   const [barcode, setBarcode] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-
-  // --- COPILOT HOOK ---
+// 1. ADD LAYOUT STATE
+  const [isLayoutReady, setIsLayoutReady] = useState(false);
+  
   const { start: startTour } = useCopilot();
 
-  // --- START TOUR ON MOUNT (ONCE) ---
+  // 2. MODIFIED TOUR LOGIC
   useEffect(() => {
-    if (loading) return;
+    // Only proceed if data isn't loading AND the UI has finished layout
+    if (loading || !isLayoutReady) return;
+
     const checkFirstTime = async () => {
         try {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_SCAN_TOUR');
             if (!hasSeen) {
-                setTimeout(() => startTour(), 500);
+                // Give a tiny 100ms grace period for the spotlight to catch up
+                setTimeout(() => startTour(), 100); 
                 await AsyncStorage.setItem('HAS_SEEN_SCAN_TOUR', 'true');
             }
-        } catch (e) {
-            console.warn("Tour check failed", e);
-        }
+        } catch (e) { console.warn(e); }
     };
     checkFirstTime();
-  }, [loading]);
-
-  const handleManualScan = async () => {
-    if (!barcode.trim()) {
-      showError(t('general.addBarcode'));
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const { data: item, error } = await supabase
-        .from('items')
-        .select('id')
-        .eq('barcode', barcode.trim())
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        throw error;
-      }
-      
-      if (item) {
-        router.push(`/edit-item/${item.id}`);
-      } else {
-        router.push({ 
-          pathname: '/select-location-modal', 
-          params: { barcode: barcode.trim() } 
-        });
-      }
-
-    } catch (error: any) {
-      showError(t('general.error'), error.message);
-      setLoading(false);
-    }
-  };
+  }, [loading, isLayoutReady]); // Depend on layout state
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View 
+      style={[styles.container, { backgroundColor: colors.background }]}
+      // 3. CAPTURE THE LAYOUT EVENT
+      onLayout={() => setIsLayoutReady(true)}
+    >
       <Text style={[typography.h1, styles.title, { color: colors.text }]}>{t('scan.manualEntryTitle')}</Text>
-      <Text style={[typography.h3, styles.subtitle, { color: colors.subtext }]}>{t('scan.manualEntrySub')}</Text>
       
-      {/* STEP 1: Input Field */}
-      <CopilotStep text= {t('pilot.notavailable')} order={1} name="manualInput">
-        <WalkableView collapsable={false}> 
-          <TextInput
-            style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+      {/* 4. ENSURE WALKABLES ARE NOT COLLAPSABLE */}
+      <CopilotStep text={t('pilot.notavailable')} order={1} name="manualInput">
+          <WalkableTextInput
+            collapsable={false} // Crucial for Android
+            style={[styles.input, { backgroundColor: colors.card, color: colors.text }]}
             placeholder={t('scan.enterNum')}
-            placeholderTextColor={colors.subtext}
             value={barcode}
             onChangeText={setBarcode}
-            keyboardType="numeric"
-            onSubmitEditing={handleManualScan}
           />
-      </WalkableView>
-</CopilotStep>
-      
-      {/* STEP 2: Submit Button */}
-      <CopilotStep text= {t('pilot.barcodescan')} order={2} name="submitBtn">
-          <WalkablePressable collapsable={false} style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleManualScan} disabled={loading}>
-            {loading ? (
-                <ActivityIndicator color={colors.text || '#fff'} />
-            ) : (
-                <Text style={[typography.button, styles.buttonText, { color: colors.text || '#fff' }]}>{t('scan.submitBarcode')}</Text>
-            )}
+      </CopilotStep>
+
+      <CopilotStep text={t('pilot.barcodescan')} order={2} name="submitBtn">
+          <WalkablePressable 
+            collapsable={false} // Crucial for Android
+            style={[styles.button, { backgroundColor: colors.primary }]} 
+            onPress={handleManualScan}
+          >
+            <Text style={{ color: colors.text }}>{t('scan.submitBarcode')}</Text>
           </WalkablePressable>
       </CopilotStep>
     </View>
