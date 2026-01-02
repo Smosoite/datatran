@@ -25,25 +25,25 @@ const CustomTooltip = ({
 }: any) => {
   const { colors } = useTheme();
 
-  // The 'text' property is what you define in <CopilotStep text="..." />
-  // If it's still missing, we fallback to a space or a generic hint to prevent "Loading info..."
-  const stepText = currentStep?.text || "";
+  // FIX: Explicitly check for the 'text' property. 
+  // Providing an empty string fallback prevents the library's "Loading info..." default.
+  const stepDescription = currentStep?.text || "";
 
   return (
     <View style={[styles.tooltipContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      {/* Step Title / Name */}
+      {/* Step Header (Step Name) */}
       {currentStep?.name && (
         <Text style={[typography.h3, { color: colors.text, marginBottom: 8 }]}>
-          {currentStep.name.replace(/([A-Z])/g, ' $1').trim()} {/* Makes "manualInput" look like "Manual Input" */}
+          {currentStep.name.replace(/([A-Z])/g, ' $1').trim()} 
         </Text>
       )}
 
-      {/* Step Body Text */}
+      {/* Step Body (Instruction Text) */}
       <Text style={[typography.body, { color: colors.subtext, marginBottom: 20 }]}>
-        {stepText}
+        {stepDescription}
       </Text>
 
-      {/* Footer / Buttons */}
+      {/* Tooltip Footer (Navigation Buttons) */}
       <View style={styles.tooltipFooter}>
         <TouchableOpacity onPress={handleStop}>
           <Text style={[typography.caption, { color: colors.subtext, padding: 8 }]}>
@@ -59,7 +59,7 @@ const CustomTooltip = ({
               </Text>
             </TouchableOpacity>
           )}
-          
+
           {!isLastStep ? (
             <TouchableOpacity onPress={handleNext}>
               <Text style={[typography.button, { color: colors.primary, fontWeight: 'bold', fontSize: 14, padding: 8 }]}>
@@ -146,7 +146,7 @@ const MainNavigator = () => {
   return <ThemedStack />;
 };
 
-// --- APP WRAPPER ---
+// --- APP WRAPPER WITH COPILOT ---
 const AppWithCopilot = () => {
   const { colors } = useTheme();
   
@@ -158,8 +158,8 @@ const AppWithCopilot = () => {
       stepNumberComponent={() => null}
       overlay="svg" 
       backdropColor="rgba(0, 0, 0, 0.7)"
-      // Fixed: Ensure the internal tooltip container is transparent so our CustomTooltip styles work
-      tooltipStyle={{ backgroundColor: 'transparent' }}
+      // Fixed: Setting tooltipStyle to transparent ensures your custom bubble handles its own styling
+      tooltipStyle={{ backgroundColor: 'transparent', borderRadius: 12 }}
     >
       <ModalProvider>
         <MainNavigator />
@@ -181,6 +181,7 @@ export default function RootLayout() {
   );
 }
 
+// --- UTILITY STYLES ---
 const styles = StyleSheet.create({
   tooltipContainer: {
     padding: 16, 
@@ -205,20 +206,20 @@ const styles = StyleSheet.create({
 });
 
 const getToastConfig = (colors: any) => ({
-    success: (props: any) => (
-      <BaseToast
-        {...props}
-        style={{ height: 80, borderLeftColor: colors.success, backgroundColor: colors.card, borderLeftWidth: 7 }}
-        text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
-        text2Style={{ fontSize: 14, color: colors.subtext }}
-      />
-    ),
-    error: (props: any) => (
-      <ErrorToast
-        {...props}
-        style={{ height: 80, borderLeftColor: colors.danger, backgroundColor: colors.card, borderLeftWidth: 7 }}
-        text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
-        text2Style={{ fontSize: 14, color: colors.subtext }}
-      />
-    ),
+  success: (props: any) => (
+    <BaseToast
+      {...props}
+      style={{ height: 80, borderLeftColor: colors.success, backgroundColor: colors.card, borderLeftWidth: 7 }}
+      text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
+      text2Style={{ fontSize: 14, color: colors.subtext }}
+    />
+  ),
+  error: (props: any) => (
+    <ErrorToast
+      {...props}
+      style={{ height: 80, borderLeftColor: colors.danger, backgroundColor: colors.card, borderLeftWidth: 7 }}
+      text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
+      text2Style={{ fontSize: 14, color: colors.subtext }}
+    />
+  ),
 });
