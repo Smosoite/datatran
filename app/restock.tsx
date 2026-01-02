@@ -78,29 +78,36 @@ export default function RestockScreen() {
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
 
-  // --- 1. LAYOUT STATE ---
+  // --- COPILOT STATE ---
   const [isLayoutReady, setIsLayoutReady] = useState(false);
+  const [tourStarted, setTourStarted] = useState(false);
 
   // --- COPILOT HOOK ---
   const { start: startTour } = useCopilot();
 
-  // --- 2. UPDATED TOUR LOGIC ---
+  // --- START TOUR AFTER DATA LOADS AND LAYOUT IS READY ---
   useEffect(() => {
-    // Wait for data to load AND for the native layout to be calculated
-    if (loading || !isLayoutReady) return;
+    // Only start tour when: not loading, layout ready, has items, and tour not started
+    if (loading || !isLayoutReady || restockItems.length === 0 || tourStarted) return;
 
-    const checkFirstTime = async () => {
-        try {
-            const hasSeen = await AsyncStorage.getItem('HAS_SEEN_RESTOCK_TOUR');
-            if (!hasSeen) {
-                // Short delay ensures that items within the FlatList have had a millisecond to stabilize
-                setTimeout(() => startTour(), 500); 
-                await AsyncStorage.setItem('HAS_SEEN_RESTOCK_TOUR', 'true');
-            }
-        } catch (e) { console.warn(e); }
+    const checkAndStartTour = async () => {
+      try {
+        const hasSeen = await AsyncStorage.getItem('HAS_SEEN_RESTOCK_TOUR');
+        if (!hasSeen) {
+          // Wait for FlatList to render items properly
+          setTimeout(() => {
+            startTour();
+            setTourStarted(true);
+          }, 800);
+          await AsyncStorage.setItem('HAS_SEEN_RESTOCK_TOUR', 'true');
+        }
+      } catch (e) { 
+        console.warn('Tour check failed', e); 
+      }
     };
-    checkFirstTime();
-  }, [loading, isLayoutReady]);
+    
+    checkAndStartTour();
+  }, [loading, isLayoutReady, restockItems.length, tourStarted]);
 
   const fetchRestockItems = useCallback(async () => {
     setLoading(true);
@@ -155,90 +162,127 @@ export default function RestockScreen() {
     setLoading(false);
   };
 
+  const renderItem = ({ item, index }: { item: RestockItem; index: number }) => {
+    const isSelected = selectedItems.includes(item.id);
+    
+    return (
+      <View style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: isSelected ? colors.primary : colors.border }]}>
+        {/* Step 1: Highlight checkbox on first item */}
+        {index === 0 ? (
+          <CopilotStep 
+            text={t('pilot.highlight') || "Select items you want to restock in bulk."} 
+            order={1} 
+            name="selectItem"
+          >
+            <WalkablePressable 
+              collapsable={false}
+              onPress={() => toggleSelectItem(item.id)} 
+              style={styles.checkbox}
+            >
+              <FontAwesome name={isSelected ? 'check-square-o' : 'square-o'} size={24} color={colors.primary} />
+            </WalkablePressable>
+          </CopilotStep>
+        ) : (
+          <Pressable onPress={() => toggleSelectItem(item.id)} style={styles.checkbox}>
+            <FontAwesome name={isSelected ? 'check-square-o' : 'square-o'} size={24} color={colors.primary} />
+          </Pressable>
+        )}
+
+        <View style={styles.itemDetails}>
+          <Text style={[typography.body, styles.itemName, { color: colors.text }]}>{item.name}</Text>
+          <Text style={[typography.body, styles.itemQuantityText, { color: colors.subtext }]}>
+            {t('restock.current')} {item.quantity} | {t('restock.needs')} {item.restock_threshold}
+          </Text>
+        </View>
+
+        {/* Step 2: Highlight quantity controls on first item */}
+        {index === 0 ? (
+          <CopilotStep 
+            text={t('pilot.adjustquantity') || "Adjust individual item quantities here."} 
+            order={2} 
+            name="quantityControls"
+          >
+            <WalkableView style={styles.quantityControls} collapsable={false}>
+              <Pressable 
+                style={[styles.quantityButton, { backgroundColor: colors.background }]} 
+                onPress={() => updateItemQuantity(item, item.quantity - 1)}
+              >
+                <FontAwesome name="minus" size={16} color={colors.primary} />
+              </Pressable>
+              <Pressable 
+                style={[styles.quantityButton, { backgroundColor: colors.background }]} 
+                onPress={() => updateItemQuantity(item, item.quantity + 1)}
+              >
+                <FontAwesome name="plus" size={16} color={colors.primary} />
+              </Pressable>
+            </WalkableView>
+          </CopilotStep>
+        ) : (
+          <View style={styles.quantityControls}>
+            <Pressable 
+              style={[styles.quantityButton, { backgroundColor: colors.background }]} 
+              onPress={() => updateItemQuantity(item, item.quantity - 1)}
+            >
+              <FontAwesome name="minus" size={16} color={colors.primary} />
+            </Pressable>
+            <Pressable 
+              style={[styles.quantityButton, { backgroundColor: colors.background }]} 
+              onPress={() => updateItemQuantity(item, item.quantity + 1)}
+            >
+              <FontAwesome name="plus" size={16} color={colors.primary} />
+            </Pressable>
+          </View>
+        )}
+      </View>
+    );
+  };
+
   return (
     <View 
       style={[styles.container, { backgroundColor: colors.background }]}
-      // --- 3. TRIGGER LAYOUT READY ---
       onLayout={() => setIsLayoutReady(true)}
     >
-      <Stack.Screen options={{ title: '' }} />
+      <Stack.Screen options={{ title: t('restock.title') || 'Restock' }} />
       <BulkStockModal visible={isModalVisible} onClose={() => setIsModalVisible(false)} onSubmit={handleBulkStockSubmit} />
       
-      {loading ? <ActivityIndicator style={styles.centered} size="large" color={colors.primary} /> : (
+      {loading ? (
+        <ActivityIndicator style={styles.centered} size="large" color={colors.primary} />
+      ) : (
         <FlatList
           data={restockItems}
           keyExtractor={(item) => item.id}
-          renderItem={({ item, index }) => {
-            const isSelected = selectedItems.includes(item.id);
-            
-            // --- 4. ADD collapsable={false} TO THE FIRST TARGET ITEM ---
-            if (index === 0) {
-               return (
-                <View style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: isSelected ? colors.primary : colors.border }]}>
-                  <CopilotStep text={t('pilot.highlight')} order={1} name="selectItem">
-                    <WalkablePressable 
-                        collapsable={false} // Prevents measurement failure on Android
-                        onPress={() => toggleSelectItem(item.id)} 
-                        style={styles.checkbox}
-                    >
-                        <FontAwesome name={isSelected ? 'check-square-o' : 'square-o'} size={24} color={colors.primary} />
-                    </WalkablePressable>
-                  </CopilotStep>
-                  <View style={styles.itemDetails}>
-                    <Text style={[typography.body, styles.itemName, { color: colors.text }]}>{item.name}</Text>
-                    <Text style={[typography.body, styles.itemQuantityText, { color: colors.subtext }]}>{t('restock.current')} {item.quantity} | {t('restock.needs')} {item.restock_threshold}</Text>
-                  </View>
-                  <View style={styles.quantityControls}>
-                    <Pressable style={[styles.quantityButton, { backgroundColor: colors.background }]} onPress={() => updateItemQuantity(item, item.quantity - 1)}>
-                      <FontAwesome name="minus" size={16} color={colors.primary} />
-                    </Pressable>
-                    <Pressable style={[styles.quantityButton, { backgroundColor: colors.background }]} onPress={() => updateItemQuantity(item, item.quantity + 1)}>
-                      <FontAwesome name="plus" size={16} color={colors.primary} />
-                    </Pressable>
-                  </View>
-                </View>
-               );
-            }
-
-            return (
-              <View style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: isSelected ? colors.primary : colors.border }]}>
-                <Pressable onPress={() => toggleSelectItem(item.id)} style={styles.checkbox}>
-                  <FontAwesome name={isSelected ? 'check-square-o' : 'square-o'} size={24} color={colors.primary} />
-                </Pressable>
-                <View style={styles.itemDetails}>
-                  <Text style={[typography.body, styles.itemName, { color: colors.text }]}>{item.name}</Text>
-                  <Text style={[typography.body, styles.itemQuantityText, { color: colors.subtext }]}>{t('restock.current')} {item.quantity} | {t('restock.needs')} {item.restock_threshold}</Text>
-                </View>
-                <View style={styles.quantityControls}>
-                  <Pressable style={[styles.quantityButton, { backgroundColor: colors.background }]} onPress={() => updateItemQuantity(item, item.quantity - 1)}>
-                    <FontAwesome name="minus" size={16} color={colors.primary} />
-                  </Pressable>
-                  <Pressable style={[styles.quantityButton, { backgroundColor: colors.background }]} onPress={() => updateItemQuantity(item, item.quantity + 1)}>
-                    <FontAwesome name="plus" size={16} color={colors.primary} />
-                  </Pressable>
-                </View>
-              </View>
-            );
-          }}
+          renderItem={renderItem}
           ListEmptyComponent={() => (
-              <View style={styles.centered}>
-                <Text style={[typography.caption, styles.emptyText, { color: colors.subtext }]}>{t('restock.allStocked')}</Text>
-              </View>
+            <View style={styles.centered}>
+              <Text style={[typography.caption, styles.emptyText, { color: colors.subtext }]}>
+                {t('restock.allStocked')}
+              </Text>
+            </View>
           )}
           contentContainerStyle={{ padding: 10 }}
         />
       )}
       
+      {/* Step 3: Highlight bulk action button - only shown when items are selected */}
       {selectedItems.length > 0 && (
-        <CopilotStep text={t('pilot.stockbulk')} order={2} name="bulkAction">
-            <WalkableView 
-                style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]} 
-                collapsable={false} // Ensure the footer is measured correctly
+        <CopilotStep 
+          text={t('pilot.stockbulk') || "Restock multiple items at once with the same quantity."} 
+          order={3} 
+          name="bulkAction"
+        >
+          <WalkableView 
+            style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]} 
+            collapsable={false}
+          >
+            <Pressable 
+              style={[styles.bulkButton, { backgroundColor: colors.success }]} 
+              onPress={openBulkStockModal}
             >
-                <Pressable style={[styles.bulkButton, { backgroundColor: colors.success }]} onPress={openBulkStockModal}>
-                    <Text style={[typography.button, styles.bulkButtonText, { color: colors.primaryText }]}>{t('restock.bulkButton', { count: selectedItems.length })}</Text>
-                </Pressable>
-            </WalkableView>
+              <Text style={[typography.button, styles.bulkButtonText, { color: colors.primaryText }]}>
+                {t('restock.bulkButton', { count: selectedItems.length })}
+              </Text>
+            </Pressable>
+          </WalkableView>
         </CopilotStep>
       )}
     </View>
