@@ -39,23 +39,23 @@ export default function ManageWarehouseScreen() {
   const [storages, setStorages] = useState<Storage[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // --- 1. LAYOUT STATE ---
   const [isLayoutReady, setIsLayoutReady] = useState(false);
 
   // --- COPILOT HOOK ---
   const { start: startTour } = useCopilot();
 
-  // --- 2. UPDATED TOUR LOGIC ---
+  // --- UPDATED TOUR LOGIC ---
   useEffect(() => {
-    // Wait until data is fetched AND the screen has finished its layout
     if (loading || !isLayoutReady) return;
 
     const checkFirstTime = async () => {
         try {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_WAREHOUSE_DETAIL_TOUR');
             if (!hasSeen) {
-                // Short delay to ensure the list items are fully positioned
-                setTimeout(() => startTour(), 600);
+                setTimeout(() => {
+                  console.log('Starting warehouse detail tour');
+                  startTour();
+                }, 1000);
                 await AsyncStorage.setItem('HAS_SEEN_WAREHOUSE_DETAIL_TOUR', 'true');
             }
         } catch (e) {
@@ -63,7 +63,7 @@ export default function ManageWarehouseScreen() {
         }
     };
     checkFirstTime();
-  }, [loading, isLayoutReady]);
+  }, [loading, isLayoutReady, startTour]);
 
   const fetchDetails = useCallback(async () => {
     if (!id) return;
@@ -108,15 +108,21 @@ export default function ManageWarehouseScreen() {
     });
   };
 
-  // --- 4. HEADER COMPONENT WITH FIX ---
   const renderHeaderRight = () => (
-      <CopilotStep text={t('pilot.addStorage')} order={1} name="addStorage">
-        <WalkablePressable 
-          collapsable={false} // Ensure measurement works for header buttons
-          onPress={() => router.push({ pathname: '/create-storage', params: { warehouseId: id } })}
-        >
-          <FontAwesome name="plus" size={24} color={colors.selector} style={{ marginRight: 15 }} />
-        </WalkablePressable>
+      <CopilotStep 
+        text={t('pilot.addStorage')} 
+        order={1} 
+        name="addStorage"
+        active={true}
+      >
+        <WalkableView>
+          <Pressable 
+            onPress={() => router.push({ pathname: '/create-storage', params: { warehouseId: id } })}
+            style={{ padding: 10 }}
+          >
+            <FontAwesome name="plus" size={24} color={colors.selector} />
+          </Pressable>
+        </WalkableView>
       </CopilotStep>
   );
 
@@ -127,8 +133,10 @@ export default function ManageWarehouseScreen() {
   return (
     <View 
       style={[styles.container, { backgroundColor: colors.background }]}
-      // --- 3. TRIGGER LAYOUT READY ---
-      onLayout={() => setIsLayoutReady(true)}
+      onLayout={() => {
+        console.log('Warehouse detail layout ready');
+        setIsLayoutReady(true);
+      }}
     >
       <Stack.Screen options={{
         title: warehouse?.name || t('warehouse.manageHeader'),
@@ -142,26 +150,38 @@ export default function ManageWarehouseScreen() {
             if (index === 0) {
                 return (
                   <View style={[styles.card, styles.itemContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                    <CopilotStep text={t('pilot.viewStorage')} order={2} name="viewStorage">
-                        <WalkablePressable 
-                          collapsable={false} // Android fix
-                          style={styles.mainContent} 
-                          onPress={() => router.push(`/storage/${item.id}`)}
-                        >
-                          <FontAwesome name="inbox" size={24} color={colors.text} />
-                          <Text style={[typography.body, styles.itemName, { color: colors.text }]}>{item.name}</Text>
-                        </WalkablePressable>
+                    <CopilotStep 
+                      text={t('pilot.viewStorage')} 
+                      order={2} 
+                      name="viewStorage"
+                      active={true}
+                    >
+                        <WalkableView style={styles.mainContent}>
+                          <Pressable 
+                            style={styles.mainContent} 
+                            onPress={() => router.push(`/storage/${item.id}`)}
+                          >
+                            <FontAwesome name="inbox" size={24} color={colors.text} />
+                            <Text style={[typography.body, styles.itemName, { color: colors.text }]}>{item.name}</Text>
+                          </Pressable>
+                        </WalkableView>
                     </CopilotStep>
                     
                     {profile?.role === 'admin' && (
-                      <CopilotStep text={t('pilot.openGrid')} order={3} name="openGrid">
-                          <WalkablePressable 
-                            collapsable={false} // Android fix
-                            style={[styles.gridButton, { backgroundColor: colors.selector }]} 
-                            onPress={() => handleOpenGrid(item.id)}
-                          >
-                            <FontAwesome name="th-large" size={20} color={colors.primaryText} />
-                          </WalkablePressable>
+                      <CopilotStep 
+                        text={t('pilot.openGrid')} 
+                        order={3} 
+                        name="openGrid"
+                        active={true}
+                      >
+                          <WalkableView>
+                            <Pressable 
+                              style={[styles.gridButton, { backgroundColor: colors.selector }]} 
+                              onPress={() => handleOpenGrid(item.id)}
+                            >
+                              <FontAwesome name="th-large" size={20} color={colors.primaryText} />
+                            </Pressable>
+                          </WalkableView>
                       </CopilotStep>
                     )}
                   </View>
