@@ -118,7 +118,7 @@ export default function ManageStorageScreen() {
   // Copilot Wrapper for Header Button
   const renderHeaderRight = () => (
       <CopilotStep text= {t('pilot.tap')} order={1} name="addLocation">
-        <WalkablePressable onPress={() => router.push({ pathname: '/create-location', params: { storageId } })}>
+        <WalkablePressable collapsable={false} onPress={() => router.push({ pathname: '/create-location', params: { storageId } })}>
           <FontAwesome name="plus" size={24} color={colors.selector} style={{ marginRight: 15 }} />
         </WalkablePressable>
       </CopilotStep>
@@ -142,7 +142,7 @@ export default function ManageStorageScreen() {
               return ( 
                 <View style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
                   <CopilotStep text= {t('pilot.see')} order={2} name="viewLocation">
-                      <WalkableView style={styles.locationDetails} collapsable={false}>
+                      <WalkableView collapsable={false} style={styles.locationDetails} collapsable={false}>
                         <Text style={[typography.body, styles.itemName, { color: colors.text }]}>{formatLocationName(item)}</Text>
                         {assignedItem ? (
                           <Text style={[typography.body, styles.assignedItemText, { color: colors.success }]}>
@@ -155,7 +155,7 @@ export default function ManageStorageScreen() {
                   </CopilotStep>
 
                   <CopilotStep text= {t('pilot.editloc')} order={3} name="locationActions">
-                      <WalkableView style={styles.buttonGroup} collapsable={false}>
+                      <WalkableView collapsable={false} style={styles.buttonGroup} collapsable={false}>
                         <Pressable style={styles.actionButton} onPress={() => router.push(`/edit-location/${item.id}`)}>
                           <FontAwesome name="pencil" size={18} color={colors.primary} />
                         </Pressable>
