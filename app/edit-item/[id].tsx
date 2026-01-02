@@ -7,163 +7,99 @@ import { useTheme } from '../../providers/ThemeProvider';
 import { showError, showSuccess } from '../../lib/toast';
 import { typography } from '../../styles/typography';
 
-// --- COPILOT IMPORTS ---
-import { CopilotStep, walkthroughable, useCopilot } from "react-native-copilot";
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const WalkableTextInput = walkthroughable(TextInput);
-const WalkablePressable = walkthroughable(Pressable);
-const WalkableView = walkthroughable(View);
-
 export default function EditItemScreen() {
-  const { t } = useTranslation();
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const { colors } = useTheme(); 
-  const router = useRouter();
+  const { t } = useTranslation();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { colors } = useTheme(); // --- FIX: Correct way to get color.s ---
+  const router = useRouter();
 
-  const [name, setName] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [restockThreshold, setRestockThreshold] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState(false);
+  const [name, setName] = useState('');
+  const [quantity, setQuantity] = useState('');
+  const [restockThreshold, setRestockThreshold] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
 
-  const [isLayoutReady, setIsLayoutReady] = useState(false);
+  useEffect(() => {
+    const fetchItem = async () => {
+      if (!id) return;
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('items')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (error) {
+       showError(error.message);(t('general.error'), t('general.failedItem'));
+      } else if (data) {
+        setName(data.name);
+        setQuantity(data.quantity.toString());
+        setRestockThreshold(data.restock_threshold.toString());
+      }
+      setLoading(false);
+    };
+    fetchItem();
+  }, [id, t]); // Added `t` to dependency array
 
-  // --- COPILOT HOOK ---
-  const { start: startTour } = useCopilot();
+  const handleUpdate = async () => {
+    if (!name || !quantity || !restockThreshold || !id) {
+      showError(error.message);(t('general.error'), t('general.fillFields'));
+      return;
+    }
+    setUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('items')
+        .update({
+          name: name.trim(),
+          quantity: parseInt(quantity, 10),
+          restock_threshold: parseInt(restockThreshold, 10),
+        })
+        .eq('id', id);
 
-  // --- UPDATED TOUR LOGIC ---
-  useEffect(() => {
-    if (loading || !isLayoutReady) return;
+      if (error) throw error;
+      showSuccess(error.message);(t('general.success'), t('general.itemSuccess'));
+      router.back();
+    } catch (error: any) {
+     showError(error.message);(t('general.error'), error.message);
+    } finally {
+      setUpdating(false);
+    }
+  };
 
-    const checkFirstTime = async () => {
-        try {
-            const hasSeen = await AsyncStorage.getItem('HAS_SEEN_EDIT_ITEM_TOUR');
-            if (!hasSeen) {
-                setTimeout(() => {
-                  console.log('Starting edit item tour');
-                  startTour();
-                }, 1000);
-                await AsyncStorage.setItem('HAS_SEEN_EDIT_ITEM_TOUR', 'true');
-            }
-        } catch (e) { 
-          console.warn("Tour check failed", e); 
-        }
-    };
-    checkFirstTime();
-  }, [loading, isLayoutReady, startTour]);
+  if (loading) {
+    return <ActivityIndicator style={{ flex: 1, backgroundColor: colors.background }} size="large" color={colors.primary} />;
+  }
 
-  useEffect(() => {
-    const fetchItem = async () => {
-      if (!id) return;
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('items')
-        .select('*')
-        .eq('id', id)
-        .single();
-      
-      if (error) {
-       showError(t('general.error'), t('general.failedItem'));
-      } else if (data) {
-        setName(data.name);
-        setQuantity(data.quantity.toString());
-        setRestockThreshold(data.restock_threshold.toString());
-      }
-      setLoading(false);
-    };
-    fetchItem();
-  }, [id, t]);
-
-  const handleUpdate = async () => {
-    if (!name || !quantity || !restockThreshold || !id) {
-      showError(t('general.error'), t('general.fillFields'));
-      return;
-    }
-    setUpdating(true);
-    try {
-      const { error } = await supabase
-        .from('items')
-        .update({
-          name: name.trim(),
-          quantity: parseInt(quantity, 10),
-          restock_threshold: parseInt(restockThreshold, 10),
-        })
-        .eq('id', id);
-
-      if (error) throw error;
-      showSuccess(t('general.success'), t('general.itemSuccess'));
-      router.back();
-    } catch (error: any) {
-     showError(t('general.error'), error.message);
-    } finally {
-      setUpdating(false);
-    }
-  };
-
-  if (loading) {
-    return <ActivityIndicator style={{ flex: 1, backgroundColor: colors.background }} size="large" color={colors.primary} />;
-  }
-
-  return (
-    <ScrollView 
-      style={{ flex: 1, backgroundColor: colors.background }} 
-      contentContainerStyle={styles.contentContainer}
-      onLayout={() => {
-        console.log('Edit item layout ready');
-        setIsLayoutReady(true);
-      }}
-    >
-      
-      {/* STEP 1: Edit Fields */}
-      <CopilotStep 
-        text={t('pilot.details')} 
-        order={1} 
-        name="editFields"
-        active={true}
-      >
-        <WalkableView>
-            <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.itemName*')}</Text>
-            <TextInput style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} value={name} onChangeText={setName} />
-            
-            <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.quantity*')}</Text>
-            <TextInput style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} value={quantity} onChangeText={setQuantity} keyboardType="numeric" />
-            
-            <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.restockThreshold*')}</Text>
-            <TextInput style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} value={restockThreshold} onChangeText={setRestockThreshold} keyboardType="numeric" />
-        </WalkableView>
-      </CopilotStep>
-      
-      {/* STEP 2: Save Button */}
-      <CopilotStep 
-        text={t('pilot.save')} 
-        order={2} 
-        name="saveBtn"
-        active={true}
-      >
-        <WalkableView>
-          <Pressable 
-            style={[styles.button, { backgroundColor: colors.primary }]} 
-            onPress={handleUpdate} 
-            disabled={updating}
-          >
-              {updating ? (
-              <ActivityIndicator color={colors.text || '#fff'} />
-              ) : (
-              <Text style={[typography.button, styles.buttonText, { color: colors.text || '#fff' }]}>{t('general.save')}</Text>
-              )}
-          </Pressable>
-        </WalkableView>
-      </CopilotStep>
-
-    </ScrollView>
-  );
+  return (
+    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={styles.contentContainer}>
+      <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.itemName*')}</Text>
+      <TextInput style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} value={name} onChangeText={setName} />
+      
+      <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.quantity*')}</Text>
+      <TextInput style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} value={quantity} onChangeText={setQuantity} keyboardType="numeric" />
+      
+      {/* --- FIX: Applied theme styles to this input and its label --- */}
+      <Text style={typography.h3, [styles.label, { color: colors.text }]}>{t('item.restockThreshold*')}</Text>
+      <TextInput style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} value={restockThreshold} onChangeText={setRestockThreshold} keyboardType="numeric" />
+      
+      {/* --- FIX: Correctly styled the button and added a loading indicator --- */}
+      <Pressable style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleUpdate} disabled={updating}>
+        {updating ? (
+          <ActivityIndicator color={colors.text || '#fff'} />
+        ) : (
+          <Text style={[typography.button, styles.buttonText, { color: colors.text || '#fff' }]}>{t('general.save')}</Text>
+        )}
+      </Pressable>
+    </ScrollView>
+  );
 }
 
+// --- FIX: Stylesheet cleaned of hard-coded colors ---
 const styles = StyleSheet.create({
-  contentContainer: { padding: 24 },
-  label: { marginBottom: 8, fontWeight: '500' },
-  input: { borderWidth: 1, borderRadius: 8, padding: 16, marginBottom: 24 },
-  button: { padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 18 },
-  buttonText: { fontWeight: 'bold' },
+  contentContainer: { padding: 24 },
+  label: { marginBottom: 8, fontWeight: '500' },
+  input: { borderWidth: 1, borderRadius: 8, padding: 16, marginBottom: 24 },
+  button: { padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 18 },
+  buttonText: { fontWeight: 'bold' },
 });
