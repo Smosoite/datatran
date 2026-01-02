@@ -770,4 +770,4 @@ const styles = StyleSheet.create({
       width: '100%',
       opacity: 0.5,
   }
-});'Show Grid'}
+});
