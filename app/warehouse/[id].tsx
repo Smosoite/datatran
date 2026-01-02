@@ -111,7 +111,7 @@ export default function ManageWarehouseScreen() {
   // Helper for Header Button Tour Step
   const renderHeaderRight = () => (
       <CopilotStep text={t('pilot.addStorage')} order={1} name="addStorage">
-        <WalkablePressable onPress={() => router.push({ pathname: '/create-storage', params: { warehouseId: id } })}>
+        <WalkablePressable collapsable={false} onPress={() => router.push({ pathname: '/create-storage', params: { warehouseId: id } })}>
           <FontAwesome name="plus" size={24} color={colors.selector} style={{ marginRight: 15 }} />
         </WalkablePressable>
       </CopilotStep>
@@ -133,7 +133,7 @@ export default function ManageWarehouseScreen() {
                   <View style={[styles.card, styles.itemContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
                     <CopilotStep text={t('pilot.viewStorage')} order={2} name="viewStorage">
                         <WalkablePressable 
-                          style={styles.mainContent} 
+                          collapsable={false} style={styles.mainContent} 
                           onPress={() => router.push(`/storage/${item.id}`)}
                         >
                           <FontAwesome name="inbox" size={24} color={colors.text} />
@@ -144,7 +144,7 @@ export default function ManageWarehouseScreen() {
                     {profile?.role === 'admin' && (
                       <CopilotStep text={t('pilot.openGrid')} order={3} name="openGrid">
                           <WalkablePressable 
-                            style={[styles.gridButton, { backgroundColor: colors.selector }]} 
+                            collapsable={false} style={[styles.gridButton, { backgroundColor: colors.selector }]} 
                             onPress={() => handleOpenGrid(item.id)}
                           >
                             <FontAwesome name="th-large" size={20} color={colors.primaryText} />
