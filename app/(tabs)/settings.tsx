@@ -42,29 +42,33 @@ export default function SettingsScreen() {
   const { t, i18n } = useTranslation();
   const { showConfirmation, showPasscodeModal } = useModal();
   const router = useRouter();
-  const { profile, workgroup, refreshProfile } = useAuth();
+  const { profile, workgroup, refreshProfile, loading } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
+
+  // --- 1. LAYOUT STATE ---
+  const [isLayoutReady, setIsLayoutReady] = useState(false);
 
   // --- COPILOT HOOK ---
   const { start: startTour } = useCopilot();
 
-  // --- START TOUR ON MOUNT (ONCE) ---
+  // --- 2. UPDATED TOUR LOGIC ---
   useEffect(() => {
-    if (loading) return;
+    // Only proceed if auth data is ready AND layout is calculated
+    if (loading || !isLayoutReady) return;
+
     const checkFirstTime = async () => {
         try {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_SETTINGS_TOUR');
             if (!hasSeen) {
-                setTimeout(() => startTour(), 1500);
+                // Short delay to ensure themed colors and grid items are stable
+                setTimeout(() => startTour(), 600);
                 await AsyncStorage.setItem('HAS_SEEN_SETTINGS_TOUR', 'true');
             }
         } catch (e) { console.warn(e); }
     };
     checkFirstTime();
-  }, [loading]);
+  }, [loading, isLayoutReady]);
 
-// ... inside SettingsScreen component
-  
   const handleResetTours = async () => {
      try {
          const keys = [
@@ -72,26 +76,18 @@ export default function SettingsScreen() {
              `HAS_SEEN_WAREHOUSE_TOUR_${profile?.id}`,
              `HAS_SEEN_GRID_TOUR_${profile?.id}`,
              `HAS_SEEN_ADD_ITEM_TOUR_${profile?.id}`,
-             // Add other keys as you implement them...
          ];
-         
-         // If you used the old keys (without ID), clear them too just in case
          const legacyKeys = [
              'HAS_SEEN_DASHBOARD_TOUR', 'HAS_SEEN_WAREHOUSE_TOUR', 
              'HAS_SEEN_GRID_TOUR', 'HAS_SEEN_ADD_ITEM_TOUR', 
              'HAS_SEEN_SETTINGS_TOUR', 'HAS_SEEN_HISTORY_TOUR'
          ];
-
          await AsyncStorage.multiRemove([...keys, ...legacyKeys]);
-         
-         showSuccess(t('general.success'), "Tours have been reset. Go to the dashboard to see them again.");
+         showSuccess(t('general.success'), "Tours have been reset.");
      } catch (e) {
          showError(t('general.error'), "Failed to reset tours.");
      }
   };
-  
-  // --- HANDLERS (Passcode, Dessete, Logout, Export) ---
-  // (Logic kept identical to your provided code)
   
   const handleChangePasscode = () => {
     const performUpdate = async (newCode: string) => {
@@ -181,11 +177,16 @@ export default function SettingsScreen() {
   };
   
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={styles.container}>
+    <ScrollView 
+      style={{ flex: 1, backgroundColor: colors.background }} 
+      contentContainerStyle={styles.container}
+      // --- 3. TRIGGER LAYOUT READY ---
+      onLayout={() => setIsLayoutReady(true)}
+    >
       
       {/* STEP 1: Appearance */}
-      <CopilotStep text= {t('pilot.custom')} order={1} name="appearance">
-        <WalkableView collapsable={false} style={styles.section} collapsable={false}>
+      <CopilotStep text={t('pilot.custom')} order={1} name="appearance">
+        <WalkableView style={styles.section} collapsable={false}>
             <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.appearance')}</Text>
             <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.appRow}>
@@ -242,8 +243,8 @@ export default function SettingsScreen() {
 
       {/* STEP 2: Security (Admin Only) */}
       {profile?.role === 'admin' && (
-        <CopilotStep text= {t('pilot.history')} order={2} name="securitySection">
-            <WalkableView collapsable={false} style={styles.section} collapsable={false}>
+        <CopilotStep text={t('pilot.history')} order={2} name="securitySection">
+            <WalkableView style={styles.section} collapsable={false}>
                 <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.security')}</Text>
                 <Pressable style={[styles.card, styles.menuButton, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 8 }]} onPress={() => router.push('/history')}>
                     <FontAwesome name="history" size={20} color={colors.primary} />
@@ -261,21 +262,9 @@ export default function SettingsScreen() {
         </CopilotStep>
       )}
 
-      <View style={styles.section}>
-        <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.language')}</Text>
-        <View style={[typography.body, styles.card, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: 'row', justifyContent: 'space-around', padding: 10 }]}>
-          <Pressable style={[styles.themeButton, {width: themeButtonWidth}, i18n.language === 'en' && { backgroundColor: colors.selector }]} onPress={() => i18n.changeLanguage('en')}>
-            <Text style={[typography.button, typography.shadow, styles.themeButtonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('settings.english')}</Text>
-          </Pressable>
-          <Pressable style={[styles.themeButton, {width: themeButtonWidth}, i18n.language === 'fi' && { backgroundColor: colors.selector }]} onPress={() => i18n.changeLanguage('fi')}>
-            <Text style={[typography.button, typography.shadow, styles.themeButtonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('settings.finnish')}</Text>
-          </Pressable>
-        </View>
-      </View>
-
       {/* STEP 3: Export */}
-      <CopilotStep text= {t('pilot.export')} order={3} name="dataExport">
-        <WalkableView collapsable={false} style={styles.section} collapsable={false}>
+      <CopilotStep text={t('pilot.export')} order={3} name="dataExport">
+        <WalkableView style={styles.section} collapsable={false}>
             <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.data')}</Text>
             <Pressable 
             style={[styles.card, styles.menuButton, { backgroundColor: colors.card, borderColor: colors.border }, isExporting && styles.disabledButton]} 
@@ -289,26 +278,6 @@ export default function SettingsScreen() {
             </Pressable>
         </WalkableView>
       </CopilotStep>
-      
-      {profile?.role === 'admin' && (
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}></Text>
-          <Pressable style={[styles.deleteButton, { backgroundColor: colors.card, borderColor: colors.danger }]} onPress={handleDeleteWorkgroup}>
-            <Text style={[typography.button, styles.deleteButtonText, { color: colors.danger }]}>{t('settings.del')}</Text>
-          </Pressable>
-        </View>
-      )}
-{/* Add this near the bottom of your settings scrollview */}
-      <View style={styles.section}>
-        <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>Development</Text>
-        <Pressable 
-            style={[styles.card, styles.menuButton, { backgroundColor: colors.card, borderColor: colors.border }]} 
-            onPress={handleResetTours}
-        >
-          <FontAwesome name="refresh" size={20} color={colors.primary} />
-          <Text style={[typography.button, styles.menuButtonText, { color: colors.text }]}>Reset Onboarding Tours</Text>
-        </Pressable>
-      </View>
       
       <View style={[styles.section, { marginTop: 'auto' }]}>
         <Pressable style={[styles.logoutButton, { backgroundColor: colors.selector, borderColor: colors.border }]} onPress={handleLogout}>
@@ -327,13 +296,13 @@ const styles = StyleSheet.create({
   card: { borderRadius: 16, paddingHorizontal: 24, borderWidth: 1 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1 },
   appRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 16 },
-  label: {  },
-  value: {  },
+  label: { },
+  value: { },
   menuButton: { paddingVertical: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', },
   menuButtonText: { marginLeft: 8 },
   logoutButton: { padding: 16, borderRadius: 16, alignItems: 'center' },
-  logoutButtonText: {  },
- themeButtonsContainer: {
+  logoutButtonText: { },
+  themeButtonsContainer: {
     marginTop: 20,
     flexDirection: 'row',
     flexWrap: 'wrap', 
