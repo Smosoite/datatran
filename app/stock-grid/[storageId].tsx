@@ -82,15 +82,21 @@ export default function StockGridScreen() {
   // --- MENU STATE ---
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
+  // --- LAYOUT STATE ---
+  const [isLayoutReady, setIsLayoutReady] = useState(false);
+
   // --- START TOUR ON MOUNT (ONCE) ---
   useEffect(() => {
-    if (loading) return;
+    if (loading || !isLayoutReady) return;
+    
     const checkFirstTime = async () => {
         try {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_GRID_TOUR');
             if (!hasSeen) {
-                // Short delay to ensure layout renders before spotlight
-                setTimeout(() => startTour(), 1500);
+                setTimeout(() => {
+                  console.log('Starting grid tour');
+                  startTour();
+                }, 1500);
                 await AsyncStorage.setItem('HAS_SEEN_GRID_TOUR', 'true');
             }
         } catch (e) {
@@ -98,7 +104,7 @@ export default function StockGridScreen() {
         }
     };
     checkFirstTime();
-  }, [loading]);
+  }, [loading, isLayoutReady, startTour]);
 
   const fetchData = useCallback(async () => {
     if (!storageId) return;
@@ -360,6 +366,7 @@ export default function StockGridScreen() {
   }, [locations, BASE_HEIGHT, GAP_SIZE, UNIT_WIDTH]);
 
   // --- Calculate Content Width ---
+  const TOTAL_GRID_COLS = VISIBLE_COLS; // Add this if missing
   const maxGridColumns = useMemo(() => {
       if (visualGrid.length === 0) return TOTAL_GRID_COLS;
       const maxColsInShelves = Math.max(...visualGrid.map(s => s.colCount));
@@ -548,7 +555,13 @@ export default function StockGridScreen() {
   if (loading) return <ActivityIndicator style={styles.centered} size="large" color={colors.primary} />;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View 
+      style={[styles.container, { backgroundColor: colors.background }]}
+      onLayout={() => {
+        console.log('Grid layout ready');
+        setIsLayoutReady(true);
+      }}
+    >
 
       {/* Grid Content */}
       <ScrollView contentContainerStyle={{ paddingTop: 40, paddingBottom: 100 }}>
@@ -556,15 +569,16 @@ export default function StockGridScreen() {
             
             {/* WRAP THE GRID IN A COPILOT STEP */}
             <CopilotStep 
-                text="This is your inventory grid. Pinch, scroll, or tap slots to manage items." 
+                text={t('pilot.gridArea', 'This is your inventory grid. Pinch, scroll, or tap slots to manage items.')} 
                 order={2} 
                 name="gridArea"
+                active={true}
             >
-                <WalkableView collapsable={false} style={{ 
+                <WalkableView style={{ 
                     width: Math.max(screenWidth, contentWidth), 
                     padding: GRID_PADDING,
                     backgroundColor: showGridLines ? colors.border : 'transparent' 
-                }} collapsable={false}>
+                }}>
                 {visualGrid.map((shelf) => (
                     <View 
                         key={shelf.shelfLabel} 
@@ -609,40 +623,6 @@ export default function StockGridScreen() {
                             {showGridLines ? 'Hide Grid' : 'Show Grid'}
                         </Text>
                     </TouchableOpacity>
-
-                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-                    <TouchableOpacity 
-                        style={styles.menuItem}
-                        onPress={toggleEditMode}
-                    >
-                        <Feather name="edit-2" size={18} color={colors.text} />
-                        <Text style={[styles.menuText, { color: colors.text }]}>{t('general.edit', 'Edit Layout')}</Text>
-                    </TouchableOpacity>
-                    
-                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                    
-                    <TouchableOpacity 
-                        style={styles.menuItem}
-                        onPress={() => router.back()}
-                    >
-                        <Feather name="log-out" size={18} color={colors.danger} />
-                        <Text style={[styles.menuText, { color: colors.danger }]}>{t('general.exit', 'Exit')}</Text>
-                    </TouchableOpacity>
-                 </>
-             )}
-
-             {isEditMode && (
-                 <>
-                    <TouchableOpacity 
-                        style={styles.menuItem}
-                        onPress={() => { setShowGridLines(!showGridLines); }} 
-                    >
-                        <MaterialIcons name="grid-on" size={18} color={showGridLines ? colors.primary : colors.text} />
-                        <Text style={[styles.menuText, { color: colors.text }]}>
-                            {showGridLines ? 'Hide Grid' : 'Show Grid'}
-                        </Text>
-                    </TouchableOpacity>
                     
                     <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
@@ -671,17 +651,20 @@ export default function StockGridScreen() {
 
       {/* --- FAB (Wrapped in Tour) --- */}
       <CopilotStep 
-        text="Tap here to edit your grid layout, toggle visibility, or exit." 
+        text={t('pilot.menuFab', 'Tap here to edit your grid layout, toggle visibility, or exit.')} 
         order={1} 
         name="menuFab"
+        active={true}
       >
-          <WalkableTouchableOpacity 
-             style={[styles.fab, { backgroundColor: colors.card, borderColor: colors.border }]}
-             onPress={() => setIsMenuOpen(!isMenuOpen)}
-             activeOpacity={0.8}
-          >
-              <Feather name={isMenuOpen ? "x" : "menu"} size={24} color={colors.text} />
-          </WalkableTouchableOpacity>
+          <WalkableView>
+            <TouchableOpacity 
+               style={[styles.fab, { backgroundColor: colors.card, borderColor: colors.border }]}
+               onPress={() => setIsMenuOpen(!isMenuOpen)}
+               activeOpacity={0.8}
+            >
+                <Feather name={isMenuOpen ? "x" : "menu"} size={24} color={colors.text} />
+            </TouchableOpacity>
+          </WalkableView>
       </CopilotStep>
 
     </View>
@@ -787,4 +770,4 @@ const styles = StyleSheet.create({
       width: '100%',
       opacity: 0.5,
   }
-});
+});'Show Grid'}
