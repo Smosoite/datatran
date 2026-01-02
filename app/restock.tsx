@@ -163,7 +163,7 @@ export default function RestockScreen() {
                return (
                 <View style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: isSelected ? colors.primary : colors.border }]}>
                   <CopilotStep text= {t('pilot.highlight')} order={1} name="selectItem">
-                    <WalkablePressable onPress={() => toggleSelectItem(item.id)} style={styles.checkbox}>
+                    <WalkablePressable collapsable={false} onPress={() => toggleSelectItem(item.id)} style={styles.checkbox}>
                         <FontAwesome name={isSelected ? 'check-square-o' : 'square-o'} size={24} color={colors.primary} />
                     </WalkablePressable>
                   </CopilotStep>
@@ -214,7 +214,7 @@ export default function RestockScreen() {
       
       {selectedItems.length > 0 && (
         <CopilotStep text= {t('pilot.stockbulk')} order={2} name="bulkAction">
-            <WalkableView style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]} collapsable={false}>
+            <WalkableView collapsable={false} style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]} collapsable={false}>
                 <Pressable style={[styles.bulkButton, { backgroundColor: colors.success }]} onPress={openBulkStockModal}>
                     <Text style={[typography.button, styles.bulkButtonText, { color: colors.primaryText }]}>{t('restock.bulkButton', { count: selectedItems.length })}</Text>
                 </Pressable>
