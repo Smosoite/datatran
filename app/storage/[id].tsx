@@ -36,23 +36,23 @@ export default function ManageStorageScreen() {
   const [loading, setLoading] = useState(true);
   const [storageName, setStorageName] = useState('');
 
-  // --- 1. LAYOUT STATE ---
   const [isLayoutReady, setIsLayoutReady] = useState(false);
 
   // --- COPILOT HOOK ---
   const { start: startTour } = useCopilot();
 
-  // --- 2. UPDATED TOUR LOGIC ---
+  // --- UPDATED TOUR LOGIC ---
   useEffect(() => {
-    // Only start if data is loaded AND the layout is calculated
     if (loading || !isLayoutReady) return;
 
     const checkFirstTime = async () => {
         try {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_STORAGE_LOC_TOUR');
             if (!hasSeen) {
-                // Delay slightly to ensure list items are rendered and measured
-                setTimeout(() => startTour(), 600);
+                setTimeout(() => {
+                  console.log('Starting storage location tour');
+                  startTour();
+                }, 1000);
                 await AsyncStorage.setItem('HAS_SEEN_STORAGE_LOC_TOUR', 'true');
             }
         } catch (e) {
@@ -60,7 +60,7 @@ export default function ManageStorageScreen() {
         }
     };
     checkFirstTime();
-  }, [loading, isLayoutReady]);
+  }, [loading, isLayoutReady, startTour]);
 
   const fetchLocations = useCallback(async () => {
     if (!storageId) return;
@@ -120,23 +120,31 @@ export default function ManageStorageScreen() {
     return <ActivityIndicator style={[styles.centered, { backgroundColor: colors.background }]} size="large" color={colors.primary} />;
   }
 
-  // --- 4. HEADER FIX ---
   const renderHeaderRight = () => (
-      <CopilotStep text={t('pilot.tap')} order={1} name="addLocation">
-        <WalkablePressable 
-          collapsable={false} // Android fix
-          onPress={() => router.push({ pathname: '/create-location', params: { storageId } })}
-        >
-          <FontAwesome name="plus" size={24} color={colors.selector} style={{ marginRight: 15 }} />
-        </WalkablePressable>
+      <CopilotStep 
+        text={t('pilot.tap')} 
+        order={1} 
+        name="addLocation"
+        active={true}
+      >
+        <WalkableView>
+          <Pressable 
+            onPress={() => router.push({ pathname: '/create-location', params: { storageId } })}
+            style={{ padding: 10 }}
+          >
+            <FontAwesome name="plus" size={24} color={colors.selector} />
+          </Pressable>
+        </WalkableView>
       </CopilotStep>
   );
 
   return (
     <View 
       style={[styles.container, { backgroundColor: colors.background }]}
-      // --- 3. TRIGGER LAYOUT READY ---
-      onLayout={() => setIsLayoutReady(true)}
+      onLayout={() => {
+        console.log('Storage location layout ready');
+        setIsLayoutReady(true);
+      }}
     >
       <Stack.Screen options={{
         title: storageName || t('storage.manageLayout'),
@@ -153,11 +161,13 @@ export default function ManageStorageScreen() {
           if (index === 0) {
               return ( 
                 <View style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  <CopilotStep text={t('pilot.see')} order={2} name="viewLocation">
-                      <WalkableView 
-                        style={styles.locationDetails} 
-                        collapsable={false} // Android fix
-                      >
+                  <CopilotStep 
+                    text={t('pilot.see')} 
+                    order={2} 
+                    name="viewLocation"
+                    active={true}
+                  >
+                      <WalkableView style={styles.locationDetails}>
                         <Text style={[typography.body, styles.itemName, { color: colors.text }]}>{formatLocationName(item)}</Text>
                         {assignedItem ? (
                           <Text style={[typography.body, styles.assignedItemText, { color: colors.success }]}>
@@ -169,11 +179,13 @@ export default function ManageStorageScreen() {
                       </WalkableView>
                   </CopilotStep>
 
-                  <CopilotStep text={t('pilot.editloc')} order={3} name="locationActions">
-                      <WalkableView 
-                        style={styles.buttonGroup} 
-                        collapsable={false} // Android fix
-                      >
+                  <CopilotStep 
+                    text={t('pilot.editloc')} 
+                    order={3} 
+                    name="locationActions"
+                    active={true}
+                  >
+                      <WalkableView style={styles.buttonGroup}>
                         <Pressable style={styles.actionButton} onPress={() => router.push(`/edit-location/${item.id}`)}>
                           <FontAwesome name="pencil" size={18} color={colors.primary} />
                         </Pressable>
