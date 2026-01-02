@@ -38,31 +38,35 @@ export default function FindScreen() {
   const [searched, setSearched] = useState(false);
   const { colors } = useTheme(); 
 
-  // --- 1. LAYOUT STATE ---
+  // --- COPILOT STATE ---
   const [isLayoutReady, setIsLayoutReady] = useState(false);
+  const [tourStarted, setTourStarted] = useState(false);
 
   // --- COPILOT HOOK ---
   const { start: startTour } = useCopilot();
 
-  // --- 2. UPDATED TOUR LOGIC ---
+  // --- START TOUR ONLY AFTER LAYOUT IS READY ---
   useEffect(() => {
-    // Only proceed if not loading data AND the native layout is calculated
-    if (loading || !isLayoutReady) return;
+    if (!isLayoutReady || tourStarted) return;
 
-    const checkFirstTime = async () => {
-        try {
-            const hasSeen = await AsyncStorage.getItem('HAS_SEEN_FIND_TOUR');
-            if (!hasSeen) {
-                // Short delay to ensure search bar is interactive
-                setTimeout(() => startTour(), 500);
-                await AsyncStorage.setItem('HAS_SEEN_FIND_TOUR', 'true');
-            }
-        } catch (e) {
-            console.warn("Tour check failed", e);
+    const checkAndStartTour = async () => {
+      try {
+        const hasSeen = await AsyncStorage.getItem('HAS_SEEN_FIND_TOUR');
+        if (!hasSeen) {
+          // Wait a bit longer to ensure all components are measured
+          setTimeout(() => {
+            startTour();
+            setTourStarted(true);
+          }, 800);
+          await AsyncStorage.setItem('HAS_SEEN_FIND_TOUR', 'true');
         }
+      } catch (e) {
+        console.warn("Tour check failed", e);
+      }
     };
-    checkFirstTime();
-  }, [loading, isLayoutReady]);
+
+    checkAndStartTour();
+  }, [isLayoutReady, tourStarted]);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -110,28 +114,147 @@ export default function FindScreen() {
     ].filter(Boolean).join(' - ');
   };
 
+  const renderItem = ({ item, index }: { item: SearchResult; index: number }) => {
+    const isFirstItem = index === 0;
+    
+    return (
+      <View style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        {/* Wrap details in CopilotStep only for first item */}
+        {isFirstItem ? (
+          <CopilotStep text={t('pilot.findlocation')} order={2} name="itemDetails">
+            <WalkableView 
+              style={styles.detailsColumn} 
+              collapsable={false}
+            >
+              <Text style={[typography.body, styles.itemName, { color: colors.text }]}>{item.name}</Text>
+              <Text style={[typography.body, styles.itemLocation, { color: colors.subtext }]}>
+                {t('find.warehouse')}: {item.warehouses?.name || 'N/A'}
+              </Text>
+              <Text style={[typography.body, styles.itemLocation, { color: colors.subtext }]}>
+                {t('find.storage')}: {item.storages?.name || 'N/A'}
+              </Text>
+              <Text style={[typography.body, styles.itemLocation, { color: colors.subtext }]}>
+                {t('find.location')}: {formatLocation(item)}
+              </Text>
+            </WalkableView>
+          </CopilotStep>
+        ) : (
+          <View style={styles.detailsColumn}>
+            <Text style={[typography.body, styles.itemName, { color: colors.text }]}>{item.name}</Text>
+            <Text style={[typography.body, styles.itemLocation, { color: colors.subtext }]}>
+              {t('find.warehouse')}: {item.warehouses?.name || 'N/A'}
+            </Text>
+            <Text style={[typography.body, styles.itemLocation, { color: colors.subtext }]}>
+              {t('find.storage')}: {item.storages?.name || 'N/A'}
+            </Text>
+            <Text style={[typography.body, styles.itemLocation, { color: colors.subtext }]}>
+              {t('find.location')}: {formatLocation(item)}
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.actionsColumn}>
+          {/* Edit Button - wrapped in CopilotStep only for first item */}
+          {isFirstItem ? (
+            <CopilotStep text={t('pilot.edit')} order={3} name="editItem">
+              <WalkablePressable 
+                collapsable={false} 
+                style={styles.editButton} 
+                onPress={() => router.push(`/edit-item/${item.id}`)}
+              >
+                <FontAwesome name="pencil" size={18} color={colors.primary} />
+                <Text style={[typography.button, styles.editButtonText, { color: colors.primary }]}>
+                  {t('find.edit')}
+                </Text>
+              </WalkablePressable>
+            </CopilotStep>
+          ) : (
+            <Pressable style={styles.editButton} onPress={() => router.push(`/edit-item/${item.id}`)}>
+              <FontAwesome name="pencil" size={18} color={colors.primary} />
+              <Text style={[typography.button, styles.editButtonText, { color: colors.primary }]}>
+                {t('find.edit')}
+              </Text>
+            </Pressable>
+          )}
+          
+          {/* Quantity Controls - wrapped in CopilotStep only for first item */}
+          {isFirstItem ? (
+            <CopilotStep text={t('pilot.adjust')} order={4} name="quantityControls">
+              <WalkableView 
+                style={[styles.quantityControls, { backgroundColor: colors.background }]}
+                collapsable={false}
+              >
+                <Text style={[typography.body, styles.quantityLabel, { color: colors.text }]}>
+                  {t('item.quantity')}
+                </Text>
+                <Pressable 
+                  style={styles.quantityButton} 
+                  onPress={() => updateItemQuantity(item.id, item.quantity - 1)}
+                >
+                  <FontAwesome name="minus" size={16} color={colors.primary} />
+                </Pressable>
+                <Text style={[typography.body, styles.quantityValue, { color: colors.text }]}>
+                  {item.quantity}
+                </Text>
+                <Pressable 
+                  style={styles.quantityButton} 
+                  onPress={() => updateItemQuantity(item.id, item.quantity + 1)}
+                >
+                  <FontAwesome name="plus" size={16} color={colors.primary} />
+                </Pressable>
+              </WalkableView>
+            </CopilotStep>
+          ) : (
+            <View style={[styles.quantityControls, { backgroundColor: colors.background }]}>
+              <Text style={[typography.body, styles.quantityLabel, { color: colors.text }]}>
+                {t('item.quantity')}
+              </Text>
+              <Pressable 
+                style={styles.quantityButton} 
+                onPress={() => updateItemQuantity(item.id, item.quantity - 1)}
+              >
+                <FontAwesome name="minus" size={16} color={colors.primary} />
+              </Pressable>
+              <Text style={[typography.body, styles.quantityValue, { color: colors.text }]}>
+                {item.quantity}
+              </Text>
+              <Pressable 
+                style={styles.quantityButton} 
+                onPress={() => updateItemQuantity(item.id, item.quantity + 1)}
+              >
+                <FontAwesome name="plus" size={16} color={colors.primary} />
+              </Pressable>
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  };
+
   return (
     <ScrollView 
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={{ flexGrow: 1 }}
       keyboardShouldPersistTaps="handled"
-      // --- 3. TRIGGER LAYOUT READY ---
       onLayout={() => setIsLayoutReady(true)}
     >
       <View style={styles.searchContainer}>
         {/* STEP 1: Search Bar */}
         <CopilotStep text={t('pilot.find')} order={1} name="searchBar">
-            <WalkableTextInput
-              collapsable={false} // Android measurement fix
-              style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
-              placeholder={t('general.searchByName')}
-              placeholderTextColor={colors.subtext}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              onSubmitEditing={handleSearch}
-            />
+          <WalkableTextInput
+            collapsable={false}
+            style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+            placeholder={t('general.searchByName')}
+            placeholderTextColor={colors.subtext}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onSubmitEditing={handleSearch}
+          />
         </CopilotStep>
-        <Pressable style={[styles.searchButton, { backgroundColor: colors.primary }]} onPress={handleSearch}>
+        <Pressable 
+          style={[styles.searchButton, { backgroundColor: colors.primary }]} 
+          onPress={handleSearch}
+        >
           <FontAwesome name="search" size={20} color={colors.text} />
         </Pressable>
       </View>
@@ -143,93 +266,13 @@ export default function FindScreen() {
           data={results}
           keyExtractor={(item) => item.id}
           scrollEnabled={false} 
-          renderItem={({ item, index }) => {
-              // Highlight the first result for the tour if it exists
-              if (index === 0) {
-                  return (
-                    <View style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                      <CopilotStep text={t('pilot.findlocation')} order={2} name="itemDetails">
-                          <WalkableView 
-                            style={styles.detailsColumn} 
-                            collapsable={false} // Android measurement fix
-                          >
-                            <Text style={[typography.body, styles.itemName, { color: colors.text }]}>{item.name}</Text>
-                            <Text style={[typography.body, styles.itemLocation, { color: colors.subtext }]}>
-                              {t('find.warehouse')}: {item.warehouses?.name || 'N/A'}
-                            </Text>
-                            <Text style={[typography.body, styles.itemLocation, { color: colors.subtext }]}>
-                              {t('find.storage')}: {item.storages?.name || 'N/A'}
-                            </Text>
-                            <Text style={[typography.body, styles.itemLocation, { color: colors.subtext }]}>
-                              {t('find.location')}: {formatLocation(item)}
-                            </Text>
-                          </WalkableView>
-                      </CopilotStep>
-
-                      <View style={styles.actionsColumn}>
-                        {/* STEP 3: Edit Button */}
-                        <CopilotStep text={t('pilot.edit')} order={3} name="editItem">
-                            <WalkablePressable 
-                              collapsable={false} 
-                              style={styles.editButton} 
-                              onPress={() => router.push(`/edit-item/${item.id}`)}
-                            >
-                                <FontAwesome name="pencil" size={18} color={colors.primary} />
-                                <Text style={[typography.button, styles.editButtonText, { color: colors.primary }]}>{t('find.edit')}</Text>
-                            </WalkablePressable>
-                        </CopilotStep>
-                        
-                        {/* STEP 4: Quantity Controls */}
-                        <CopilotStep text={t('pilot.adjust')} order={4} name="quantityControls">
-                            <WalkableView 
-                              style={[styles.quantityControls, { backgroundColor: colors.background }]}
-                              collapsable={false}
-                            >
-                                <Text style={[typography.body, styles.quantityLabel, { color: colors.text }]}>{t('item.quantity')}</Text>
-                                <Pressable style={styles.quantityButton} onPress={() => updateItemQuantity(item.id, item.quantity - 1)}>
-                                    <FontAwesome name="minus" size={16} color={colors.primary} />
-                                </Pressable>
-                                <Text style={[typography.body, styles.quantityValue, { color: colors.text }]}>{item.quantity}</Text>
-                                <Pressable style={styles.quantityButton} onPress={() => updateItemQuantity(item.id, item.quantity + 1)}>
-                                    <FontAwesome name="plus" size={16} color={colors.primary} />
-                                </Pressable>
-                            </WalkableView>
-                        </CopilotStep>
-                      </View>
-                    </View>
-                  );
-              }
-              // Normal render for other items
-              return (
-                <View style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  <View style={styles.detailsColumn}>
-                    <Text style={[typography.body, styles.itemName, { color: colors.text }]}>{item.name}</Text>
-                    <Text style={[typography.body, styles.itemLocation, { color: colors.subtext }]}>{t('find.warehouse')}: {item.warehouses?.name || 'N/A'}</Text>
-                    <Text style={[typography.body, styles.itemLocation, { color: colors.subtext }]}>{t('find.storage')}: {item.storages?.name || 'N/A'}</Text>
-                    <Text style={[typography.body, styles.itemLocation, { color: colors.subtext }]}>{t('find.location')}: {formatLocation(item)}</Text>
-                  </View>
-
-                  <View style={styles.actionsColumn}>
-                    <Pressable style={styles.editButton} onPress={() => router.push(`/edit-item/${item.id}`)}>
-                       <FontAwesome name="pencil" size={18} color={colors.primary} />
-                       <Text style={[typography.button, styles.editButtonText, { color: colors.primary }]}>{t('find.edit')}</Text>
-                    </Pressable>
-                    <View style={[styles.quantityControls, { backgroundColor: colors.background }]}>
-                      <Text style={[typography.body, styles.quantityLabel, { color: colors.text }]}>{t('item.quantity')}</Text>
-                      <Pressable style={styles.quantityButton} onPress={() => updateItemQuantity(item.id, item.quantity - 1)}>
-                        <FontAwesome name="minus" size={16} color={colors.primary} />
-                      </Pressable>
-                      <Text style={[typography.body, styles.quantityValue, { color: colors.text }]}>{item.quantity}</Text>
-                      <Pressable style={styles.quantityButton} onPress={() => updateItemQuantity(item.id, item.quantity + 1)}>
-                        <FontAwesome name="plus" size={16} color={colors.primary} />
-                      </Pressable>
-                    </View>
-                  </View>
-                </View>
-              );
-          }}
+          renderItem={renderItem}
           ListEmptyComponent={() => (
-              searched && <Text style={[typography.caption, styles.emptyText, { color: colors.subtext }]}>{t('item.noResults')}</Text>
+            searched && (
+              <Text style={[typography.caption, styles.emptyText, { color: colors.subtext }]}>
+                {t('item.noResults')}
+              </Text>
+            )
           )}
         />
       )}
