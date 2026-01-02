@@ -57,22 +57,28 @@ export default function AddItemScreen() {
 
   const { warehouseId, storageId } = useLocalSearchParams<{ warehouseId?: string; storageId?: string }>();
 
-  // --- UPDATED TOUR LOGIC ---
+  // --- FIXED TOUR LOGIC ---
   useEffect(() => {
-    if (loading || !isLayoutReady) return;
+    // Wait for both layout ready AND data loaded
+    if (loading || !isLayoutReady || warehouses.length === 0) return;
     
     const checkFirstTime = async () => {
         try {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_ADD_ITEM_TOUR');
             if (!hasSeen) {
-                // Short delay to ensure the form is fully interactive
-                setTimeout(() => startTour(), 600);
+                // Longer delay to ensure all components are mounted and positioned
+                setTimeout(() => {
+                  console.log('Starting tour...');
+                  startTour();
+                }, 1000);
                 await AsyncStorage.setItem('HAS_SEEN_ADD_ITEM_TOUR', 'true');
             }
-        } catch (e) { console.warn(e); }
+        } catch (e) { 
+          console.warn('Tour check error:', e); 
+        }
     };
     checkFirstTime();
-  }, [loading, isLayoutReady]);
+  }, [loading, isLayoutReady, warehouses]);
 
   // Fetch data (Warehouses, Storages, Locations)
   useEffect(() => {
@@ -188,8 +194,10 @@ export default function AddItemScreen() {
         style={{ flex: 1, backgroundColor: colors.background }} 
         contentContainerStyle={styles.contentContainer}
         keyboardShouldPersistTaps="handled"
-        // --- TRIGGER LAYOUT READY ---
-        onLayout={() => setIsLayoutReady(true)}
+        onLayout={() => {
+          // Add small delay before marking as ready
+          setTimeout(() => setIsLayoutReady(true), 100);
+        }}
     >
       <View style={styles.header}>
         <Text style={[typography.h1, { color: colors.text }]}>{t('item.addHeader')}</Text>
@@ -222,10 +230,22 @@ export default function AddItemScreen() {
       )}
 
       <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('item.name')}</Text>
-      <CopilotStep text="Enter a unique name for your item here." order={1} name="itemName">
+      <CopilotStep 
+        text="Enter a unique name for your item here. This helps you identify it later." 
+        order={1} 
+        name="Item Name"
+      >
           <WalkableTextInput 
-            collapsable={false} // Android fix
-            style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} 
+            collapsable={false}
+            style={[
+              typography.body, 
+              styles.input, 
+              { 
+                backgroundColor: colors.card, 
+                color: colors.text, 
+                borderColor: colors.border 
+              }
+            ]} 
             value={name} 
             onChangeText={setName} 
             placeholder="e.g. Copper Wire Spool"
@@ -234,16 +254,61 @@ export default function AddItemScreen() {
       </CopilotStep>
 
       <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('item.quantity')}</Text>
-      <TextInput 
-        style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} 
-        value={quantity} 
-        onChangeText={setQuantity} 
-        keyboardType="numeric" 
-      />
+      <CopilotStep 
+        text="Set the initial quantity of items you're adding." 
+        order={2} 
+        name="Item Quantity"
+      >
+        <WalkableTextInput
+          collapsable={false}
+          style={[
+            typography.body, 
+            styles.input, 
+            { 
+              backgroundColor: colors.card, 
+              color: colors.text, 
+              borderColor: colors.border 
+            }
+          ]} 
+          value={quantity} 
+          onChangeText={setQuantity} 
+          keyboardType="numeric"
+          placeholder="e.g. 100"
+          placeholderTextColor={colors.subtext}
+        />
+      </CopilotStep>
+
+      <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('item.restockThreshold')}</Text>
+      <CopilotStep 
+        text="Set a threshold - you'll be notified when stock falls below this number." 
+        order={3} 
+        name="Restock Alert"
+      >
+        <WalkableTextInput
+          collapsable={false}
+          style={[
+            typography.body, 
+            styles.input, 
+            { 
+              backgroundColor: colors.card, 
+              color: colors.text, 
+              borderColor: colors.border 
+            }
+          ]} 
+          value={restockThreshold} 
+          onChangeText={setRestockThreshold} 
+          keyboardType="numeric"
+          placeholder="e.g. 10"
+          placeholderTextColor={colors.subtext}
+        />
+      </CopilotStep>
 
       {selectedStorage && shelfOptions.length > 0 && (
         <>
-          <Text style={[typography.h2, styles.sectionHeader, { color: colors.text, borderBottomColor: colors.border }]}>{t('item.location')}</Text>
+          <Text style={[typography.h2, styles.sectionHeader, { color: colors.text, borderBottomColor: colors.border }]}>
+            {t('item.location')}
+          </Text>
+          
           <DropdownPicker
             label={t('location.shelf')}
             options={shelfOptions}
@@ -255,49 +320,77 @@ export default function AddItemScreen() {
           />
 
           {selectedShelf && (
-            <View style={styles.gridContainer}>
+            <CopilotStep 
+              text="Tap available slots to assign storage locations. Gray slots are occupied. You can select multiple locations!" 
+              order={4} 
+              name="Location Grid"
+            >
+              <WalkableView style={styles.gridContainer} collapsable={false}>
                 <View style={styles.gridControls}>
-                    <Text style={[typography.caption, { color: colors.text }]}>Selected: {selectedLocationIds.length}</Text>
+                  <Text style={[typography.caption, { color: colors.text }]}>
+                    Selected: {selectedLocationIds.length}
+                  </Text>
                 </View>
 
-                <CopilotStep text="Tap available slots to place your item. You can select multiple!" order={2} name="gridSelection">
-                    <WalkableView style={styles.slotsGrid} collapsable={false}>
-                        {shelfLocations.map((loc) => {
-                            const isOccupied = loc.items && loc.items.length > 0;
-                            const isSelected = selectedLocationIds.includes(loc.id);
-                            return (
-                                <Pressable
-                                    key={loc.id}
-                                    onPress={() => toggleLocationSelection(loc.id)}
-                                    disabled={isOccupied}
-                                    style={[
-                                        styles.slotButton,
-                                        { 
-                                            borderColor: colors.border,
-                                            backgroundColor: isOccupied ? 'rgba(128,128,128,0.1)' : isSelected ? colors.primary : colors.card 
-                                        }
-                                    ]}
-                                >
-                                    <Text style={[styles.slotText, { color: isSelected ? '#FFF' : colors.text }]}>
-                                        {loc.row ? `${loc.row}-` : ''}{loc.column}
-                                    </Text>
-                                </Pressable>
-                            );
-                        })}
-                    </WalkableView>
-                </CopilotStep>
-            </View>
+                <View style={styles.slotsGrid}>
+                  {shelfLocations.map((loc) => {
+                    const isOccupied = loc.items && loc.items.length > 0;
+                    const isSelected = selectedLocationIds.includes(loc.id);
+                    return (
+                      <Pressable
+                        key={loc.id}
+                        onPress={() => toggleLocationSelection(loc.id)}
+                        disabled={isOccupied}
+                        style={[
+                          styles.slotButton,
+                          { 
+                            borderColor: colors.border,
+                            backgroundColor: isOccupied 
+                              ? 'rgba(128,128,128,0.1)' 
+                              : isSelected 
+                                ? colors.primary 
+                                : colors.card 
+                          }
+                        ]}
+                      >
+                        <Text style={[
+                          styles.slotText, 
+                          { color: isSelected ? '#FFF' : colors.text }
+                        ]}>
+                          {loc.row ? `${loc.row}-` : ''}{loc.column}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </WalkableView>
+            </CopilotStep>
           )}
         </>
       )}
-        
-      <Pressable 
-        style={[styles.button, { backgroundColor: colors.primary, opacity: (loading || selectedLocationIds.length === 0) ? 0.6 : 1 }]} 
-        onPress={handleAddItem} 
-        disabled={loading || selectedLocationIds.length === 0}
+      
+      <CopilotStep 
+        text="Once you've filled in all details and selected locations, tap here to save your item!" 
+        order={5} 
+        name="Save Item"
       >
-        <Text style={[typography.button, styles.buttonText, { color: '#fff' }]}>{t('item.addButton')}</Text>
-      </Pressable>
+        <WalkablePressable
+          collapsable={false}
+          style={[
+            styles.button, 
+            { 
+              backgroundColor: colors.primary, 
+              opacity: (loading || selectedLocationIds.length === 0) ? 0.6 : 1 
+            }
+          ]} 
+          onPress={handleAddItem} 
+          disabled={loading || selectedLocationIds.length === 0}
+        >
+          <Text style={[typography.button, styles.buttonText, { color: '#fff' }]}>
+            {t('item.addButton')}
+          </Text>
+        </WalkablePressable>
+      </CopilotStep>
     </ScrollView>
   );
 }
