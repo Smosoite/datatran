@@ -78,22 +78,29 @@ export default function RestockScreen() {
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
 
+  // --- 1. LAYOUT STATE ---
+  const [isLayoutReady, setIsLayoutReady] = useState(false);
+
   // --- COPILOT HOOK ---
   const { start: startTour } = useCopilot();
 
+  // --- 2. UPDATED TOUR LOGIC ---
   useEffect(() => {
-    if (loading) return;
+    // Wait for data to load AND for the native layout to be calculated
+    if (loading || !isLayoutReady) return;
+
     const checkFirstTime = async () => {
         try {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_RESTOCK_TOUR');
             if (!hasSeen) {
-                setTimeout(() => startTour(), 1500); 
+                // Short delay ensures that items within the FlatList have had a millisecond to stabilize
+                setTimeout(() => startTour(), 500); 
                 await AsyncStorage.setItem('HAS_SEEN_RESTOCK_TOUR', 'true');
             }
         } catch (e) { console.warn(e); }
     };
     checkFirstTime();
-  }, [loading]);
+  }, [loading, isLayoutReady]);
 
   const fetchRestockItems = useCallback(async () => {
     setLoading(true);
@@ -149,9 +156,14 @@ export default function RestockScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View 
+      style={[styles.container, { backgroundColor: colors.background }]}
+      // --- 3. TRIGGER LAYOUT READY ---
+      onLayout={() => setIsLayoutReady(true)}
+    >
       <Stack.Screen options={{ title: '' }} />
       <BulkStockModal visible={isModalVisible} onClose={() => setIsModalVisible(false)} onSubmit={handleBulkStockSubmit} />
+      
       {loading ? <ActivityIndicator style={styles.centered} size="large" color={colors.primary} /> : (
         <FlatList
           data={restockItems}
@@ -159,11 +171,16 @@ export default function RestockScreen() {
           renderItem={({ item, index }) => {
             const isSelected = selectedItems.includes(item.id);
             
+            // --- 4. ADD collapsable={false} TO THE FIRST TARGET ITEM ---
             if (index === 0) {
                return (
                 <View style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: isSelected ? colors.primary : colors.border }]}>
-                  <CopilotStep text= {t('pilot.highlight')} order={1} name="selectItem">
-                    <WalkablePressable collapsable={false} onPress={() => toggleSelectItem(item.id)} style={styles.checkbox}>
+                  <CopilotStep text={t('pilot.highlight')} order={1} name="selectItem">
+                    <WalkablePressable 
+                        collapsable={false} // Prevents measurement failure on Android
+                        onPress={() => toggleSelectItem(item.id)} 
+                        style={styles.checkbox}
+                    >
                         <FontAwesome name={isSelected ? 'check-square-o' : 'square-o'} size={24} color={colors.primary} />
                     </WalkablePressable>
                   </CopilotStep>
@@ -204,17 +221,20 @@ export default function RestockScreen() {
             );
           }}
           ListEmptyComponent={() => (
-             <View style={styles.centered}>
-               <Text style={[typography.caption, styles.emptyText, { color: colors.subtext }]}>{t('restock.allStocked')}</Text>
-             </View>
+              <View style={styles.centered}>
+                <Text style={[typography.caption, styles.emptyText, { color: colors.subtext }]}>{t('restock.allStocked')}</Text>
+              </View>
           )}
           contentContainerStyle={{ padding: 10 }}
         />
       )}
       
       {selectedItems.length > 0 && (
-        <CopilotStep text= {t('pilot.stockbulk')} order={2} name="bulkAction">
-            <WalkableView collapsable={false} style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]} collapsable={false}>
+        <CopilotStep text={t('pilot.stockbulk')} order={2} name="bulkAction">
+            <WalkableView 
+                style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]} 
+                collapsable={false} // Ensure the footer is measured correctly
+            >
                 <Pressable style={[styles.bulkButton, { backgroundColor: colors.success }]} onPress={openBulkStockModal}>
                     <Text style={[typography.button, styles.bulkButtonText, { color: colors.primaryText }]}>{t('restock.bulkButton', { count: selectedItems.length })}</Text>
                 </Pressable>
