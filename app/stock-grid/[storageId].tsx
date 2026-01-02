@@ -560,7 +560,7 @@ export default function StockGridScreen() {
                 order={2} 
                 name="gridArea"
             >
-                <WalkableView style={{ 
+                <WalkableView collapsable={false} style={{ 
                     width: Math.max(screenWidth, contentWidth), 
                     padding: GRID_PADDING,
                     backgroundColor: showGridLines ? colors.border : 'transparent' 
