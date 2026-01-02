@@ -32,29 +32,36 @@ export default function ManageMembersScreen() {
   const [members, setMembers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // --- 1. LAYOUT STATE ---
+  // --- COPILOT STATE ---
   const [isLayoutReady, setIsLayoutReady] = useState(false);
+  const [tourStarted, setTourStarted] = useState(false);
 
   // --- COPILOT HOOK ---
   const { start: startTour } = useCopilot();
 
-  // --- 2. UPDATED TOUR LOGIC ---
+  // --- START TOUR AFTER DATA LOADS AND LAYOUT IS READY ---
   useEffect(() => {
-    // Only proceed if loading is finished AND the UI layout is ready
-    if (loading || !isLayoutReady) return;
+    // Only start tour when: not loading, layout ready, has members, and tour not started
+    if (loading || !isLayoutReady || members.length === 0 || tourStarted) return;
 
-    const checkFirstTime = async () => {
-        try {
-            const hasSeen = await AsyncStorage.getItem('HAS_SEEN_MEMBERS_TOUR');
-            if (!hasSeen) {
-                // Short delay to ensure the FlatList items have stabilized
-                setTimeout(() => startTour(), 500);
-                await AsyncStorage.setItem('HAS_SEEN_MEMBERS_TOUR', 'true');
-            }
-        } catch (e) { console.warn(e); }
+    const checkAndStartTour = async () => {
+      try {
+        const hasSeen = await AsyncStorage.getItem('HAS_SEEN_MEMBERS_TOUR');
+        if (!hasSeen) {
+          // Wait for FlatList to render items properly
+          setTimeout(() => {
+            startTour();
+            setTourStarted(true);
+          }, 800);
+          await AsyncStorage.setItem('HAS_SEEN_MEMBERS_TOUR', 'true');
+        }
+      } catch (e) { 
+        console.warn('Tour check failed', e); 
+      }
     };
-    checkFirstTime();
-  }, [loading, isLayoutReady]);
+    
+    checkAndStartTour();
+  }, [loading, isLayoutReady, members.length, tourStarted]);
 
   const fetchMembers = useCallback(async () => {
     if (!myProfile?.workgroup_id) return;
@@ -115,68 +122,27 @@ export default function ManageMembersScreen() {
     });
   };
 
-  if (loading) return <ActivityIndicator style={styles.centered} size="large" color={colors.primary} />;
+  const renderMemberCard = ({ item, index }: { item: UserProfile; index: number }) => {
+    const isMe = item.id === myProfile?.id;
+    const isAdmin = item.role === 'admin';
+    
+    // Find the first non-current-user member for highlighting action buttons
+    const firstOtherMemberIndex = members.findIndex(m => m.id !== myProfile?.id);
+    const shouldHighlightActions = !isMe && index === firstOtherMemberIndex;
 
-  return (
-    <View 
-      style={[styles.container, { backgroundColor: colors.background }]}
-      // --- 3. TRIGGER LAYOUT READY ---
-      onLayout={() => setIsLayoutReady(true)}
-    >
-      <Stack.Screen options={{ title: t('settings.membersTitle') }} />
-      
-      <FlatList
-        data={members}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 16 }}
-        renderItem={({ item, index }) => {
-          const isMe = item.id === myProfile?.id;
-          const isAdmin = item.role === 'admin';
-
-          // First item highlight (The Card)
-          if (index === 0) {
-              return (
-                <CopilotStep text="Manage user roles and permissions here." order={1} name="memberCard">
-                    <WalkableView 
-                        style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]} 
-                        collapsable={false} // Crucial for Android measurement
-                    >
-                        <View style={styles.userInfo}>
-                            <View style={[styles.avatar, { backgroundColor: colors.border }]}>
-                            <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.text }}>
-                                {item.username.charAt(0).toUpperCase()}
-                            </Text>
-                            </View>
-                            <View>
-                            <Text style={[typography.body, styles.username, { color: colors.text }]}>
-                                {item.username} {isMe && "(You)"}
-                            </Text>
-                            <View style={[styles.badge, { backgroundColor: isAdmin ? colors.primaryMuted : colors.border }]}>
-                                <Text style={[typography.caption, { color: isAdmin ? colors.primary : colors.subtext, fontWeight: 'bold' }]}>
-                                {isAdmin ? t('settings.admin') : t('settings.member')}
-                                </Text>
-                            </View>
-                            </View>
-                        </View>
-                        
-                        {!isMe && (
-                            <View style={styles.actions}>
-                                <Pressable style={[styles.iconButton, { backgroundColor: colors.background }]} onPress={() => handleToggleRole(item)}>
-                                    <FontAwesome name={isAdmin ? "arrow-down" : "arrow-up"} size={16} color={colors.text} />
-                                </Pressable>
-                                <Pressable style={[styles.iconButton, { backgroundColor: 'rgba(220, 38, 38, 0.1)' }]} onPress={() => handleRemoveMember(item)}>
-                                    <FontAwesome name="user-times" size={16} color={colors.danger} />
-                                </Pressable>
-                            </View>
-                        )}
-                    </WalkableView>
-                </CopilotStep>
-              );
-          }
-
-          // Second item highlight (The Specific Buttons)
-          return (
-            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    return (
+      <View>
+        {/* Step 1: Highlight the first member card */}
+        {index === 0 ? (
+          <CopilotStep 
+            text={t('pilot.memberscard') || "Manage user roles and permissions here."} 
+            order={1} 
+            name="memberCard"
+          >
+            <WalkableView 
+              style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]} 
+              collapsable={false}
+            >
               <View style={styles.userInfo}>
                 <View style={[styles.avatar, { backgroundColor: colors.border }]}>
                   <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.text }}>
@@ -194,45 +160,123 @@ export default function ManageMembersScreen() {
                   </View>
                 </View>
               </View>
-
+              
               {!isMe && (
                 <View style={styles.actions}>
-                    {index === 1 ? (
-                        <>
-                            <CopilotStep text={t('pilot.promote')} order={2} name="promoteUser">
-                                <WalkablePressable 
-                                    collapsable={false} // Ensure measurement works
-                                    style={[styles.iconButton, { backgroundColor: colors.background }]} 
-                                    onPress={() => handleToggleRole(item)}
-                                >
-                                    <FontAwesome name={isAdmin ? "arrow-down" : "arrow-up"} size={16} color={colors.text} />
-                                </WalkablePressable>
-                            </CopilotStep>
-                            <CopilotStep text={t('pilot.permaban')} order={3} name="removeUser">
-                                <WalkablePressable 
-                                    collapsable={false} // Ensure measurement works
-                                    style={[styles.iconButton, { backgroundColor: 'rgba(220, 38, 38, 0.1)' }]} 
-                                    onPress={() => handleRemoveMember(item)}
-                                >
-                                    <FontAwesome name="user-times" size={16} color={colors.danger} />
-                                </WalkablePressable>
-                            </CopilotStep>
-                        </>
-                    ) : (
-                        <>
-                            <Pressable style={[styles.iconButton, { backgroundColor: colors.background }]} onPress={() => handleToggleRole(item)}>
-                                <FontAwesome name={isAdmin ? "arrow-down" : "arrow-up"} size={16} color={colors.text} />
-                            </Pressable>
-                            <Pressable style={[styles.iconButton, { backgroundColor: 'rgba(220, 38, 38, 0.1)' }]} onPress={() => handleRemoveMember(item)}>
-                                <FontAwesome name="user-times" size={16} color={colors.danger} />
-                            </Pressable>
-                        </>
-                    )}
+                  <Pressable 
+                    style={[styles.iconButton, { backgroundColor: colors.background }]} 
+                    onPress={() => handleToggleRole(item)}
+                  >
+                    <FontAwesome name={isAdmin ? "arrow-down" : "arrow-up"} size={16} color={colors.text} />
+                  </Pressable>
+                  <Pressable 
+                    style={[styles.iconButton, { backgroundColor: 'rgba(220, 38, 38, 0.1)' }]} 
+                    onPress={() => handleRemoveMember(item)}
+                  >
+                    <FontAwesome name="user-times" size={16} color={colors.danger} />
+                  </Pressable>
                 </View>
               )}
+            </WalkableView>
+          </CopilotStep>
+        ) : (
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.userInfo}>
+              <View style={[styles.avatar, { backgroundColor: colors.border }]}>
+                <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.text }}>
+                  {item.username.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+              <View>
+                <Text style={[typography.body, styles.username, { color: colors.text }]}>
+                  {item.username} {isMe && "(You)"}
+                </Text>
+                <View style={[styles.badge, { backgroundColor: isAdmin ? colors.primaryMuted : colors.border }]}>
+                  <Text style={[typography.caption, { color: isAdmin ? colors.primary : colors.subtext, fontWeight: 'bold' }]}>
+                    {isAdmin ? t('settings.admin') : t('settings.member')}
+                  </Text>
+                </View>
+              </View>
             </View>
-          );
-        }}
+
+            {!isMe && (
+              <View style={styles.actions}>
+                {/* Steps 2 & 3: Highlight action buttons for the first other member */}
+                {shouldHighlightActions ? (
+                  <>
+                    <CopilotStep 
+                      text={t('pilot.promote') || "Promote or demote members between admin and member roles."} 
+                      order={2} 
+                      name="promoteUser"
+                    >
+                      <WalkablePressable 
+                        collapsable={false}
+                        style={[styles.iconButton, { backgroundColor: colors.background }]} 
+                        onPress={() => handleToggleRole(item)}
+                      >
+                        <FontAwesome name={isAdmin ? "arrow-down" : "arrow-up"} size={16} color={colors.text} />
+                      </WalkablePressable>
+                    </CopilotStep>
+                    
+                    <CopilotStep 
+                      text={t('pilot.permaban') || "Remove members from your workgroup."} 
+                      order={3} 
+                      name="removeUser"
+                    >
+                      <WalkablePressable 
+                        collapsable={false}
+                        style={[styles.iconButton, { backgroundColor: 'rgba(220, 38, 38, 0.1)' }]} 
+                        onPress={() => handleRemoveMember(item)}
+                      >
+                        <FontAwesome name="user-times" size={16} color={colors.danger} />
+                      </WalkablePressable>
+                    </CopilotStep>
+                  </>
+                ) : (
+                  <>
+                    <Pressable 
+                      style={[styles.iconButton, { backgroundColor: colors.background }]} 
+                      onPress={() => handleToggleRole(item)}
+                    >
+                      <FontAwesome name={isAdmin ? "arrow-down" : "arrow-up"} size={16} color={colors.text} />
+                    </Pressable>
+                    <Pressable 
+                      style={[styles.iconButton, { backgroundColor: 'rgba(220, 38, 38, 0.1)' }]} 
+                      onPress={() => handleRemoveMember(item)}
+                    >
+                      <FontAwesome name="user-times" size={16} color={colors.danger} />
+                    </Pressable>
+                  </>
+                )}
+              </View>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  if (loading) {
+    return <ActivityIndicator style={styles.centered} size="large" color={colors.primary} />;
+  }
+
+  return (
+    <View 
+      style={[styles.container, { backgroundColor: colors.background }]}
+      onLayout={() => setIsLayoutReady(true)}
+    >
+      <Stack.Screen options={{ title: t('settings.membersTitle') }} />
+      
+      <FlatList
+        data={members}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={{ padding: 16 }}
+        renderItem={renderMemberCard}
+        ListEmptyComponent={() => (
+          <Text style={[styles.centered, { color: colors.subtext }]}>
+            {t('general.noMembers') || 'No members found.'}
+          </Text>
+        )}
       />
     </View>
   );
