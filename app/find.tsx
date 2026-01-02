@@ -140,7 +140,7 @@ export default function FindScreen() {
                   return (
                     <View style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
                       <CopilotStep text={t('pilot.findlocation')} order={2} name="itemDetails">
-                          <WalkableView style={styles.detailsColumn} collapsable={false}>
+                          <WalkableView collapsable={false} style={styles.detailsColumn} collapsable={false}>
                             <Text style={[typography.body, styles.itemName, { color: colors.text }]}>{item.name}</Text>
                             <Text style={[typography.body, styles.itemLocation, { color: colors.subtext }]}>
                               {t('find.warehouse')}: {item.warehouses?.name || 'N/A'}
@@ -157,7 +157,7 @@ export default function FindScreen() {
                       <View style={styles.actionsColumn}>
                         {/* STEP 3: Edit Button */}
                         <CopilotStep text={t('pilot.edit')} order={3} name="editItem">
-                            <WalkablePressable style={styles.editButton} onPress={() => router.push(`/edit-item/${item.id}`)}>
+                            <WalkablePressable collapsable={false} style={styles.editButton} onPress={() => router.push(`/edit-item/${item.id}`)}>
                                 <FontAwesome name="pencil" size={18} color={colors.primary} />
                                 <Text style={[typography.button, styles.editButtonText, { color: colors.primary }]}>{t('find.edit')}</Text>
                             </WalkablePressable>
@@ -165,7 +165,7 @@ export default function FindScreen() {
                         
                         {/* STEP 4: Quantity Controls */}
                         <CopilotStep text={t('pilot.adjust')} order={4} name="quantityControls">
-                            <WalkableView style={[styles.quantityControls, { backgroundColor: colors.background }]}>
+                            <WalkableView collapsable={false} style={[styles.quantityControls, { backgroundColor: colors.background }]}>
                                 <Text style={[typography.body, styles.quantityLabel, { color: colors.text }]}>{t('item.quantity')}</Text>
                                 <Pressable style={styles.quantityButton} onPress={() => updateItemQuantity(item.id, item.quantity - 1)}>
                                     <FontAwesome name="minus" size={16} color={colors.primary} />
