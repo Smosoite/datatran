@@ -112,7 +112,7 @@ useFocusEffect(
           
           {/* STEP 1: Add Item */}
           <CopilotStep text= {t('pilot.addNew')} order={1} name="addItem">
-            <WalkablePressable style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/add-item')}>
+            <WalkablePressable collapsable={false} style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/add-item')}>
                 <FontAwesome name="plus-circle" size={20} color={colors.text} style={[typography.shadow, { textShadowColor: colors.textShadow }]} />
                 <Text style={[typography.button, typography.shadow, styles.buttonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('dashboard.addItem')}</Text>
             </WalkablePressable>
@@ -120,7 +120,7 @@ useFocusEffect(
 
           {/* STEP 2: Find Item */}
           <CopilotStep text={t('pilot.search')} order={2} name="findItem">
-            <WalkablePressable style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/find')}>
+            <WalkablePressable collapsable={false} style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/find')}>
                 <FontAwesome name="search" size={20} color={colors.text} style={[typography.shadow, { textShadowColor: colors.textShadow }]} />
                 <Text style={[typography.button, typography.shadow, styles.buttonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('dashboard.findItem')}</Text>
             </WalkablePressable>
@@ -128,7 +128,7 @@ useFocusEffect(
 
           {/* STEP 3: Scan Item */}
           <CopilotStep text={t('pilot.scan')} order={3} name="scanItem">
-            <WalkablePressable style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/scan')}>
+            <WalkablePressable collapsable={false} style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/scan')}>
                 <FontAwesome name="barcode" size={20} color={colors.text} style={[typography.shadow, { textShadowColor: colors.textShadow }]}/>
                 <Text style={[typography.button, typography.shadow, styles.buttonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('dashboard.scanItem')}</Text>
             </WalkablePressable>
