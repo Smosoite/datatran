@@ -27,29 +27,31 @@ export default function EditItemScreen() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
 
-  // --- 1. LAYOUT STATE ---
   const [isLayoutReady, setIsLayoutReady] = useState(false);
 
   // --- COPILOT HOOK ---
   const { start: startTour } = useCopilot();
 
-  // --- 2. UPDATED TOUR LOGIC ---
+  // --- UPDATED TOUR LOGIC ---
   useEffect(() => {
-    // Wait until data fetch is done AND the screen layout is physically ready
     if (loading || !isLayoutReady) return;
 
     const checkFirstTime = async () => {
         try {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_EDIT_ITEM_TOUR');
             if (!hasSeen) {
-                // Short delay to ensure the form is fully interactive and focused
-                setTimeout(() => startTour(), 600);
+                setTimeout(() => {
+                  console.log('Starting edit item tour');
+                  startTour();
+                }, 1000);
                 await AsyncStorage.setItem('HAS_SEEN_EDIT_ITEM_TOUR', 'true');
             }
-        } catch (e) { console.warn(e); }
+        } catch (e) { 
+          console.warn("Tour check failed", e); 
+        }
     };
     checkFirstTime();
-  }, [loading, isLayoutReady]);
+  }, [loading, isLayoutReady, startTour]);
 
   useEffect(() => {
     const fetchItem = async () => {
@@ -107,13 +109,20 @@ export default function EditItemScreen() {
     <ScrollView 
       style={{ flex: 1, backgroundColor: colors.background }} 
       contentContainerStyle={styles.contentContainer}
-      // --- 3. TRIGGER LAYOUT READY ---
-      onLayout={() => setIsLayoutReady(true)}
+      onLayout={() => {
+        console.log('Edit item layout ready');
+        setIsLayoutReady(true);
+      }}
     >
       
       {/* STEP 1: Edit Fields */}
-      <CopilotStep text={t('pilot.details')} order={1} name="editFields">
-        <WalkableView collapsable={false}>
+      <CopilotStep 
+        text={t('pilot.details')} 
+        order={1} 
+        name="editFields"
+        active={true}
+      >
+        <WalkableView>
             <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.itemName*')}</Text>
             <TextInput style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} value={name} onChangeText={setName} />
             
@@ -126,19 +135,25 @@ export default function EditItemScreen() {
       </CopilotStep>
       
       {/* STEP 2: Save Button */}
-      <CopilotStep text={t('pilot.save')} order={2} name="saveBtn">
-        <WalkablePressable 
-          collapsable={false} // Android measurement fix
-          style={[styles.button, { backgroundColor: colors.primary }]} 
-          onPress={handleUpdate} 
-          disabled={updating}
-        >
-            {updating ? (
-            <ActivityIndicator color={colors.text || '#fff'} />
-            ) : (
-            <Text style={[typography.button, styles.buttonText, { color: colors.text || '#fff' }]}>{t('general.save')}</Text>
-            )}
-        </WalkablePressable>
+      <CopilotStep 
+        text={t('pilot.save')} 
+        order={2} 
+        name="saveBtn"
+        active={true}
+      >
+        <WalkableView>
+          <Pressable 
+            style={[styles.button, { backgroundColor: colors.primary }]} 
+            onPress={handleUpdate} 
+            disabled={updating}
+          >
+              {updating ? (
+              <ActivityIndicator color={colors.text || '#fff'} />
+              ) : (
+              <Text style={[typography.button, styles.buttonText, { color: colors.text || '#fff' }]}>{t('general.save')}</Text>
+              )}
+          </Pressable>
+        </WalkableView>
       </CopilotStep>
 
     </ScrollView>
