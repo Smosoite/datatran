@@ -36,27 +36,32 @@ export default function HistoryScreen() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // --- 1. LAYOUT STATE ---
+  const [isLayoutReady, setIsLayoutReady] = useState(false);
+
   // --- COPILOT HOOK ---
   const { start: startTour } = useCopilot();
 
+  // --- 2. UPDATED TOUR LOGIC ---
   useEffect(() => {
-    // Wait until loading is done before checking tour
-    if(loading) return;
+    // Wait until loading is done AND the layout is calculated
+    if (loading || !isLayoutReady) return;
 
     const checkFirstTime = async () => {
         try {
-            const hasSeen = await AsyncStorage.getItem(`HAS_SEEN_HISTORY_TOUR_${profile?.id}`);
+            const tourKey = `HAS_SEEN_HISTORY_TOUR_${profile?.id}`;
+            const hasSeen = await AsyncStorage.getItem(tourKey);
             if (!hasSeen) {
-                // 2. Longer delay (1.5s) to ensure the screen is physically drawn
-                setTimeout(() => startTour(), 1500);
-                await AsyncStorage.setItem(`HAS_SEEN_HISTORY_TOUR_${profile?.id}`, 'true');
+                // Short delay to allow the FlatList items to settle
+                setTimeout(() => startTour(), 500);
+                await AsyncStorage.setItem(tourKey, 'true');
             }
         } catch (e) {
             console.warn("Tour check failed", e);
         }
     };
     checkFirstTime();
-  }, [loading, profile?.id]); 
+  }, [loading, isLayoutReady, profile?.id]); 
 
   const fetchLogs = async () => {
     if (!profile?.workgroup_id) return;
@@ -93,16 +98,19 @@ export default function HistoryScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View 
+      style={[styles.container, { backgroundColor: colors.background }]}
+      // --- 3. TRIGGER LAYOUT READY ---
+      onLayout={() => setIsLayoutReady(true)}
+    >
       <Stack.Screen options={{ title: t('settings.history') || 'Activity History' }} />
       
       {loading ? (
         <ActivityIndicator style={styles.centered} size="large" color={colors.primary} />
       ) : (
-        // 3. TARGET THE CONTAINER, NOT THE LIST ITEMS
-        // IMPORTANT: collapsable={false} prevents the view from disappearing during optimization
+        // 4. WRAP TARGET IN WalkableView WITH collapsable={false}
         <CopilotStep text="This timeline tracks every action taken by your team." order={1} name="historyList">
-            <WalkableView collapsable={false} style={{ flex: 1 }} collapsable={false}>
+            <WalkableView style={{ flex: 1 }} collapsable={false}>
                 <FlatList
                     data={logs}
                     keyExtractor={(item) => item.id}
