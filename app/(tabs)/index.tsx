@@ -6,7 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../providers/ThemeProvider';
 import { typography } from '../../styles/typography';
-import { fetchWithCache } from '../../lib/offline'; // Import the helper
+import { fetchWithCache } from '../../lib/offline'; 
 import { showError } from '../../lib/toast';
 
 // --- COPILOT IMPORTS ---
@@ -31,19 +31,25 @@ export default function HomeScreen() {
   const [restockItems, setRestockItems] = useState<RestockItem[]>([]);
   const { colors } = useTheme();
   const [loading, setLoading] = useState(true);
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
+
+  // --- 1. LAYOUT STATE ---
+  const [isLayoutReady, setIsLayoutReady] = useState(false);
 
   // --- COPILOT HOOK ---
   const { start: startTour } = useCopilot();
 
-  // --- START TOUR ON MOUNT (ONCE) ---
+  // --- 2. UPDATED TOUR LOGIC ---
   useEffect(() => {
-    if (loading) return;
+    // Only start the tour if data is finished loading AND the UI is physically drawn
+    if (loading || !isLayoutReady) return;
+
     const checkFirstTime = async () => {
         try {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_DASHBOARD_TOUR');
             if (!hasSeen) {
-                // Short delay to ensure layout is ready
-                setTimeout(() => startTour(), 1500);
+                // Short delay to ensure the animations have settled
+                setTimeout(() => startTour(), 600);
                 await AsyncStorage.setItem('HAS_SEEN_DASHBOARD_TOUR', 'true');
             }
         } catch (e) {
@@ -51,52 +57,23 @@ export default function HomeScreen() {
         }
     };
     checkFirstTime();
-  }, [loading]);
-
-  const [isOfflineMode, setIsOfflineMode] = useState(false);
-
-useFocusEffect(
-  useCallback(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      
-      // WRAP YOUR SUPABASE CALL:
-      const { data, error, isOfflineData } = await fetchWithCache('restock_items', async () => {
-          return await supabase.rpc('get_restock_items');
-      });
-
-      setIsOfflineMode(isOfflineData);
-
-      if (error) {
-        // Only show error if we have NO data at all
-        if (!data) console.error(t('general.errorFetch'), error.message);
-      } else {
-        setRestockItems(data || []);
-        if (isOfflineData) {
-            // Optional: Show a toast letting them know they are viewing old data
-            // showError("You are offline. Viewing cached data.");
-        }
-      }
-
-      setLoading(false);
-    };
-
-    fetchData();
-  }, [t])
-);
+  }, [loading, isLayoutReady]);
 
   useFocusEffect(
     useCallback(() => {
       const fetchData = async () => {
         setLoading(true);
-        const { data: restockData, error: restockError } = await supabase.rpc('get_restock_items');
-        
-        if (restockError) {
-          console.error(t('general.errorFetch'), restockError.message);
-        } else {
-          setRestockItems(restockData || []);
-        }
+        const { data, error, isOfflineData } = await fetchWithCache('restock_items', async () => {
+            return await supabase.rpc('get_restock_items');
+        });
 
+        setIsOfflineMode(isOfflineData);
+
+        if (error) {
+          if (!data) console.error(t('general.errorFetch'), error.message);
+        } else {
+          setRestockItems(data || []);
+        }
         setLoading(false);
       };
 
@@ -105,14 +82,22 @@ useFocusEffect(
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View 
+      style={[styles.container, { backgroundColor: colors.background }]}
+      // --- 3. TRIGGER LAYOUT READY ---
+      onLayout={() => setIsLayoutReady(true)}
+    >
       <View style={[styles.headerContainer, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <Text style={[styles.title, { color: colors.text }]}></Text>
         <View style={styles.buttonContainer}>
           
           {/* STEP 1: Add Item */}
-          <CopilotStep text= {t('pilot.addNew')} order={1} name="addItem">
-            <WalkablePressable collapsable={false} style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/add-item')}>
+          <CopilotStep text={t('pilot.addNew')} order={1} name="addItem">
+            <WalkablePressable 
+              collapsable={false} // Android measurement fix
+              style={[styles.actionButton, { backgroundColor: colors.selector }]} 
+              onPress={() => router.push('/add-item')}
+            >
                 <FontAwesome name="plus-circle" size={20} color={colors.text} style={[typography.shadow, { textShadowColor: colors.textShadow }]} />
                 <Text style={[typography.button, typography.shadow, styles.buttonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('dashboard.addItem')}</Text>
             </WalkablePressable>
@@ -120,7 +105,11 @@ useFocusEffect(
 
           {/* STEP 2: Find Item */}
           <CopilotStep text={t('pilot.search')} order={2} name="findItem">
-            <WalkablePressable collapsable={false} style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/find')}>
+            <WalkablePressable 
+              collapsable={false} // Android measurement fix
+              style={[styles.actionButton, { backgroundColor: colors.selector }]} 
+              onPress={() => router.push('/find')}
+            >
                 <FontAwesome name="search" size={20} color={colors.text} style={[typography.shadow, { textShadowColor: colors.textShadow }]} />
                 <Text style={[typography.button, typography.shadow, styles.buttonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('dashboard.findItem')}</Text>
             </WalkablePressable>
@@ -128,7 +117,11 @@ useFocusEffect(
 
           {/* STEP 3: Scan Item */}
           <CopilotStep text={t('pilot.scan')} order={3} name="scanItem">
-            <WalkablePressable collapsable={false} style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/scan')}>
+            <WalkablePressable 
+              collapsable={false} // Android measurement fix
+              style={[styles.actionButton, { backgroundColor: colors.selector }]} 
+              onPress={() => router.push('/scan')}
+            >
                 <FontAwesome name="barcode" size={20} color={colors.text} style={[typography.shadow, { textShadowColor: colors.textShadow }]}/>
                 <Text style={[typography.button, typography.shadow, styles.buttonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('dashboard.scanItem')}</Text>
             </WalkablePressable>
@@ -136,14 +129,16 @@ useFocusEffect(
 
         </View>
       </View>
+
       {isOfflineMode && (
-    <View style={{ backgroundColor: colors.warning, padding: 4, alignItems: 'center' }}>
-        <Text style={[typography.caption, { color: 'black' }]}>OFFLINE MODE - Viewing cached data</Text>
-    </View>
-)}
+        <View style={{ backgroundColor: '#EAB308', padding: 4, alignItems: 'center' }}>
+            <Text style={[typography.caption, { color: 'black' }]}>OFFLINE MODE - Viewing cached data</Text>
+        </View>
+      )}
+
       {/* STEP 4: Restock List */}
       <CopilotStep text={t('pilot.restock')} order={4} name="restockList">
-        <WalkableView>
+        <WalkableView collapsable={false}>
             <Text style={[typography.h3, styles.listHeader, { color: colors.text }]}>{t('dashboard.needsRestock')}</Text>
         </WalkableView>
       </CopilotStep>
@@ -186,22 +181,10 @@ useFocusEffect(
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  headerContainer: {
-    padding: 16,
-    paddingTop: 40, 
-    borderBottomWidth: 1,
-  },
-  title: {
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
+  container: { flex: 1 },
+  headerContainer: { padding: 16, paddingTop: 40, borderBottomWidth: 1 },
+  title: { textAlign: 'center', marginBottom: 16 },
+  buttonContainer: { flexDirection: 'row', justifyContent: 'space-around' },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -214,13 +197,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 1,
   },
-  buttonText: {
-    marginLeft: 8,
-  },
-  listHeader: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-  },
+  buttonText: { marginLeft: 8 },
+  listHeader: { paddingHorizontal: 16, paddingTop: 16 },
   listContainer: { flex: 1 },
   itemContainer: {
     flexDirection: 'row',
@@ -232,21 +210,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
   },
-  itemName: {
-  },
-  itemLocation: {
-    marginTop: 8,
-  },
-  itemQuantity: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    marginTop: 40,
-  },
-  emptyText: {
-  },
+  itemName: { },
+  itemLocation: { marginTop: 8 },
+  itemQuantity: { fontSize: 16, fontWeight: 'bold' },
+  emptyContainer: { alignItems: 'center', marginTop: 40 },
+  emptyText: { },
   restockButton: {
     flexDirection: 'row',
     alignItems: 'center',
