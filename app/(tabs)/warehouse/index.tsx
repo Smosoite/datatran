@@ -13,6 +13,7 @@ import { CopilotStep, walkthroughable, useCopilot } from "react-native-copilot";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const WalkablePressable = walkthroughable(Pressable);
+const WalkableView = walkthroughable(View);
 
 type Warehouse = {
   id: string;
@@ -28,23 +29,24 @@ export default function WarehouseScreen() {
   const { colors } = useTheme(); 
   const router = useRouter();
 
-  // --- 1. LAYOUT STATE ---
   const [isLayoutReady, setIsLayoutReady] = useState(false);
 
   // --- COPILOT HOOK ---
   const { start: startTour } = useCopilot();
 
-  // --- 2. UPDATED TOUR LOGIC ---
+  // --- UPDATED TOUR LOGIC ---
   useEffect(() => {
-    // Wait until data is loaded AND the screen layout is physically ready
     if (loading || !isLayoutReady) return;
 
     const checkFirstTime = async () => {
         try {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_WAREHOUSE_TOUR');
             if (!hasSeen) {
-                // Short delay to ensure list items or empty state buttons are stable
-                setTimeout(() => startTour(), 600);
+                // Longer delay to ensure all components are mounted
+                setTimeout(() => {
+                  console.log('Starting warehouse tour');
+                  startTour();
+                }, 1000);
                 await AsyncStorage.setItem('HAS_SEEN_WAREHOUSE_TOUR', 'true');
             }
         } catch (e) {
@@ -52,7 +54,7 @@ export default function WarehouseScreen() {
         }
     };
     checkFirstTime();
-  }, [loading, isLayoutReady]);
+  }, [loading, isLayoutReady, startTour]);
 
   const fetchWarehouses = useCallback(async () => {
     try {
@@ -80,14 +82,20 @@ export default function WarehouseScreen() {
     return <ActivityIndicator style={[styles.centered, { backgroundColor: colors.background }]} size="large" color={colors.primary} />;
   }
 
-  // --- 4. HEADER FIX ---
+  // --- HEADER FIX ---
   const renderHeaderRight = () => (
-      <CopilotStep text={t('pilot.newWarehouse')} order={1} name="addWarehouseHeader">
+      <CopilotStep 
+        text={t('pilot.newWarehouse')} 
+        order={1} 
+        name="addWarehouseHeader"
+        active={true}
+      >
         <WalkablePressable 
-            collapsable={false} // Android fix
+            collapsable={false}
             onPress={() => router.push('/create-warehouse')}
+            style={{ padding: 10 }} // Add padding for better touch target
         >
-          <FontAwesome name="plus" size={24} color={colors.selector} style={{ marginRight: 15 }}/>
+          <FontAwesome name="plus" size={24} color={colors.selector} />
         </WalkablePressable>
       </CopilotStep>
   );
@@ -97,14 +105,20 @@ export default function WarehouseScreen() {
       <Text style={[typography.caption, styles.emptyText, { color: colors.subtext }]}>{t('warehouse.noWarehouses')}</Text>
       
       {/* STEP 1 (Empty State Version) */}
-      <CopilotStep text={t('pilot.firstWarehouse')} order={1} name="createFirst">
-        <WalkablePressable 
-            collapsable={false} // Android fix
-            style={[styles.button, { backgroundColor: colors.primary }]} 
-            onPress={() => router.push('/create-warehouse')}
-        >
-            <Text style={[typography.button, styles.buttonText, { color: colors.primaryText }]}>{t('warehouse.createFirst')}</Text>
-        </WalkablePressable>
+      <CopilotStep 
+        text={t('pilot.firstWarehouse')} 
+        order={1} 
+        name="createFirst"
+        active={true}
+      >
+        <WalkableView>
+          <Pressable 
+              style={[styles.button, { backgroundColor: colors.primary }]} 
+              onPress={() => router.push('/create-warehouse')}
+          >
+              <Text style={[typography.button, styles.buttonText, { color: colors.primaryText }]}>{t('warehouse.createFirst')}</Text>
+          </Pressable>
+        </WalkableView>
       </CopilotStep>
     </View>
   );
@@ -113,7 +127,10 @@ export default function WarehouseScreen() {
     return (
         <View 
             style={{ flex: 1, backgroundColor: colors.background }}
-            onLayout={() => setIsLayoutReady(true)}
+            onLayout={() => {
+              console.log('Empty state layout ready');
+              setIsLayoutReady(true);
+            }}
         >
           <Stack.Screen options={{ headerRight: undefined }} /> 
           {renderEmptyComponent()}
@@ -124,8 +141,10 @@ export default function WarehouseScreen() {
   return (
     <View 
         style={{ flex: 1, backgroundColor: colors.background }}
-        // --- 3. TRIGGER LAYOUT READY ---
-        onLayout={() => setIsLayoutReady(true)}
+        onLayout={() => {
+          console.log('List layout ready');
+          setIsLayoutReady(true);
+        }}
     >
       <Stack.Screen
         options={{
@@ -140,18 +159,24 @@ export default function WarehouseScreen() {
           // Highlight the first warehouse as the example
           if (index === 0) {
               return (
-                <CopilotStep text={t('pilot.openWarehouse')} order={2} name="viewWarehouse">
-                    <WalkablePressable
-                        collapsable={false} // Android fix
-                        style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: colors.border }]}
-                        onPress={() => router.push(`/warehouse/${item.id}`)}
-                    >
-                        <Feather name={item.icon || 'archive'} size={32} color={colors.text} style={styles.itemIcon} />
-                        <View style={styles.itemTextContainer}>
-                            <Text style={[typography.body, styles.itemName, { color: colors.text }]}>{item.name}</Text>
-                            {item.description && <Text style={[typography.caption, styles.itemDescription, { color: colors.subtext }]}>{item.description}</Text>}
-                        </View>
-                    </WalkablePressable>
+                <CopilotStep 
+                  text={t('pilot.openWarehouse')} 
+                  order={2} 
+                  name="viewWarehouse"
+                  active={true}
+                >
+                    <WalkableView>
+                      <Pressable
+                          style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: colors.border }]}
+                          onPress={() => router.push(`/warehouse/${item.id}`)}
+                      >
+                          <Feather name={item.icon || 'archive'} size={32} color={colors.text} style={styles.itemIcon} />
+                          <View style={styles.itemTextContainer}>
+                              <Text style={[typography.body, styles.itemName, { color: colors.text }]}>{item.name}</Text>
+                              {item.description && <Text style={[typography.caption, styles.itemDescription, { color: colors.subtext }]}>{item.description}</Text>}
+                          </View>
+                      </Pressable>
+                    </WalkableView>
                 </CopilotStep>
               );
           }
