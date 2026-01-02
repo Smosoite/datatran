@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable } from 'react-native';
 import { useFocusEffect, Stack } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../providers/ThemeProvider';
@@ -32,22 +32,29 @@ export default function ManageMembersScreen() {
   const [members, setMembers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // --- 1. LAYOUT STATE ---
+  const [isLayoutReady, setIsLayoutReady] = useState(false);
+
   // --- COPILOT HOOK ---
   const { start: startTour } = useCopilot();
 
+  // --- 2. UPDATED TOUR LOGIC ---
   useEffect(() => {
-    if (loading) return;
+    // Only proceed if loading is finished AND the UI layout is ready
+    if (loading || !isLayoutReady) return;
+
     const checkFirstTime = async () => {
         try {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_MEMBERS_TOUR');
             if (!hasSeen) {
-                setTimeout(() => startTour(), 1500);
+                // Short delay to ensure the FlatList items have stabilized
+                setTimeout(() => startTour(), 500);
                 await AsyncStorage.setItem('HAS_SEEN_MEMBERS_TOUR', 'true');
             }
         } catch (e) { console.warn(e); }
     };
     checkFirstTime();
-  }, [loading]);
+  }, [loading, isLayoutReady]);
 
   const fetchMembers = useCallback(async () => {
     if (!myProfile?.workgroup_id) return;
@@ -111,7 +118,11 @@ export default function ManageMembersScreen() {
   if (loading) return <ActivityIndicator style={styles.centered} size="large" color={colors.primary} />;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View 
+      style={[styles.container, { backgroundColor: colors.background }]}
+      // --- 3. TRIGGER LAYOUT READY ---
+      onLayout={() => setIsLayoutReady(true)}
+    >
       <Stack.Screen options={{ title: t('settings.membersTitle') }} />
       
       <FlatList
@@ -122,11 +133,14 @@ export default function ManageMembersScreen() {
           const isMe = item.id === myProfile?.id;
           const isAdmin = item.role === 'admin';
 
-          // Use Walkable View only for the first item (likely the current user or first admin)
+          // First item highlight (The Card)
           if (index === 0) {
               return (
                 <CopilotStep text="Manage user roles and permissions here." order={1} name="memberCard">
-                    <WalkableView collapsable={false} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]} collapsable={false}>
+                    <WalkableView 
+                        style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]} 
+                        collapsable={false} // Crucial for Android measurement
+                    >
                         <View style={styles.userInfo}>
                             <View style={[styles.avatar, { backgroundColor: colors.border }]}>
                             <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.text }}>
@@ -160,7 +174,7 @@ export default function ManageMembersScreen() {
               );
           }
 
-          // Normal render for other members
+          // Second item highlight (The Specific Buttons)
           return (
             <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={styles.userInfo}>
@@ -183,16 +197,23 @@ export default function ManageMembersScreen() {
 
               {!isMe && (
                 <View style={styles.actions}>
-                    {/* STEP 2 & 3: Highlight Actions on the first non-me user if available */}
                     {index === 1 ? (
                         <>
-                            <CopilotStep text= {t('pilot.promote')} order={2} name="promoteUser">
-                                <WalkablePressable collapsable={false} style={[styles.iconButton, { backgroundColor: colors.background }]} onPress={() => handleToggleRole(item)}>
+                            <CopilotStep text={t('pilot.promote')} order={2} name="promoteUser">
+                                <WalkablePressable 
+                                    collapsable={false} // Ensure measurement works
+                                    style={[styles.iconButton, { backgroundColor: colors.background }]} 
+                                    onPress={() => handleToggleRole(item)}
+                                >
                                     <FontAwesome name={isAdmin ? "arrow-down" : "arrow-up"} size={16} color={colors.text} />
                                 </WalkablePressable>
                             </CopilotStep>
-                            <CopilotStep text= {t('pilot.permaban')} order={3} name="removeUser">
-                                <WalkablePressable collapsable={false} style={[styles.iconButton, { backgroundColor: 'rgba(220, 38, 38, 0.1)' }]} onPress={() => handleRemoveMember(item)}>
+                            <CopilotStep text={t('pilot.permaban')} order={3} name="removeUser">
+                                <WalkablePressable 
+                                    collapsable={false} // Ensure measurement works
+                                    style={[styles.iconButton, { backgroundColor: 'rgba(220, 38, 38, 0.1)' }]} 
+                                    onPress={() => handleRemoveMember(item)}
+                                >
                                     <FontAwesome name="user-times" size={16} color={colors.danger} />
                                 </WalkablePressable>
                             </CopilotStep>
