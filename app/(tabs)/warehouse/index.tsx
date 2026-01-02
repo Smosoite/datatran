@@ -82,7 +82,7 @@ export default function WarehouseScreen() {
       
       {/* STEP 1: Add Button (Empty State) */}
       <CopilotStep text={t('pilot.firstWarehouse')} order={1} name="createFirst">
-        <WalkablePressable style={[styles.button, { backgroundColor: colors.primary }]} onPress={() => router.push('/create-warehouse')}>
+        <WalkablePressable collapsable={false} style={[styles.button, { backgroundColor: colors.primary }]} onPress={() => router.push('/create-warehouse')}>
             <Text style={[typography.button, styles.buttonText, { color: colors.primaryText }]}>{t('warehouse.createFirst')}</Text>
         </WalkablePressable>
       </CopilotStep>
@@ -92,7 +92,7 @@ export default function WarehouseScreen() {
   // Helper to render header button only if warehouses exist, wrapped in Copilot
   const renderHeaderRight = () => (
       <CopilotStep text={t('pilot.newWarehouse')} order={1} name="addWarehouseHeader">
-        <WalkablePressable onPress={() => router.push('/create-warehouse')}>
+        <WalkablePressable collapsable={false} onPress={() => router.push('/create-warehouse')}>
           <FontAwesome name="plus" size={24} color={colors.selector} style={{ marginRight: 15 }}/>
         </WalkablePressable>
       </CopilotStep>
@@ -125,7 +125,7 @@ export default function WarehouseScreen() {
               return (
                 <CopilotStep text={t('pilot.openWarehouse')} order={2} name="viewWarehouse">
                     <WalkablePressable
-                        style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: colors.border }]}
+                        collapsable={false} style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: colors.border }]}
                         onPress={() => router.push(`/warehouse/${item.id}`)}
                     >
                         <Feather name={item.icon || 'archive'} size={32} color={colors.text} style={styles.itemIcon} />
