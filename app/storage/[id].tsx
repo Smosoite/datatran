@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable } from 'react-native';
 import { useLocalSearchParams, useFocusEffect, useRouter, Stack } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
@@ -36,18 +36,23 @@ export default function ManageStorageScreen() {
   const [loading, setLoading] = useState(true);
   const [storageName, setStorageName] = useState('');
 
+  // --- 1. LAYOUT STATE ---
+  const [isLayoutReady, setIsLayoutReady] = useState(false);
+
   // --- COPILOT HOOK ---
   const { start: startTour } = useCopilot();
 
-  // --- START TOUR ON MOUNT (ONCE) ---
+  // --- 2. UPDATED TOUR LOGIC ---
   useEffect(() => {
-    if (loading) return;
+    // Only start if data is loaded AND the layout is calculated
+    if (loading || !isLayoutReady) return;
+
     const checkFirstTime = async () => {
         try {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_STORAGE_LOC_TOUR');
             if (!hasSeen) {
-                // Delay slightly to ensure list renders
-                setTimeout(() => startTour(), 1500);
+                // Delay slightly to ensure list items are rendered and measured
+                setTimeout(() => startTour(), 600);
                 await AsyncStorage.setItem('HAS_SEEN_STORAGE_LOC_TOUR', 'true');
             }
         } catch (e) {
@@ -55,7 +60,7 @@ export default function ManageStorageScreen() {
         }
     };
     checkFirstTime();
-  }, [loading]);
+  }, [loading, isLayoutReady]);
 
   const fetchLocations = useCallback(async () => {
     if (!storageId) return;
@@ -115,17 +120,24 @@ export default function ManageStorageScreen() {
     return <ActivityIndicator style={[styles.centered, { backgroundColor: colors.background }]} size="large" color={colors.primary} />;
   }
 
-  // Copilot Wrapper for Header Button
+  // --- 4. HEADER FIX ---
   const renderHeaderRight = () => (
-      <CopilotStep text= {t('pilot.tap')} order={1} name="addLocation">
-        <WalkablePressable collapsable={false} onPress={() => router.push({ pathname: '/create-location', params: { storageId } })}>
+      <CopilotStep text={t('pilot.tap')} order={1} name="addLocation">
+        <WalkablePressable 
+          collapsable={false} // Android fix
+          onPress={() => router.push({ pathname: '/create-location', params: { storageId } })}
+        >
           <FontAwesome name="plus" size={24} color={colors.selector} style={{ marginRight: 15 }} />
         </WalkablePressable>
       </CopilotStep>
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View 
+      style={[styles.container, { backgroundColor: colors.background }]}
+      // --- 3. TRIGGER LAYOUT READY ---
+      onLayout={() => setIsLayoutReady(true)}
+    >
       <Stack.Screen options={{
         title: storageName || t('storage.manageLayout'),
         headerRight: renderHeaderRight
@@ -137,12 +149,15 @@ export default function ManageStorageScreen() {
         renderItem={({ item, index }) => { 
           const assignedItem = item.items && item.items.length > 0 ? item.items[0] : null;
           
-          // Highlight first item for tour
+          // Target the first item in the location list
           if (index === 0) {
               return ( 
                 <View style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  <CopilotStep text= {t('pilot.see')} order={2} name="viewLocation">
-                      <WalkableView collapsable={false} style={styles.locationDetails} collapsable={false}>
+                  <CopilotStep text={t('pilot.see')} order={2} name="viewLocation">
+                      <WalkableView 
+                        style={styles.locationDetails} 
+                        collapsable={false} // Android fix
+                      >
                         <Text style={[typography.body, styles.itemName, { color: colors.text }]}>{formatLocationName(item)}</Text>
                         {assignedItem ? (
                           <Text style={[typography.body, styles.assignedItemText, { color: colors.success }]}>
@@ -154,8 +169,11 @@ export default function ManageStorageScreen() {
                       </WalkableView>
                   </CopilotStep>
 
-                  <CopilotStep text= {t('pilot.editloc')} order={3} name="locationActions">
-                      <WalkableView collapsable={false} style={styles.buttonGroup} collapsable={false}>
+                  <CopilotStep text={t('pilot.editloc')} order={3} name="locationActions">
+                      <WalkableView 
+                        style={styles.buttonGroup} 
+                        collapsable={false} // Android fix
+                      >
                         <Pressable style={styles.actionButton} onPress={() => router.push(`/edit-location/${item.id}`)}>
                           <FontAwesome name="pencil" size={18} color={colors.primary} />
                         </Pressable>
