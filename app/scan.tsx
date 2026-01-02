@@ -94,7 +94,7 @@ export default function ScanScreen() {
       
       {/* STEP 2: Submit Button */}
       <CopilotStep text= {t('pilot.barcodescan')} order={2} name="submitBtn">
-          <WalkablePressable style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleManualScan} disabled={loading}>
+          <WalkablePressable collapsable={false} style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleManualScan} disabled={loading}>
             {loading ? (
                 <ActivityIndicator color={colors.text || '#fff'} />
             ) : (
