@@ -1,4 +1,3 @@
-app/history.tsx
 import { useTranslation } from 'react-i18next';
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
