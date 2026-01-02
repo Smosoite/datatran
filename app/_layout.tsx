@@ -157,9 +157,16 @@ const AppWithCopilot = () => {
       tooltipComponent={CustomTooltip} 
       stepNumberComponent={() => null}
       overlay="svg" 
-      backdropColor="rgba(0, 0, 0, 0.7)"
-      // Fixed: Setting tooltipStyle to transparent ensures your custom bubble handles its own styling
-      tooltipStyle={{ backgroundColor: 'transparent', borderRadius: 12 }}
+      backdropColor="rgba(0, 0, 0, 0.6)"
+      // Remove tooltipStyle - let the library handle positioning
+      arrowColor={colors.card}
+      // Add labels for better control
+      labels={{
+        skip: 'Skip',
+        previous: 'Back',
+        next: 'Next',
+        finish: 'Done'
+      }}
     >
       <ModalProvider>
         <MainNavigator />
