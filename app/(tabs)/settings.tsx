@@ -1,3 +1,4 @@
+App/(tabs)/settings.tsx
 import { useTranslation } from 'react-i18next';
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, Switch, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
@@ -13,13 +14,6 @@ import { showError, showSuccess } from '../../lib/toast';
 import { useModal } from '../../providers/ModalProvider';
 import { typography } from '../../styles/typography';
 
-// --- COPILOT IMPORTS ---
-import { CopilotStep, walkthroughable, useCopilot } from "react-native-copilot";
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const WalkableView = walkthroughable(View);
-const WalkablePressable = walkthroughable(Pressable);
-
 const { width } = Dimensions.get('window');
 const buttonMargin = 8;
 const containerPadding = 24;
@@ -27,302 +21,570 @@ const cardHorizontalPadding = 24;
 const themeButtonWidth = (width - (containerPadding * 2) - (cardHorizontalPadding * 2) - (buttonMargin * 4)) / 3;
 
 const themes = [
-  { key: 'default', name: 'Default', representativeColor: '#10567A' },
-  { key: 'industrial', name: 'Industrial', representativeColor: '#C9C9C9' },
-  { key: 'forest', name: 'Forest', representativeColor: '#064D06' },
-  { key: 'cherryblossom', name: 'Blossom', representativeColor: '#EBC7D4' },
-  { key: 'sunflower', name: 'Sunflower', representativeColor: '#FFEA00' },
-  { key: 'sunset', name: 'Sunset', representativeColor: '#D93000' },
+  { key: 'default', name: 'Default', representativeColor: '#10567A' },
+  { key: 'industrial', name: 'Industrial', representativeColor: '#C9C9C9' },
+  { key: 'forest', name: 'Forest', representativeColor: '#064D06' },
+  { key: 'cherryblossom', name: 'Blossom', representativeColor: '#EBC7D4' },
+  { key: 'sunflower', name: 'Sunflower', representativeColor: '#FFEA00' },
+  { key: 'sunset', name: 'Sunset', representativeColor: '#D93000' },
 ];
 
 export default function SettingsScreen() {
-  const { mode, setMode, theme, setTheme, colors } = useTheme();
-  const isDarkMode = mode === 'dark';
+  const { mode, setMode, theme, setTheme, colors } = useTheme();
+  const isDarkMode = mode === 'dark';
 
-  const { t, i18n } = useTranslation();
-  const { showConfirmation, showPasscodeModal } = useModal();
-  const router = useRouter();
-  const { profile, workgroup, refreshProfile, loading } = useAuth();
-  const [isExporting, setIsExporting] = useState(false);
+  const { t, i18n } = useTranslation();
+  const { showConfirmation, showPasscodeModal } = useModal();
+  const router = useRouter();
+  const { profile, workgroup, refreshProfile } = useAuth(); // Added workgroup & refreshProfile
+  const [isExporting, setIsExporting] = useState(false);
 
-  // --- 1. LAYOUT STATE ---
-  const [isLayoutReady, setIsLayoutReady] = useState(false);
+// --- NEW: Handle Passcode Change/Creation ---
+  const handleChangePasscode = () => {
+    
+    // Helper function to perform the DB update and state refresh
+    const performUpdate = async (newCode: string) => {
+      try {
+        // 1. Update Supabase
+        const { error } = await supabase
+          .from('workgroups')
+          .update({ admin_passcode: newCode })
+          .eq('id', workgroup?.id);
 
-  // --- COPILOT HOOK ---
-  const { start: startTour } = useCopilot();
+        if (error) throw error;
+        
+        // 2. Refresh local state (This will now work without crashing because of the AuthProvider fix)
+        await refreshProfile(); 
+        
+        // 3. Show success
+        showSuccess(t('general.success'), t('settings.passcodeSet'));
+      } catch (err: any) {
+        showError(t('general.error'), err.message);
+      }
+    };
 
-  // --- 2. UPDATED TOUR LOGIC ---
-  useEffect(() => {
-    // Only proceed if auth data is ready AND layout is calculated
-    if (loading || !isLayoutReady) return;
+    const promptForNewCode = () => {
+      // Small delay ensures the previous modal is fully closed visually
+      setTimeout(() => {
+        showPasscodeModal({
+          title: 'settings.enterNewPasscode',
+          message: '', 
+          onSubmit: (newCode) => performUpdate(newCode)
+        });
+      }, 300);
+    };
 
-    const checkFirstTime = async () => {
-        try {
-            const hasSeen = await AsyncStorage.getItem('HAS_SEEN_SETTINGS_TOUR');
-            if (!hasSeen) {
-                // Short delay to ensure themed colors and grid items are stable
-                setTimeout(() => startTour(), 600);
-                await AsyncStorage.setItem('HAS_SEEN_SETTINGS_TOUR', 'true');
-            }
-        } catch (e) { console.warn(e); }
-    };
-    checkFirstTime();
-  }, [loading, isLayoutReady]);
+    // Logic: If code exists, verify old one first. If not, just set new one.
+    if (workgroup?.admin_passcode) {
+      showPasscodeModal({
+        title: 'settings.enterCurrentPasscode',
+        message: '',
+        onSubmit: (inputCode) => {
+          // Important: Compare inputCode to workgroup.admin_passcode
+          if (inputCode === workgroup.admin_passcode) {
+            promptForNewCode();
+          } else {
+            showError(t('general.error'), t('stockGrid.invalidPasscode'));
+          }
+        }
+      });
+    } else {
+      promptForNewCode();
+    }
+  };
 
-  const handleResetTours = async () => {
-     try {
-         const keys = [
-             `HAS_SEEN_DASHBOARD_${profile?.id}`,
-             `HAS_SEEN_WAREHOUSE_TOUR_${profile?.id}`,
-             `HAS_SEEN_GRID_TOUR_${profile?.id}`,
-             `HAS_SEEN_ADD_ITEM_TOUR_${profile?.id}`,
-         ];
-         const legacyKeys = [
-             'HAS_SEEN_DASHBOARD_TOUR', 'HAS_SEEN_WAREHOUSE_TOUR', 
-             'HAS_SEEN_GRID_TOUR', 'HAS_SEEN_ADD_ITEM_TOUR', 
-             'HAS_SEEN_SETTINGS_TOUR', 'HAS_SEEN_HISTORY_TOUR'
-         ];
-         await AsyncStorage.multiRemove([...keys, ...legacyKeys]);
-         showSuccess(t('general.success'), "Tours have been reset.");
-     } catch (e) {
-         showError(t('general.error'), "Failed to reset tours.");
-     }
-  };
-  
-  const handleChangePasscode = () => {
-    const performUpdate = async (newCode: string) => {
-      try {
-        const { error } = await supabase.from('workgroups').update({ admin_passcode: newCode }).eq('id', workgroup?.id);
-        if (error) throw error;
-        await refreshProfile(); 
-        showSuccess(t('general.success'), t('settings.passcodeSet'));
-      } catch (err: any) { showError(t('general.error'), err.message); }
-    };
+  // --- MODIFIED: Secured Delete Workgroup ---
+  const handleDeleteWorkgroup = () => {
+    const proceedToDelete = () => {
+      // Add a small delay if coming from passcode modal
+      setTimeout(() => {
+        showConfirmation({
+          title: 'settings.del',
+          message: t('settings.warning'),
+          confirmText: 'settings.everything',
+          isDestructive: true,
+          onConfirm: async () => {
+            try {
+              const { error } = await supabase.rpc('delete_current_workgroup');
+              if (error) throw error;
+              showSuccess(t('general.groupDeleted'));
+              await supabase.auth.signOut();
+            } catch (err: any) {
+              showError(err.message || "An unknown error occurred.");
+            }
+          },
+        });
+      }, workgroup?.admin_passcode ? 500 : 0);
+    };
 
-    const promptForNewCode = () => {
-      setTimeout(() => {
-        showPasscodeModal({ title: 'settings.enterNewPasscode', message: '', onSubmit: performUpdate });
-      }, 300);
-    };
+    // If a passcode is set, require it before showing the delete confirmation
+    if (workgroup?.admin_passcode) {
+      showPasscodeModal({
+        title: 'stockGrid.passcodeTitle',
+        message: 'stockGrid.passcodeMessage',
+        onSubmit: (passcode) => {
+          if (passcode === workgroup.admin_passcode) {
+            proceedToDelete();
+          } else {
+            showError(t('stockGrid.invalidPasscode'));
+          }
+        }
+      });
+    } else {
+      // If no passcode is set, proceed directly (legacy behavior)
+      proceedToDelete();
+    }
+  };
+  
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      showError(t('general.error'), error.message);
+    }
+  };
 
-    if (workgroup?.admin_passcode) {
-      showPasscodeModal({
-        title: 'settings.enterCurrentPasscode',
-        message: '',
-        onSubmit: (inputCode) => {
-          if (inputCode === workgroup.admin_passcode) promptForNewCode();
-          else showError(t('general.error'), t('stockGrid.invalidPasscode'));
-        }
-      });
-    } else {
-      promptForNewCode();
-    }
-  };
+  const toggleMode = () => {
+    setMode(isDarkMode ? 'light' : 'dark');
+  };
 
-  const handleDeleteWorkgroup = () => {
-    const proceedToDelete = () => {
-      setTimeout(() => {
-        showConfirmation({
-          title: 'settings.del', message: t('settings.warning'), confirmText: 'settings.everything', isDestructive: true,
-          onConfirm: async () => {
-            try {
-              const { error } = await supabase.rpc('delete_current_workgroup');
-              if (error) throw error;
-              showSuccess(t('general.groupDeleted'));
-              await supabase.auth.signOut();
-            } catch (err: any) { showError(err.message || "An unknown error occurred."); }
-          },
-        });
-      }, workgroup?.admin_passcode ? 500 : 0);
-    };
+  const handleExportData = async () => {
+    setIsExporting(true);
+    try {
+      const { data: items, error } = await supabase
+        .from('items')
+        .select(`name, quantity, cost, restock_threshold, barcode, warehouses ( name ), storages ( name ), defined_locations ( shelf, row, "column", container )`);
 
-    if (workgroup?.admin_passcode) {
-      showPasscodeModal({
-        title: 'stockGrid.passcodeTitle', message: 'stockGrid.passcodeMessage',
-        onSubmit: (passcode) => {
-          if (passcode === workgroup.admin_passcode) proceedToDelete();
-          else showError(t('stockGrid.invalidPasscode'));
-        }
-      });
-    } else {
-      proceedToDelete();
-    }
-  };
-  
-  const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) showError(t('general.error'), error.message);
-  };
+      if (error) throw error;
+      if (!items || items.length === 0) {
+        showError(t('general.noData'), t('general.noDataToExport'));
+        return;
+      }
+      
+      const formattedData = items.map(item => ({
+        'Item Name': item.name, 'Quantity': item.quantity, 'Cost': item.cost,
+        'Barcode': item.barcode, 'Restock Threshold': item.restock_threshold,
+        'Warehouse': item.warehouses?.name, 'Storage Unit': item.storages?.name,
+        'Shelf': item.defined_locations?.shelf, 'Row': item.defined_locations?.row,
+        'Column': item.defined_locations?.column, 'Container': item.defined_locations?.container,
+      }));
 
-  const toggleMode = () => setMode(isDarkMode ? 'light' : 'dark');
+      const csvString = Papa.unparse(formattedData);
+      const filename = `inventory_export_${new Date().getTime()}.csv`;
+      const fileUri = FileSystem.documentDirectory + filename;
+      
+      await FileSystem.writeAsStringAsync(fileUri, csvString, { encoding: FileSystem.EncodingType.UTF8 });
+      await Sharing.shareAsync(fileUri);
+    } catch (error: any) {
+      showError(t('general.error'), t('general.exportError', { message: error.message }));
+    } finally {
+      setIsExporting(false);
+    }
+  };
+  
+  return (
+    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={styles.container}>
+      
+      <View style={styles.section}>
+        <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.appearance')}</Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.appRow}>
+            <Text style={[typography.button, styles.label, { color: colors.text }]}>{t('settings.dark')}</Text>
+            <Switch
+              trackColor={{ false: colors.background, true: colors.background }}
+              thumbColor={colors.selector}
+              onValueChange={toggleMode}
+              value={isDarkMode}
+            />
+          </View>
+        </View>
 
-  const handleExportData = async () => {
-    setIsExporting(true);
-    try {
-      const { data: items, error } = await supabase.from('items').select(`name, quantity, cost, restock_threshold, barcode, warehouses ( name ), storages ( name ), defined_locations ( shelf, row, "column", container )`);
-      if (error) throw error;
-      if (!items || items.length === 0) { showError(t('general.noData'), t('general.noDataToExport')); return; }
-      
-      const formattedData = items.map(item => ({
-        'Item Name': item.name, 'Quantity': item.quantity, 'Cost': item.cost, 'Barcode': item.barcode, 'Restock Threshold': item.restock_threshold,
-        'Warehouse': item.warehouses?.name, 'Storage Unit': item.storages?.name, 'Shelf': item.defined_locations?.shelf, 'Row': item.defined_locations?.row,
-        'Column': item.defined_locations?.column, 'Container': item.defined_locations?.container,
-      }));
+        <View style={[styles.card, styles.themeButtonsContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          {themes.map(themeOption => (
+            <Pressable
+              key={themeOption.key}
+              onPress={() => setTheme(themeOption.key as any)}
+              style={[
+                styles.themeButton,
+                { width: themeButtonWidth, borderWidth: 2, borderColor: themeOption.representativeColor },
+                theme === themeOption.key && { backgroundColor: colors.selector }
+              ]}
+            >
+              <Text
+                style={[
+                  typography.button, typography.shadow,
+                  styles.themeButtonText,
+                  { color: colors.text, textShadowColor: colors.textShadow }
+                ]}
+              >
+                {t(`themes.${themeOption.key}`)}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
 
-      const csvString = Papa.unparse(formattedData);
-      const fileUri = FileSystem.documentDirectory + `inventory_export_${new Date().getTime()}.csv`;
-      await FileSystem.writeAsStringAsync(fileUri, csvString, { encoding: FileSystem.EncodingType.UTF8 });
-      await Sharing.shareAsync(fileUri);
-    } catch (error: any) { showError(t('general.error'), t('general.exportError', { message: error.message })); } finally { setIsExporting(false); }
-  };
-  
-  return (
-    <ScrollView 
-      style={{ flex: 1, backgroundColor: colors.background }} 
-      contentContainerStyle={styles.container}
-      // --- 3. TRIGGER LAYOUT READY ---
-      onLayout={() => setIsLayoutReady(true)}
-    >
-      
-      {/* STEP 1: Appearance */}
-      <CopilotStep text={t('pilot.custom')} order={1} name="appearance">
-        <WalkableView style={styles.section} collapsable={false}>
-            <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.appearance')}</Text>
-            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.appRow}>
-                <Text style={[typography.button, styles.label, { color: colors.text }]}>{t('settings.dark')}</Text>
-                <Switch
-                trackColor={{ false: colors.background, true: colors.background }}
-                thumbColor={colors.selector}
-                onValueChange={toggleMode}
-                value={isDarkMode}
-                />
-            </View>
-            </View>
+      <View style={styles.section}>
+        <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.account')}</Text>
+        <Pressable style={[styles.card, styles.menuButton, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => router.push('/profile')}>
+          <Text style={[typography.button, styles.menuButtonText, { color: colors.text }]}>{t('settings.manageProfile')}</Text>
+        </Pressable>
+      </View>
 
-            <View style={[styles.card, styles.themeButtonsContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            {themes.map(themeOption => (
-                <Pressable
-                key={themeOption.key}
-                onPress={() => setTheme(themeOption.key as any)}
-                style={[
-                    styles.themeButton,
-                    { width: themeButtonWidth, borderWidth: 2, borderColor: themeOption.representativeColor },
-                    theme === themeOption.key && { backgroundColor: colors.selector }
-                ]}
-                >
-                <Text style={[typography.button, typography.shadow, styles.themeButtonText, { color: colors.text, textShadowColor: colors.textShadow }]}>
-                    {t(`themes.${themeOption.key}`)}
-                </Text>
-                </Pressable>
-            ))}
-            </View>
-        </WalkableView>
-      </CopilotStep>
+      <View style={styles.section}>
+        <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.groupInfo')}</Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.row, { borderBottomColor: colors.border }]}>
+            <Text style={[typography.button, typography.shadow, styles.label, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('settings.workgroupName')}</Text>
+            <Text style={[typography.button, styles.value, { color: colors.primary }]}>{workgroup?.name || '...'}</Text>
+          </View>
+          <View style={[styles.row, { borderBottomWidth: 0 }]}>
+            <Text style={[typography.button, styles.label, { color: colors.text }]}>{t('settings.code')}</Text>
+            <Text style={[typography.button, styles.value, { color: colors.primary }]}>{workgroup?.join_code || '...'}</Text>
+          </View>
+        </View>
+      </View>
 
-      <View style={styles.section}>
-        <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.account')}</Text>
-        <Pressable style={[styles.card, styles.menuButton, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => router.push('/profile')}>
-          <Text style={[typography.button, styles.menuButtonText, { color: colors.text }]}>{t('settings.manageProfile')}</Text>
-        </Pressable>
-      </View>
+      {/* --- NEW: Security Section (Admin Only) --- */}
+      {profile?.role === 'admin' && (
+        <View style={styles.section}>
+           <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.security')}</Text>
+          <Pressable 
+             style={[styles.card, styles.menuButton, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 8 }]} 
+             onPress={() => router.push('/history')}
+           >
+             <FontAwesome name="history" size={20} color={colors.primary} />
+             <Text style={[typography.button, styles.menuButtonText, { color: colors.text }]}>
+               {t('settings.history')}
+             </Text>
+           </Pressable> 
+          <Pressable 
+             style={[styles.card, styles.menuButton, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 8 }]} 
+             onPress={handleChangePasscode}
+           >
+             <FontAwesome name="lock" size={20} color={colors.primary} />
+             <Text style={[typography.button, styles.menuButtonText, { color: colors.text }]}>
+               {t('settings.changePasscode')}
+             </Text>
+           </Pressable>
+          <Pressable 
+             style={[styles.card, styles.menuButton, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 8 }]} 
+             onPress={() => router.push('/manage-members')}
+           >
+             <FontAwesome name="users" size={20} color={colors.primary} />
+             <Text style={[typography.button, styles.menuButtonText, { color: colors.text }]}>
+               {t('settings.members')}
+             </Text>
+           </Pressable>
+        </View>
+      )}
 
-      <View style={styles.section}>
-        <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.groupInfo')}</Text>
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={[styles.row, { borderBottomColor: colors.border }]}>
-            <Text style={[typography.button, typography.shadow, styles.label, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('settings.workgroupName')}</Text>
-            <Text style={[typography.button, styles.value, { color: colors.primary }]}>{workgroup?.name || '...'}</Text>
-          </View>
-          <View style={[styles.row, { borderBottomWidth: 0 }]}>
-            <Text style={[typography.button, styles.label, { color: colors.text }]}>{t('settings.code')}</Text>
-            <Text style={[typography.button, styles.value, { color: colors.primary }]}>{workgroup?.join_code || '...'}</Text>
-          </View>
-        </View>
-      </View>
+      <View style={styles.section}>
+        <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.language')}</Text>
+        <View style={[typography.body, styles.card, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: 'row', justifyContent: 'space-around', padding: 10 }]}>
+          <Pressable style={[styles.themeButton, {width: themeButtonWidth}, i18n.language === 'en' && { backgroundColor: colors.selector }]} onPress={() => i18n.changeLanguage('en')}>
+            <Text style={[typography.button, typography.shadow, styles.themeButtonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('settings.english')}</Text>
+          </Pressable>
+          <Pressable style={[styles.themeButton, {width: themeButtonWidth}, i18n.language === 'fi' && { backgroundColor: colors.selector }]} onPress={() => i18n.changeLanguage('fi')}>
+            <Text style={[typography.button, typography.shadow, styles.themeButtonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('settings.finnish')}</Text>
+          </Pressable>
+        </View>
+      </View>
 
-      {/* STEP 2: Security (Admin Only) */}
-      {profile?.role === 'admin' && (
-        <CopilotStep text={t('pilot.history')} order={2} name="securitySection">
-            <WalkableView style={styles.section} collapsable={false}>
-                <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.security')}</Text>
-                <Pressable style={[styles.card, styles.menuButton, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 8 }]} onPress={() => router.push('/history')}>
-                    <FontAwesome name="history" size={20} color={colors.primary} />
-                    <Text style={[typography.button, styles.menuButtonText, { color: colors.text }]}>{t('settings.history')}</Text>
-                </Pressable> 
-                <Pressable style={[styles.card, styles.menuButton, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 8 }]} onPress={handleChangePasscode}>
-                    <FontAwesome name="lock" size={20} color={colors.primary} />
-                    <Text style={[typography.button, styles.menuButtonText, { color: colors.text }]}>{t('settings.changePasscode')}</Text>
-                </Pressable>
-                <Pressable style={[styles.card, styles.menuButton, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 8 }]} onPress={() => router.push('/manage-members')}>
-                    <FontAwesome name="users" size={20} color={colors.primary} />
-                    <Text style={[typography.button, styles.menuButtonText, { color: colors.text }]}>{t('settings.members')}</Text>
-                </Pressable>
-            </WalkableView>
-        </CopilotStep>
-      )}
+      <View style={styles.section}>
+        <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.data')}</Text>
+        <Pressable 
+          style={[styles.card, styles.menuButton, { backgroundColor: colors.card, borderColor: colors.border }, isExporting && styles.disabledButton]} 
+          onPress={handleExportData} 
+          disabled={isExporting}
+        >
+          {isExporting ? <ActivityIndicator color={colors.primary} style={{ marginRight: 10 }}/> : <FontAwesome name="download" size={16} color={colors.primary} /> }
+          <Text style={[typography.button, styles.menuButtonText, { color: isExporting ? colors.subtext : colors.primary }]}>
+            {isExporting ? t('settings.expo') : t('settings.expoAll')}
+          </Text>
+        </Pressable>
+      </View>
+      
+      {profile?.role === 'admin' && (
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}></Text>
+          <Pressable 
+            style={[styles.deleteButton, { backgroundColor: colors.card, borderColor: colors.danger }]} 
+            onPress={handleDeleteWorkgroup}
+          >
+            <Text style={[typography.button, styles.deleteButtonText, { color: colors.danger }]}>{t('settings.del')}</Text>
+          </Pressable>
+        </View>
+      )}
 
-      {/* STEP 3: Export */}
-      <CopilotStep text={t('pilot.export')} order={3} name="dataExport">
-        <WalkableView style={styles.section} collapsable={false}>
-            <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.data')}</Text>
-            <Pressable 
-            style={[styles.card, styles.menuButton, { backgroundColor: colors.card, borderColor: colors.border }, isExporting && styles.disabledButton]} 
-            onPress={handleExportData} 
-            disabled={isExporting}
-            >
-            {isExporting ? <ActivityIndicator color={colors.primary} style={{ marginRight: 10 }}/> : <FontAwesome name="download" size={16} color={colors.primary} /> }
-            <Text style={[typography.button, styles.menuButtonText, { color: isExporting ? colors.subtext : colors.primary }]}>
-                {isExporting ? t('settings.expo') : t('settings.expoAll')}
-            </Text>
-            </Pressable>
-        </WalkableView>
-      </CopilotStep>
-      
-      <View style={[styles.section, { marginTop: 'auto' }]}>
-        <Pressable style={[styles.logoutButton, { backgroundColor: colors.selector, borderColor: colors.border }]} onPress={handleLogout}>
-          <Text style={[typography.button, typography.shadow, styles.logoutButtonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('settings.logout')}</Text>
-        </Pressable>
-      </View>
-        
-    </ScrollView>
-  );
+      <View style={[styles.section, { marginTop: 'auto' }]}>
+        <Pressable style={[styles.logoutButton, { backgroundColor: colors.selector, borderColor: colors.border }]} onPress={handleLogout}>
+          <Text style={[typography.button, typography.shadow, styles.logoutButtonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('settings.logout')}</Text>
+        </Pressable>
+      </View>
+        
+    </ScrollView>
+    
+  );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 24 },
-  section: { marginBottom: 32 },
-  sectionTitle: { marginBottom: 8 },
-  card: { borderRadius: 16, paddingHorizontal: 24, borderWidth: 1 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1 },
-  appRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 16 },
-  label: { },
-  value: { },
-  menuButton: { paddingVertical: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', },
-  menuButtonText: { marginLeft: 8 },
-  logoutButton: { padding: 16, borderRadius: 16, alignItems: 'center' },
-  logoutButtonText: { },
-  themeButtonsContainer: {
-    marginTop: 20,
-    flexDirection: 'row',
-    flexWrap: 'wrap', 
-    justifyContent: 'space-between', 
-    paddingVertical: 10,
-    gap: buttonMargin, 
-  },
-  themeButton: {
-    paddingVertical: 18,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: buttonMargin,
-  },
-  themeButtonText: {},
-  deleteButton: {
-    borderWidth: 1,
-    padding: 16,
-    borderRadius: 16,
-    alignItems: 'center',
-  },
-  disabledButton: { opacity: 0.5 },
-  deleteButtonText: { },
+  container: { padding: 24 },
+  section: { marginBottom: 32 },
+  sectionTitle: { marginBottom: 8 },
+  card: { borderRadius: 16, paddingHorizontal: 24, borderWidth: 1 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1 },
+  appRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 16 },
+  label: {  },
+  value: {  },
+  menuButton: { paddingVertical: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', },
+  menuButtonText: { marginLeft: 8 },
+  logoutButton: { padding: 16, borderRadius: 16, alignItems: 'center' },
+  logoutButtonText: {  },
+ themeButtonsContainer: {
+    marginTop: 20,
+    flexDirection: 'row',
+    flexWrap: 'wrap', 
+    justifyContent: 'space-between', 
+    paddingVertical: 10,
+    gap: buttonMargin, 
+  },
+  themeButton: {
+    paddingVertical: 18,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: buttonMargin,
+  },
+  themeButtonText: {},
+  deleteButton: {
+    borderWidth: 1,
+    padding: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  disabledButton: { opacity: 0.5 },
+  deleteButtonText: { },
+});
+
+
+
+App/restock.tsx
+import { useTranslation } from 'react-i18next';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, FlatList, Modal, TextInput } from 'react-native';
+import { useFocusEffect, Stack } from 'expo-router';
+import { FontAwesome } from '@expo/vector-icons';
+import { supabase } from '../lib/supabase';
+import { useTheme } from '../providers/ThemeProvider';
+import { showError, showSuccess } from '../lib/toast';
+import { typography } from '../styles/typography';
+import { useAuth } from '../providers/AuthProvider';
+import { logActivity } from '../lib/logger';
+
+type RestockItem = {
+  id: string;
+  name: string;
+  quantity: number;
+  restock_threshold: number;
+};
+
+const BulkStockModal = ({ visible, onClose, onSubmit }: { visible: boolean; onClose: () => void; onSubmit: (amount: number) => void }) => {
+  const { t } = useTranslation();
+  const { colors } = useTheme(); 
+  const [amount, setAmount] = useState('');
+
+  const handleSubmit = () => {
+    const amountToAdd = parseInt(amount, 10);
+    if (isNaN(amountToAdd) || amountToAdd <= 0) {
+      showError(t('restock.invalidNo'), t('restock.enterValid'));
+      return;
+    }
+    onSubmit(amountToAdd);
+    setAmount('');
+  };
+
+  return (
+    <Modal transparent={true} visible={visible} onRequestClose={onClose} animationType="fade">
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+          <Text style={[typography.h3, styles.modalTitle, { color: colors.text }]}>{t('restock.bulkPromptTitle')}</Text>
+          <Text style={[typography.body, styles.modalSubtitle, { color: colors.subtext }]}>{t('restock.bulkPromptMessage')}</Text>
+          <TextInput
+            style={[typography.body, styles.modalInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+            value={amount}
+            onChangeText={setAmount}
+            keyboardType="number-pad"
+            placeholder={t('restock.amountPlaceholder')}
+            placeholderTextColor={colors.subtext}
+            autoFocus={true}
+          />
+          <View style={styles.modalButtonContainer}>
+            <Pressable style={[styles.modalButton, { backgroundColor: colors.border }]} onPress={onClose}>
+              <Text style={[typography.button, styles.modalButtonText, { color: colors.text }]}>{t('general.cancel')}</Text>
+            </Pressable>
+            <Pressable style={[styles.modalButton, { backgroundColor: colors.primary }]} onPress={handleSubmit}>
+              <Text style={[typography.button, styles.modalButtonText, { color: colors.primaryText }]}>{t('general.submit')}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+export default function RestockScreen() {
+  const { t } = useTranslation();
+  const [restockItems, setRestockItems] = useState<RestockItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { colors } = useTheme();
+  const { workgroup } = useAuth(); // --- NEW: Get workgroup for logging ---
+  const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+
+  const fetchRestockItems = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase.rpc('get_restock_items');
+    if (error) console.error(t('general.error'), error.message);
+    else setRestockItems(data || []);
+    setLoading(false);
+  }, [t]);
+
+  useFocusEffect(useCallback(() => { fetchRestockItems(); }, [fetchRestockItems]));
+
+  const updateItemQuantity = async (item: RestockItem, newQuantity: number) => {
+    if (newQuantity < 0) return;
+    const { error } = await supabase.from('items').update({ quantity: newQuantity }).eq('id', item.id);
+    if (error) { showError(t('general.error'), t('general.errorQuantity')); return; }
+    
+    // --- NEW: Log Activity ---
+    if (workgroup?.id) {
+      const change = newQuantity - item.quantity;
+      logActivity({
+        workgroup_id: workgroup.id,
+        item_id: item.id,
+        item_name: item.name,
+        action: 'RESTOCK', 
+        change_amount: change,
+        final_quantity: newQuantity
+      });
+    }
+    // -------------------------
+
+    // Optimistically update UI
+    const updatedItems = restockItems.map(i => i.id === item.id ? { ...i, quantity: newQuantity } : i);
+    setRestockItems(updatedItems.filter(i => i.quantity <= i.restock_threshold));
+  };
+
+  const toggleSelectItem = (itemId: string) => {
+    setSelectedItems(prev => prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]);
+  };
+
+  const openBulkStockModal = () => setIsModalVisible(true);
+
+  const handleBulkStockSubmit = async (amountToAdd: number) => {
+    setIsModalVisible(false);
+    setLoading(true);
+    const itemsToUpdate = restockItems.filter(item => selectedItems.includes(item.id));
+    const updates = itemsToUpdate.map(item => ({ id: item.id, new_quantity: item.quantity + amountToAdd }));
+    
+    // Using an RPC call for bulk updates is more efficient
+    const { error } = await supabase.rpc('bulk_update_item_quantities', { updates });
+    if (error) {
+      showError(t('general.error'), error.message);
+    } else {
+      
+      // --- NEW: Log Bulk Activity ---
+      if (workgroup?.id) {
+        // We log each item individually so the history is granular
+        itemsToUpdate.forEach(item => {
+          logActivity({
+            workgroup_id: workgroup.id,
+            item_id: item.id,
+            item_name: item.name,
+            action: 'RESTOCK',
+            change_amount: amountToAdd,
+            final_quantity: item.quantity + amountToAdd
+          });
+        });
+      }
+      // -----------------------------
+
+      showSuccess(t('general.success'), t('restock.restocked', { count: selectedItems.length }));
+    }
+    
+    setSelectedItems([]);
+    await fetchRestockItems(); 
+    setLoading(false);
+  };
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Stack.Screen options={{ title: '' }} />
+      <BulkStockModal visible={isModalVisible} onClose={() => setIsModalVisible(false)} onSubmit={handleBulkStockSubmit} />
+      {loading ? <ActivityIndicator style={styles.centered} size="large" color={colors.primary} /> : (
+        <FlatList
+          data={restockItems}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => {
+            const isSelected = selectedItems.includes(item.id);
+            return (
+              <View style={[styles.itemContainer, { backgroundColor: colors.card, borderColor: isSelected ? colors.primary : colors.border }]}>
+                <Pressable onPress={() => toggleSelectItem(item.id)} style={styles.checkbox}>
+                  <FontAwesome name={isSelected ? 'check-square-o' : 'square-o'} size={24} color={colors.primary} />
+                </Pressable>
+                <View style={styles.itemDetails}>
+                  <Text style={[typography.body, styles.itemName, { color: colors.text }]}>{item.name}</Text>
+                  <Text style={[typography.body, styles.itemQuantityText, { color: colors.subtext }]}>{t('restock.current')} {item.quantity} | {t('restock.needs')} {item.restock_threshold}</Text>
+                </View>
+                <View style={styles.quantityControls}>
+                  <Pressable style={[styles.quantityButton, { backgroundColor: colors.background }]} onPress={() => updateItemQuantity(item, item.quantity - 1)}>
+                    <FontAwesome name="minus" size={16} color={colors.primary} />
+                  </Pressable>
+                  <Pressable style={[styles.quantityButton, { backgroundColor: colors.background }]} onPress={() => updateItemQuantity(item, item.quantity + 1)}>
+                    <FontAwesome name="plus" size={16} color={colors.primary} />
+                  </Pressable>
+                </View>
+              </View>
+            );
+          }}
+          ListEmptyComponent={() => (
+             <View style={styles.centered}>
+               <Text style={[typography.caption, styles.emptyText, { color: colors.subtext }]}>{t('restock.allStocked')}</Text>
+             </View>
+          )}
+          contentContainerStyle={{ padding: 10 }}
+        />
+      )}
+      {selectedItems.length > 0 && (
+        <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+            <Pressable style={[styles.bulkButton, { backgroundColor: colors.success }]} onPress={openBulkStockModal}>
+                <Text style={[typography.button, styles.bulkButtonText, { color: colors.primaryText }]}>{t('restock.bulkButton', { count: selectedItems.length })}</Text>
+            </Pressable>
+        </View>
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  itemContainer: { flexDirection: 'row', alignItems: 'center', padding: 16, marginVertical: 8, borderRadius: 8, borderWidth: 1 },
+  checkbox: { paddingRight: 16 },
+  itemDetails: { flex: 1 },
+  itemName: { fontWeight: '600' },
+  itemQuantityText: { marginTop: 2 },
+  quantityControls: { flexDirection: 'row', alignItems: 'center' },
+  quantityButton: { padding: 8, borderRadius: 24, marginLeft: 8 },
+  emptyText: { },
+  footer: { padding: 24, borderTopWidth: 1 },
+  bulkButton: { padding: 16, borderRadius: 8, alignItems: 'center' },
+  bulkButtonText: { fontWeight: 'bold' },
+  modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)' },
+  modalContent: { width: '85%', borderRadius: 8, padding: 24, alignItems: 'center' },
+  modalTitle: { fontWeight: 'bold', marginBottom: 8 },
+  modalSubtitle: { marginBottom: 24, textAlign: 'center' },
+  modalInput: { width: '100%', borderWidth: 1, borderRadius: 8, padding: 16, textAlign: 'center' },
+  modalButtonContainer: { flexDirection: 'row', marginTop: 24, width: '100%' },
+  modalButton: { flex: 1, padding: 16, borderRadius: 8, alignItems: 'center', marginHorizontal: 8 },
+  modalButtonText: { fontWeight: 'bold' },
 });
