@@ -185,7 +185,7 @@ export default function SettingsScreen() {
       
       {/* STEP 1: Appearance */}
       <CopilotStep text= {t('pilot.custom')} order={1} name="appearance">
-        <WalkableView style={styles.section} collapsable={false}>
+        <WalkableView collapsable={false} style={styles.section} collapsable={false}>
             <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.appearance')}</Text>
             <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.appRow}>
@@ -243,7 +243,7 @@ export default function SettingsScreen() {
       {/* STEP 2: Security (Admin Only) */}
       {profile?.role === 'admin' && (
         <CopilotStep text= {t('pilot.history')} order={2} name="securitySection">
-            <WalkableView style={styles.section} collapsable={false}>
+            <WalkableView collapsable={false} style={styles.section} collapsable={false}>
                 <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.security')}</Text>
                 <Pressable style={[styles.card, styles.menuButton, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 8 }]} onPress={() => router.push('/history')}>
                     <FontAwesome name="history" size={20} color={colors.primary} />
@@ -275,7 +275,7 @@ export default function SettingsScreen() {
 
       {/* STEP 3: Export */}
       <CopilotStep text= {t('pilot.export')} order={3} name="dataExport">
-        <WalkableView style={styles.section} collapsable={false}>
+        <WalkableView collapsable={false} style={styles.section} collapsable={false}>
             <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.data')}</Text>
             <Pressable 
             style={[styles.card, styles.menuButton, { backgroundColor: colors.card, borderColor: colors.border }, isExporting && styles.disabledButton]} 
