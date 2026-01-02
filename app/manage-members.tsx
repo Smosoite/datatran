@@ -126,7 +126,7 @@ export default function ManageMembersScreen() {
           if (index === 0) {
               return (
                 <CopilotStep text="Manage user roles and permissions here." order={1} name="memberCard">
-                    <WalkableView style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]} collapsable={false}>
+                    <WalkableView collapsable={false} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]} collapsable={false}>
                         <View style={styles.userInfo}>
                             <View style={[styles.avatar, { backgroundColor: colors.border }]}>
                             <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.text }}>
@@ -187,12 +187,12 @@ export default function ManageMembersScreen() {
                     {index === 1 ? (
                         <>
                             <CopilotStep text= {t('pilot.promote')} order={2} name="promoteUser">
-                                <WalkablePressable style={[styles.iconButton, { backgroundColor: colors.background }]} onPress={() => handleToggleRole(item)}>
+                                <WalkablePressable collapsable={false} style={[styles.iconButton, { backgroundColor: colors.background }]} onPress={() => handleToggleRole(item)}>
                                     <FontAwesome name={isAdmin ? "arrow-down" : "arrow-up"} size={16} color={colors.text} />
                                 </WalkablePressable>
                             </CopilotStep>
                             <CopilotStep text= {t('pilot.permaban')} order={3} name="removeUser">
-                                <WalkablePressable style={[styles.iconButton, { backgroundColor: 'rgba(220, 38, 38, 0.1)' }]} onPress={() => handleRemoveMember(item)}>
+                                <WalkablePressable collapsable={false} style={[styles.iconButton, { backgroundColor: 'rgba(220, 38, 38, 0.1)' }]} onPress={() => handleRemoveMember(item)}>
                                     <FontAwesome name="user-times" size={16} color={colors.danger} />
                                 </WalkablePressable>
                             </CopilotStep>
