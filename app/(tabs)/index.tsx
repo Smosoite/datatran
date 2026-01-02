@@ -33,23 +33,24 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
 
-  // --- 1. LAYOUT STATE ---
   const [isLayoutReady, setIsLayoutReady] = useState(false);
 
   // --- COPILOT HOOK ---
   const { start: startTour } = useCopilot();
 
-  // --- 2. UPDATED TOUR LOGIC ---
+  // --- UPDATED TOUR LOGIC ---
   useEffect(() => {
-    // Only start the tour if data is finished loading AND the UI is physically drawn
     if (loading || !isLayoutReady) return;
 
     const checkFirstTime = async () => {
         try {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_DASHBOARD_TOUR');
             if (!hasSeen) {
-                // Short delay to ensure the animations have settled
-                setTimeout(() => startTour(), 600);
+                // Longer delay for more complex layouts
+                setTimeout(() => {
+                  console.log('Starting dashboard tour');
+                  startTour();
+                }, 1000);
                 await AsyncStorage.setItem('HAS_SEEN_DASHBOARD_TOUR', 'true');
             }
         } catch (e) {
@@ -57,7 +58,7 @@ export default function HomeScreen() {
         }
     };
     checkFirstTime();
-  }, [loading, isLayoutReady]);
+  }, [loading, isLayoutReady, startTour]);
 
   useFocusEffect(
     useCallback(() => {
@@ -84,47 +85,67 @@ export default function HomeScreen() {
   return (
     <View 
       style={[styles.container, { backgroundColor: colors.background }]}
-      // --- 3. TRIGGER LAYOUT READY ---
-      onLayout={() => setIsLayoutReady(true)}
+      onLayout={() => {
+        console.log('Dashboard layout ready');
+        setIsLayoutReady(true);
+      }}
     >
       <View style={[styles.headerContainer, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <Text style={[styles.title, { color: colors.text }]}></Text>
         <View style={styles.buttonContainer}>
           
           {/* STEP 1: Add Item */}
-          <CopilotStep text={t('pilot.addNew')} order={1} name="addItem">
-            <WalkablePressable 
-              collapsable={false} // Android measurement fix
-              style={[styles.actionButton, { backgroundColor: colors.selector }]} 
-              onPress={() => router.push('/add-item')}
-            >
-                <FontAwesome name="plus-circle" size={20} color={colors.text} style={[typography.shadow, { textShadowColor: colors.textShadow }]} />
-                <Text style={[typography.button, typography.shadow, styles.buttonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('dashboard.addItem')}</Text>
-            </WalkablePressable>
+          <CopilotStep 
+            text={t('pilot.addNew')} 
+            order={1} 
+            name="addItem"
+            active={true}
+          >
+            <WalkableView>
+              <Pressable 
+                style={[styles.actionButton, { backgroundColor: colors.selector }]} 
+                onPress={() => router.push('/add-item')}
+              >
+                  <FontAwesome name="plus-circle" size={20} color={colors.text} style={[typography.shadow, { textShadowColor: colors.textShadow }]} />
+                  <Text style={[typography.button, typography.shadow, styles.buttonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('dashboard.addItem')}</Text>
+              </Pressable>
+            </WalkableView>
           </CopilotStep>
 
           {/* STEP 2: Find Item */}
-          <CopilotStep text={t('pilot.search')} order={2} name="findItem">
-            <WalkablePressable 
-              collapsable={false} // Android measurement fix
-              style={[styles.actionButton, { backgroundColor: colors.selector }]} 
-              onPress={() => router.push('/find')}
-            >
-                <FontAwesome name="search" size={20} color={colors.text} style={[typography.shadow, { textShadowColor: colors.textShadow }]} />
-                <Text style={[typography.button, typography.shadow, styles.buttonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('dashboard.findItem')}</Text>
-            </WalkablePressable>
+          <CopilotStep 
+            text={t('pilot.search')} 
+            order={2} 
+            name="findItem"
+            active={true}
+          >
+            <WalkableView>
+              <Pressable 
+                style={[styles.actionButton, { backgroundColor: colors.selector }]} 
+                onPress={() => router.push('/find')}
+              >
+                  <FontAwesome name="search" size={20} color={colors.text} style={[typography.shadow, { textShadowColor: colors.textShadow }]} />
+                  <Text style={[typography.button, typography.shadow, styles.buttonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('dashboard.findItem')}</Text>
+              </Pressable>
+            </WalkableView>
           </CopilotStep>
 
           {/* STEP 3: Scan Item */}
-          <CopilotStep text={t('pilot.scan')} order={3} name="scanItem">
-            <WalkablePressable 
-              collapsable={false} // Android measurement fix
-              style={[styles.actionButton, { backgroundColor: colors.selector }]} 
-              onPress={() => router.push('/scan')}
-            >
-                <FontAwesome name="barcode" size={20} color={colors.text} style={[typography.shadow, { textShadowColor: colors.textShadow }]}/>
-                <Text style={[typography.button, typography.shadow, styles.buttonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('dashboard.scanItem')}</Text>
-            </WalkablePressable>
+          <CopilotStep 
+            text={t('pilot.scan')} 
+            order={3} 
+            name="scanItem"
+            active={true}
+          >
+            <WalkableView>
+              <Pressable 
+                style={[styles.actionButton, { backgroundColor: colors.selector }]} 
+                onPress={() => router.push('/scan')}
+              >
+                  <FontAwesome name="barcode" size={20} color={colors.text} style={[typography.shadow, { textShadowColor: colors.textShadow }]}/>
+                  <Text style={[typography.button, typography.shadow, styles.buttonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('dashboard.scanItem')}</Text>
+              </Pressable>
+            </WalkableView>
           </CopilotStep>
 
         </View>
@@ -137,8 +158,13 @@ export default function HomeScreen() {
       )}
 
       {/* STEP 4: Restock List */}
-      <CopilotStep text={t('pilot.restock')} order={4} name="restockList">
-        <WalkableView collapsable={false}>
+      <CopilotStep 
+        text={t('pilot.restock')} 
+        order={4} 
+        name="restockList"
+        active={true}
+      >
+        <WalkableView>
             <Text style={[typography.h3, styles.listHeader, { color: colors.text }]}>{t('dashboard.needsRestock')}</Text>
         </WalkableView>
       </CopilotStep>
