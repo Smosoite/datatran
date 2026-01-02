@@ -1,4 +1,3 @@
-App/(tabs)/settings.tsx
 import { useTranslation } from 'react-i18next';
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, Switch, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
