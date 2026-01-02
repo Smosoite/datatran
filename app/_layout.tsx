@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import React, { useEffect } from 'react';
 import { useRouter, useSegments, Stack } from 'expo-router';
 import { AuthProvider, useAuth } from '../providers/AuthProvider';
-import { View, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
+import { View, ActivityIndicator, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ThemeProvider, useTheme } from '../providers/ThemeProvider'; 
 import { StatusBar } from 'expo-status-bar';
@@ -13,67 +13,64 @@ import { ModalProvider } from '../providers/ModalProvider';
 import { typography } from '../styles/typography';
 import { CopilotProvider } from "react-native-copilot";
 
-// --- CUSTOM TOOLTIP COMPONENT ---
-// Defined safely outside of other components
-const CustomTooltip = ({ isFirstStep, isLastStep, handleNext, handlePrev, handleStop, currentStep, labels }: any) => {
+// --- FIXED CUSTOM TOOLTIP COMPONENT ---
+const CustomTooltip = ({ 
+  isFirstStep, 
+  isLastStep, 
+  handleNext, 
+  handlePrev, 
+  handleStop, 
+  currentStep, 
+  labels 
+}: any) => {
   const { colors } = useTheme();
 
-  // Debugging: If this logs "undefined", the step isn't loading correctly
-  // console.log("Tooltip Step Data:", currentStep);
+  // The 'text' property is what you define in <CopilotStep text="..." />
+  // If it's still missing, we fallback to a space or a generic hint to prevent "Loading info..."
+  const stepText = currentStep?.text || "";
 
   return (
-    <View style={{ 
-      backgroundColor: colors.card, 
-      padding: 16, 
-      borderRadius: 12, 
-      maxWidth: 300, 
-      borderWidth: 1, 
-      borderColor: colors.border,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.2,
-      shadowRadius: 8,
-      elevation: 5,
-    }}>
-      {/* Title */}
-      {currentStep?.name ? (
-         <Text style={[typography.h3, { color: colors.text, marginBottom: 8 }]}>
-           {currentStep.name}
-         </Text>
-      ) : null}
+    <View style={[styles.tooltipContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      {/* Step Title / Name */}
+      {currentStep?.name && (
+        <Text style={[typography.h3, { color: colors.text, marginBottom: 8 }]}>
+          {currentStep.name.replace(/([A-Z])/g, ' $1').trim()} {/* Makes "manualInput" look like "Manual Input" */}
+        </Text>
+      )}
 
-      {/* Body Text - Check 'text' property specifically */}
+      {/* Step Body Text */}
       <Text style={[typography.body, { color: colors.subtext, marginBottom: 20 }]}>
-        {currentStep?.text || "Loading info..."} 
+        {stepText}
       </Text>
 
-      {/* Buttons */}
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+      {/* Footer / Buttons */}
+      <View style={styles.tooltipFooter}>
         <TouchableOpacity onPress={handleStop}>
-            <Text style={[typography.caption, { color: colors.subtext, padding: 8 }]}>
-              {labels?.skip || 'Skip'}
-            </Text>
+          <Text style={[typography.caption, { color: colors.subtext, padding: 8 }]}>
+            {labels?.skip || 'Skip'}
+          </Text>
         </TouchableOpacity>
 
-        <View style={{ flexDirection: 'row', gap: 16 }}>
+        <View style={styles.buttonGroup}>
           {!isFirstStep && (
             <TouchableOpacity onPress={handlePrev}>
-                <Text style={[typography.button, { color: colors.primary, fontSize: 14, padding: 8 }]}>
+              <Text style={[typography.button, { color: colors.primary, fontSize: 14, padding: 8 }]}>
                 {labels?.previous || 'Back'}
-                </Text>
+              </Text>
             </TouchableOpacity>
           )}
+          
           {!isLastStep ? (
             <TouchableOpacity onPress={handleNext}>
-                <Text style={[typography.button, { color: colors.primary, fontWeight: 'bold', fontSize: 14, padding: 8 }]}>
+              <Text style={[typography.button, { color: colors.primary, fontWeight: 'bold', fontSize: 14, padding: 8 }]}>
                 {labels?.next || 'Next'}
-                </Text>
+              </Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity onPress={handleStop}>
-                <Text style={[typography.button, { color: colors.success, fontWeight: 'bold', fontSize: 14, padding: 8 }]}>
+              <Text style={[typography.button, { color: colors.success, fontWeight: 'bold', fontSize: 14, padding: 8 }]}>
                 {labels?.finish || 'Done'}
-                </Text>
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -98,30 +95,15 @@ const ThemedStack = () => {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="warehouse/[id]" options={{ headerShown: true, title: t('warehouse.manageHeader'), presentation: 'push' }} />
-        <Stack.Screen name="create-warehouse" options={{ headerShown: true, title: t('warehouse.createHeader'), presentation: 'modal' }} />
-        <Stack.Screen name="add-item" options={{ headerShown: true, title: t('item.addHeader'), presentation: 'modal' }} />
-        <Stack.Screen name="create-storage" options={{ headerShown: true, title: '', presentation: 'modal' }} />
-        <Stack.Screen name="storage/[id]" options={{ headerShown: true, presentation: 'push' }} />
-        <Stack.Screen name="create-location" options={{ headerShown: true, title: '', presentation: 'modal' }} />
-        <Stack.Screen name="select-location-modal" options={{ headerShown: true, title: t('location.selectLocal'), presentation: 'modal' }} />
-        <Stack.Screen name="find" options={{ headerShown: true, title: t('item.findHeader'), presentation: 'push' }} />
-        <Stack.Screen name="edit-item/[id]" options={{ headerShown: true, title: t('item.editHeader'), presentation: 'modal' }} />
-        <Stack.Screen name="scan" options={{ headerShown: true, title: t('scan.title'), presentation: 'modal' }} />
-        <Stack.Screen name="restock" options={{ headerShown: true, title: t('restock.title'), presentation: 'modal' }} />
-        <Stack.Screen name="profile" options={{ headerShown: true, title: t('profile.title'), presentation: 'modal' }} />
-        <Stack.Screen name="edit-location/[id]" options={{ headerShown: true, title: t('location.editHeader'), presentation: 'modal' }} />
-        <Stack.Screen name="stock-grid" options={{ headerShown: false, presentation: 'modal' }} />
-        <Stack.Screen name="history" options={{ headerShown: true, presentation: 'push' }} /> 
-        <Stack.Screen name="manage-members" options={{ headerShown: true, presentation: 'push' }} />
-        <Stack.Screen 
-          name="paywall" 
-          options={{ 
-            headerShown: false, 
-            presentation: 'modal',
-            gestureEnabled: false 
-          }} 
-        />
+        <Stack.Screen name="warehouse/[id]" options={{ headerShown: true, title: t('warehouse.manageHeader') }} />
+        <Stack.Screen name="create-warehouse" options={{ presentation: 'modal', title: t('warehouse.createHeader') }} />
+        <Stack.Screen name="add-item" options={{ presentation: 'modal', title: t('item.addHeader') }} />
+        <Stack.Screen name="find" options={{ title: t('item.findHeader') }} />
+        <Stack.Screen name="edit-item/[id]" options={{ presentation: 'modal', title: t('item.editHeader') }} />
+        <Stack.Screen name="scan" options={{ presentation: 'modal', title: t('scan.title') }} />
+        <Stack.Screen name="restock" options={{ presentation: 'modal', title: t('restock.title') }} />
+        <Stack.Screen name="history" options={{ title: t('settings.history') }} /> 
+        <Stack.Screen name="manage-members" options={{ title: t('settings.membersTitle') }} />
       </Stack>
     </>
   );
@@ -151,7 +133,7 @@ const MainNavigator = () => {
     if (inAuthFlow || inSetupFlow) {
       router.replace('/(tabs)');
     }
-  }, [session, profile, loading, segments, router]);
+  }, [session, profile, loading, segments]);
 
   if (loading) {
     return (
@@ -164,75 +146,28 @@ const MainNavigator = () => {
   return <ThemedStack />;
 };
 
-// --- APP WRAPPER WITH COPILOT ---
+// --- APP WRAPPER ---
 const AppWithCopilot = () => {
-    const { colors } = useTheme();
-    
-    return (
-        <CopilotProvider 
-            stopOnOutsideClick 
-            androidStatusBarVisible
-            tooltipComponent={CustomTooltip} 
-            stepNumberComponent={() => null} // Hides the little green number badge
-            arrowColor={colors.card} // Matches tooltip background so the little arrow blends in
-            overlay="svg" 
-            backdropColor="rgba(0, 0, 0, 0.7)"
-            // --- FIX: This removes the default white box ---
-            tooltipStyle={{ backgroundColor: 'transparent', borderRadius: 12 }}
-        >
-            <ModalProvider>
-                <MainNavigator />
-                <Toast config={getToastConfig(colors)} /> 
-            </ModalProvider>
-        </CopilotProvider>
-    );
+  const { colors } = useTheme();
+  
+  return (
+    <CopilotProvider 
+      stopOnOutsideClick 
+      androidStatusBarVisible
+      tooltipComponent={CustomTooltip} 
+      stepNumberComponent={() => null}
+      overlay="svg" 
+      backdropColor="rgba(0, 0, 0, 0.7)"
+      // Fixed: Ensure the internal tooltip container is transparent so our CustomTooltip styles work
+      tooltipStyle={{ backgroundColor: 'transparent' }}
+    >
+      <ModalProvider>
+        <MainNavigator />
+        <Toast config={getToastConfig(colors)} /> 
+      </ModalProvider>
+    </CopilotProvider>
+  );
 }
-
-const getToastConfig = (colors: any) => ({
-    success: (props: any) => (
-      <BaseToast
-        {...props}
-        style={{ 
-          height: 80, 
-          borderLeftColor: colors.success, 
-          backgroundColor: colors.card, 
-          borderLeftWidth: 7,
-          alignItems: 'center', 
-        }}
-        text2NumberOfLines={2}
-        contentContainerStyle={{ paddingHorizontal: 15 }}
-        text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
-        text2Style={{ fontSize: 14, color: colors.subtext }}
-        renderLeadingIcon={() => <FontAwesome name="check-circle" size={24} color={colors.success} style={{ marginLeft: 15 }} />}
-      />
-    ),
-    error: (props: any) => (
-      <ErrorToast
-        {...props}
-        style={{ 
-          height: 80, 
-          borderLeftColor: colors.danger, 
-          backgroundColor: colors.card, 
-          borderLeftWidth: 7,
-          alignItems: 'center', 
-        }}
-        text2NumberOfLines={2}
-        contentContainerStyle={{ paddingHorizontal: 15 }}
-        text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
-        text2Style={{ fontSize: 14, color: colors.subtext }}
-        renderLeadingIcon={() => <FontAwesome name="warning" size={24} color={colors.danger} style={{ marginLeft: 15 }} />}
-      />
-    ),
-    info: (props: any) => (
-      <BaseToast
-        {...props}
-        style={{ borderLeftColor: colors.info, backgroundColor: colors.card, borderLeftWidth: 7, alignItems: 'center' }}
-        text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
-        text2Style={{ fontSize: 14, color: colors.subtext }}
-        renderLeadingIcon={() => <FontAwesome name="info-circle" size={24} color={colors.info} style={{ marginLeft: 15 }} />}
-      />
-    ),
-});
 
 export default function RootLayout() {
   return (
@@ -245,3 +180,45 @@ export default function RootLayout() {
     </ThemeProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  tooltipContainer: {
+    padding: 16, 
+    borderRadius: 12, 
+    width: 280, 
+    borderWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  tooltipFooter: {
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center'
+  },
+  buttonGroup: {
+    flexDirection: 'row', 
+    gap: 8
+  }
+});
+
+const getToastConfig = (colors: any) => ({
+    success: (props: any) => (
+      <BaseToast
+        {...props}
+        style={{ height: 80, borderLeftColor: colors.success, backgroundColor: colors.card, borderLeftWidth: 7 }}
+        text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
+        text2Style={{ fontSize: 14, color: colors.subtext }}
+      />
+    ),
+    error: (props: any) => (
+      <ErrorToast
+        {...props}
+        style={{ height: 80, borderLeftColor: colors.danger, backgroundColor: colors.card, borderLeftWidth: 7 }}
+        text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
+        text2Style={{ fontSize: 14, color: colors.subtext }}
+      />
+    ),
+});
