@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, ScrollView } from 'react-native';
 import { useFocusEffect, Stack } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../providers/ThemeProvider';
@@ -11,7 +11,7 @@ import { typography } from '../styles/typography';
 import { CopilotStep, walkthroughable, useCopilot } from "react-native-copilot";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// 1. Create the Walkable View
+// Create the Walkable View
 const WalkableView = walkthroughable(View);
 
 const formatDate = (dateString: string) => {
@@ -36,32 +36,37 @@ export default function HistoryScreen() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // --- 1. LAYOUT STATE ---
+  // --- COPILOT STATE ---
   const [isLayoutReady, setIsLayoutReady] = useState(false);
+  const [tourStarted, setTourStarted] = useState(false);
 
   // --- COPILOT HOOK ---
   const { start: startTour } = useCopilot();
 
-  // --- 2. UPDATED TOUR LOGIC ---
+  // --- START TOUR AFTER DATA LOADS AND LAYOUT IS READY ---
   useEffect(() => {
-    // Wait until loading is done AND the layout is calculated
-    if (loading || !isLayoutReady) return;
+    // Only start tour when: not loading, layout ready, has data, and tour not started yet
+    if (loading || !isLayoutReady || logs.length === 0 || tourStarted) return;
 
-    const checkFirstTime = async () => {
-        try {
-            const tourKey = `HAS_SEEN_HISTORY_TOUR_${profile?.id}`;
-            const hasSeen = await AsyncStorage.getItem(tourKey);
-            if (!hasSeen) {
-                // Short delay to allow the FlatList items to settle
-                setTimeout(() => startTour(), 500);
-                await AsyncStorage.setItem(tourKey, 'true');
-            }
-        } catch (e) {
-            console.warn("Tour check failed", e);
+    const checkAndStartTour = async () => {
+      try {
+        const tourKey = `HAS_SEEN_HISTORY_TOUR_${profile?.id}`;
+        const hasSeen = await AsyncStorage.getItem(tourKey);
+        if (!hasSeen) {
+          // Wait for FlatList to render items
+          setTimeout(() => {
+            startTour();
+            setTourStarted(true);
+          }, 800);
+          await AsyncStorage.setItem(tourKey, 'true');
         }
+      } catch (e) {
+        console.warn("Tour check failed", e);
+      }
     };
-    checkFirstTime();
-  }, [loading, isLayoutReady, profile?.id]); 
+    
+    checkAndStartTour();
+  }, [loading, isLayoutReady, logs.length, tourStarted, profile?.id]); 
 
   const fetchLogs = async () => {
     if (!profile?.workgroup_id) return;
@@ -86,7 +91,11 @@ export default function HistoryScreen() {
     }
   };
 
-  useFocusEffect(useCallback(() => { fetchLogs(); }, []));
+  useFocusEffect(
+    useCallback(() => { 
+      fetchLogs(); 
+    }, [profile?.workgroup_id])
+  );
 
   const getActionColor = (action: string) => {
     switch (action) {
@@ -100,53 +109,120 @@ export default function HistoryScreen() {
   return (
     <View 
       style={[styles.container, { backgroundColor: colors.background }]}
-      // --- 3. TRIGGER LAYOUT READY ---
       onLayout={() => setIsLayoutReady(true)}
     >
       <Stack.Screen options={{ title: t('settings.history') || 'Activity History' }} />
       
       {loading ? (
         <ActivityIndicator style={styles.centered} size="large" color={colors.primary} />
-      ) : (
-        // 4. WRAP TARGET IN WalkableView WITH collapsable={false}
-        <CopilotStep text="This timeline tracks every action taken by your team." order={1} name="historyList">
-            <WalkableView style={{ flex: 1 }} collapsable={false}>
-                <FlatList
-                    data={logs}
-                    keyExtractor={(item) => item.id}
-                    contentContainerStyle={styles.list}
-                    renderItem={({ item }) => (
-                        <View style={[styles.logItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                        <View style={styles.row}>
-                            <Text style={[typography.caption, { color: colors.subtext }]}>{formatDate(item.created_at)}</Text>
-                            <Text style={[typography.caption, { color: colors.primary }]}>{item.profiles?.username || 'Unknown'}</Text>
-                        </View>
-                        
-                        <View style={styles.mainRow}>
-                            <Text style={[typography.body, styles.itemName, { color: colors.text }]}>{item.item_name}</Text>
-                            <Text style={[typography.h3, { color: getActionColor(item.action) }]}>
-                                {item.change_amount && item.change_amount > 0 ? '+' : ''}{item.change_amount}
-                            </Text>
-                        </View>
+      ) : logs.length > 0 ? (
+        // Wrap the first log item in a CopilotStep
+        <FlatList
+          data={logs}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.list}
+          renderItem={({ item, index }) => {
+            // Only wrap the first item in CopilotStep
+            if (index === 0) {
+              return (
+                <CopilotStep 
+                  text={t('pilot.history') || "This timeline tracks every action taken by your team."} 
+                  order={1} 
+                  name="historyList"
+                >
+                  <WalkableView 
+                    style={[styles.logItem, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    collapsable={false}
+                  >
+                    <View style={styles.row}>
+                      <Text style={[typography.caption, { color: colors.subtext }]}>
+                        {formatDate(item.created_at)}
+                      </Text>
+                      <Text style={[typography.caption, { color: colors.primary }]}>
+                        {item.profiles?.username || 'Unknown'}
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.mainRow}>
+                      <Text style={[typography.body, styles.itemName, { color: colors.text }]}>
+                        {item.item_name}
+                      </Text>
+                      <Text style={[typography.h3, { color: getActionColor(item.action) }]}>
+                        {item.change_amount && item.change_amount > 0 ? '+' : ''}{item.change_amount}
+                      </Text>
+                    </View>
 
-                        <View style={styles.row}>
-                            <Text style={[typography.caption, styles.actionBadge, { color: getActionColor(item.action), borderColor: getActionColor(item.action) }]}>
-                            {item.action}
-                            </Text>
-                            {item.final_quantity !== null && (
-                                <Text style={[typography.caption, { color: colors.subtext }]}>
-                                Total: {item.final_quantity}
-                                </Text>
-                            )}
-                        </View>
-                        </View>
-                    )}
-                    ListEmptyComponent={() => (
-                        <Text style={[styles.empty, { color: colors.subtext }]}>No history found.</Text>
-                    )}
-                />
-            </WalkableView>
-        </CopilotStep>
+                    <View style={styles.row}>
+                      <Text 
+                        style={[
+                          typography.caption, 
+                          styles.actionBadge, 
+                          { color: getActionColor(item.action), borderColor: getActionColor(item.action) }
+                        ]}
+                      >
+                        {item.action}
+                      </Text>
+                      {item.final_quantity !== null && (
+                        <Text style={[typography.caption, { color: colors.subtext }]}>
+                          Total: {item.final_quantity}
+                        </Text>
+                      )}
+                    </View>
+                  </WalkableView>
+                </CopilotStep>
+              );
+            }
+            
+            // Regular render for other items
+            return (
+              <View style={[styles.logItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={styles.row}>
+                  <Text style={[typography.caption, { color: colors.subtext }]}>
+                    {formatDate(item.created_at)}
+                  </Text>
+                  <Text style={[typography.caption, { color: colors.primary }]}>
+                    {item.profiles?.username || 'Unknown'}
+                  </Text>
+                </View>
+                
+                <View style={styles.mainRow}>
+                  <Text style={[typography.body, styles.itemName, { color: colors.text }]}>
+                    {item.item_name}
+                  </Text>
+                  <Text style={[typography.h3, { color: getActionColor(item.action) }]}>
+                    {item.change_amount && item.change_amount > 0 ? '+' : ''}{item.change_amount}
+                  </Text>
+                </View>
+
+                <View style={styles.row}>
+                  <Text 
+                    style={[
+                      typography.caption, 
+                      styles.actionBadge, 
+                      { color: getActionColor(item.action), borderColor: getActionColor(item.action) }
+                    ]}
+                  >
+                    {item.action}
+                  </Text>
+                  {item.final_quantity !== null && (
+                    <Text style={[typography.caption, { color: colors.subtext }]}>
+                      Total: {item.final_quantity}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            );
+          }}
+          ListEmptyComponent={() => (
+            <Text style={[styles.empty, { color: colors.subtext }]}>
+              {t('general.noHistory') || 'No history found.'}
+            </Text>
+          )}
+        />
+      ) : (
+        <Text style={[styles.empty, { color: colors.subtext }]}>
+          {t('general.noHistory') || 'No history found.'}
+        </Text>
       )}
     </View>
   );
