@@ -81,7 +81,8 @@ export default function ScanScreen() {
       
       {/* STEP 1: Input Field */}
       <CopilotStep text= {t('pilot.notavailable')} order={1} name="manualInput">
-          <WalkableTextInput
+        <WalkableView collapsable={false}> 
+          <TextInput
             style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
             placeholder={t('scan.enterNum')}
             placeholderTextColor={colors.subtext}
@@ -90,7 +91,8 @@ export default function ScanScreen() {
             keyboardType="numeric"
             onSubmitEditing={handleManualScan}
           />
-      </CopilotStep>
+      </WalkableView>
+</CopilotStep>
       
       {/* STEP 2: Submit Button */}
       <CopilotStep text= {t('pilot.barcodescan')} order={2} name="submitBtn">
