@@ -11,7 +11,8 @@ import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 import { FontAwesome } from '@expo/vector-icons';
 import { ModalProvider } from '../providers/ModalProvider';
 import { typography } from '../styles/typography';
-import { CopilotProvider } from "react-native-copilot";
+import { CopilotProvider } from "react-native-copilot"
+import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 // --- FIX: This component is now correctly using the restored ThemeProvider ---
 const ThemedStack = () => {
   const { t } = useTranslation();
@@ -102,6 +103,7 @@ const MainNavigator = () => {
   return <ThemedStack />;
 };
 export default function RootLayout() {
+  useFrameworkReady();
   // We need access to the theme to style our toasts, so we'll create a small helper component
   const AppWithToasts = () => {
     const { colors } = useTheme();
