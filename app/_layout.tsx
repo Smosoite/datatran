@@ -2,18 +2,19 @@ import '../i18n';
 import i18n from '../i18n';
 import { I18nextProvider } from 'react-i18next';
 import React, { useEffect } from 'react';
-import { useRouter, useSegments, Stack } from 'expo-router';
+import { useRouter, useSegments, Stack, useRootNavigationState } from 'expo-router';
 import { AuthProvider, useAuth } from '../providers/AuthProvider';
 import { View, ActivityIndicator } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { ThemeProvider, useTheme } from '../providers/ThemeProvider'; 
+import { ThemeProvider, useTheme } from '../providers/ThemeProvider';
 import { StatusBar } from 'expo-status-bar';
-import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
+import Toast, { BaseToast, ErrorToast, InfoToast } from 'react-native-toast-message';
 import { FontAwesome } from '@expo/vector-icons';
 import { ModalProvider } from '../providers/ModalProvider';
 import { CopilotProvider } from "react-native-copilot";
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { OnboardingProvider, useOnboarding } from '../providers/OnboardingProvider';
+import { useSubscription } from '../hooks/useSubscription';
 
 // --- 1. ThemedStack (Visual Layer) ---
 const ThemedStack = () => {
@@ -58,6 +59,8 @@ const ThemedStack = () => {
         <Stack.Screen name="stock-grid" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="history" options={{ headerShown: true, presentation: 'push' }} /> 
         <Stack.Screen name="manage-members" options={{ headerShown: true, presentation: 'push' }} />
+        
+        {/* Paywall Screen */}
         <Stack.Screen name="paywall" options={{ headerShown: false, presentation: 'modal', gestureEnabled: false }} />
         
         {/* Onboarding */}
@@ -71,27 +74,37 @@ const ThemedStack = () => {
 const MainNavigator = () => {
   const { session, profile, loading: authLoading } = useAuth();
   const { hasCompletedOnboarding, isLoading: onboardingLoading } = useOnboarding();
+  
+  // NEW: Subscription Hook
+  const { status: subStatus, hoursLeft } = useSubscription();
+
   const { colors } = useTheme();
   
   const segments = useSegments();
   const router = useRouter();
   
-  // Combine data loading states
-  const isDataLoading = authLoading || onboardingLoading;
+  // Prevent navigation errors by waiting for the root state
+  const rootNavigationState = useRootNavigationState();
+  const isNavigationReady = rootNavigationState?.key;
+
+  // Combine data loading states.
+  // Note: We check subStatus !== 'loading' to ensure we don't route before checking the trial
+  const isDataLoading = authLoading || onboardingLoading || subStatus === 'loading' || !isNavigationReady;
 
   useEffect(() => {
     if (isDataLoading) return;
 
     const currentRoute = segments[0] || '';
     
-    // Define Route Groups
+    // Define Route Groups to avoid infinite redirects
     const inAuthGroup = ['login', 'sign-up', 'forgot-password'].includes(currentRoute);
     const inSetupGroup = ['workgroup-gate', 'create-workgroup', 'join-workgroup'].includes(currentRoute);
     const inOnboardingGroup = currentRoute === 'onboarding';
+    const inPaywall = currentRoute === 'paywall';
 
     // --- LOGIC FLOW ---
 
-    // A. Not Logged In? -> Go to Login
+    // 1. Not Logged In? -> Go to Login
     if (!session) {
       if (!inAuthGroup) {
         router.replace('/login');
@@ -99,7 +112,7 @@ const MainNavigator = () => {
       return; 
     }
 
-    // B. No Workgroup? -> Go to Setup
+    // 2. No Workgroup? -> Go to Setup
     if (!profile?.workgroup_id) {
       if (!inSetupGroup) {
         router.replace('/workgroup-gate');
@@ -107,7 +120,7 @@ const MainNavigator = () => {
       return;
     }
 
-    // C. Not Onboarded? -> Go to Onboarding
+    // 3. Not Onboarded? -> Go to Onboarding
     if (!hasCompletedOnboarding) {
       if (!inOnboardingGroup) {
         router.replace('/onboarding/welcome');
@@ -115,17 +128,32 @@ const MainNavigator = () => {
       return;
     }
 
-    // D. Everything Good? -> Go to Tabs
-    // Only redirect if stuck in a setup flow
-    if (inAuthGroup || inSetupGroup || inOnboardingGroup) {
+    // 4. Trial Expired? -> Go to Paywall (Lockout)
+    if (subStatus === 'trial_expired') {
+        if (!inPaywall) {
+            router.replace('/paywall');
+        }
+        return;
+    }
+
+    // 5. Subscription Warning? (Show Toast, but allow access)
+    // Only show if trial is active, hours are low, and we are not already on the paywall screen
+    if (subStatus === 'trial_active' && hoursLeft < 24 && hoursLeft > 0) {
+         // Logic to prevent spamming toasts can be added here, 
+         // but Toast.show handles queues well enough for now.
+         // We don't block navigation here.
+    }
+
+    // 6. Everything Good? -> Go to Tabs
+    // Only redirect if stuck in a setup flow or paywall (when not expired)
+    if (inAuthGroup || inSetupGroup || inOnboardingGroup || (inPaywall && subStatus !== 'trial_expired')) {
       router.replace('/(tabs)');
     }
 
-  }, [session, profile?.workgroup_id, hasCompletedOnboarding, segments, isDataLoading]); 
+  }, [session, profile?.workgroup_id, hasCompletedOnboarding, subStatus, segments, isDataLoading]); 
 
   // --- RENDERING ---
   // We overlay a loading spinner, but we keep ThemedStack rendered underneath.
-  // This prevents the "Navigation Not Ready" and "Flood" errors.
   
   return (
     <View style={{ flex: 1 }}>
@@ -177,9 +205,9 @@ const AppContent = () => {
       />
     ),
     info: (props: any) => (
-      <BaseToast
+      <InfoToast
         {...props}
-        style={{ borderLeftColor: colors.info, backgroundColor: colors.card, borderLeftWidth: 7, alignItems: 'center' }}
+        style={{ height: 80, borderLeftColor: colors.info, backgroundColor: colors.card, borderLeftWidth: 7, alignItems: 'center' }}
         text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
         text2Style={{ fontSize: 14, color: colors.subtext }}
         renderLeadingIcon={() => <FontAwesome name="info-circle" size={24} color={colors.info} style={{ marginLeft: 15 }} />}
