@@ -32,17 +32,17 @@ const ThemedStack = () => {
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         
-        {/* Auth */}
+        {/* Auth Screens */}
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="sign-up" options={{ headerShown: false }} />
         <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
 
-        {/* Setup */}
+        {/* Setup Screens */}
         <Stack.Screen name="workgroup-gate" options={{ headerShown: false }} />
         <Stack.Screen name="create-workgroup" options={{ headerShown: true, title: 'Create Workgroup' }} />
         <Stack.Screen name="join-workgroup" options={{ headerShown: true, title: 'Join Workgroup' }} />
 
-        {/* Features */}
+        {/* App Screens */}
         <Stack.Screen name="warehouse/[id]" options={{ headerShown: true, title: 'Warehouse', presentation: 'push' }} />
         <Stack.Screen name="create-warehouse" options={{ headerShown: true, title: 'Create Warehouse', presentation: 'modal' }} />
         <Stack.Screen name="add-item" options={{ headerShown: true, title: 'Add Item', presentation: 'modal' }} />
@@ -60,7 +60,7 @@ const ThemedStack = () => {
         <Stack.Screen name="history" options={{ headerShown: true, presentation: 'push' }} /> 
         <Stack.Screen name="manage-members" options={{ headerShown: true, presentation: 'push' }} />
         
-        {/* Special Screens */}
+        {/* Paywall & Onboarding */}
         <Stack.Screen name="paywall" options={{ headerShown: false, presentation: 'modal', gestureEnabled: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false, presentation: 'modal', gestureEnabled: false }} />
       </Stack>
@@ -69,11 +69,11 @@ const ThemedStack = () => {
 };
 
 // --- 2. AuthRedirectHandler (Logic Layer) ---
-// We separate this logic component from the UI component to ensure Hooks don't crash
+// Separated to prevent "useAuth" crashes and to handle redirect logic cleanly
 const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
   const { session, profile, loading: authLoading } = useAuth();
   const { hasCompletedOnboarding, isLoading: onboardingLoading } = useOnboarding();
-  const { status: subStatus, hoursLeft } = useSubscription();
+  const { status: subStatus, hoursLeft } = useSubscription(); // hooks/useSubscription
   const { colors } = useTheme();
   
   const segments = useSegments();
@@ -91,11 +91,12 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
 
     const currentRoute = segments[0] || '';
     
-    // Groups
     const inAuthGroup = ['login', 'sign-up', 'forgot-password'].includes(currentRoute);
     const inSetupGroup = ['workgroup-gate', 'create-workgroup', 'join-workgroup'].includes(currentRoute);
     const inOnboardingGroup = currentRoute === 'onboarding';
     const inPaywall = currentRoute === 'paywall';
+
+    // --- LOGIC FLOW ---
 
     // 1. Not Logged In
     if (!session) {
@@ -115,27 +116,24 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
       return;
     }
 
-    // 4. Trial Expired
-    if (subStatus === 'trial_expired') {
-      if (!inPaywall) router.replace('/paywall');
+    // 4. Subscription Check
+    // If Trial Expired OR Trial Not Started (none) -> Force Paywall
+    if (subStatus === 'trial_expired' || subStatus === 'none') {
+      if (!inPaywall) {
+         router.replace('/paywall');
+      }
       return;
     }
 
-    // 5. Subscription Warning (Soft check)
-    if (subStatus === 'trial_active' && hoursLeft < 24 && hoursLeft > 0) {
-      // Optional toast logic here
-    }
-
-    // 6. Valid User stuck in restricted screens -> Send to Tabs
-    if (inAuthGroup || inSetupGroup || inOnboardingGroup || (inPaywall && subStatus !== 'trial_expired')) {
+    // 5. Valid User stuck in restricted screens -> Send to Tabs
+    // If they are in Auth, Setup, Onboarding, OR Paywall (and they have valid access), move them to Tabs.
+    if (inAuthGroup || inSetupGroup || inOnboardingGroup || inPaywall) {
       router.replace('/(tabs)');
     }
 
   }, [session, profile, hasCompletedOnboarding, subStatus, segments, isLoading]);
 
-  // --- RENDERING STRATEGY ---
-  // Always render the children (ThemedStack) so the Navigation Container exists.
-  // Overlay a loading spinner if needed.
+  // --- RENDERING ---
   return (
     <View style={{ flex: 1 }}>
       {children}
@@ -154,7 +152,7 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
 };
 
 // --- 3. Providers Wrapper ---
-// Separate component to enforce strict order of Context vs Navigation
+// Ensures Providers exist BEFORE Logic Layer runs
 const AppProviders = ({ children }: { children: React.ReactNode }) => (
   <I18nextProvider i18n={i18n}>
     <ThemeProvider>
@@ -200,7 +198,6 @@ const toastConfig = (colors: any) => ({
 });
 
 // --- 5. Content Component ---
-// Accesses Theme for Toast config
 const AppContent = () => {
   const { colors } = useTheme();
   
