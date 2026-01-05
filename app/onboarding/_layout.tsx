@@ -1,4 +1,3 @@
-import '../i18n'; 
 import { Stack } from 'expo-router';
 import React from 'react';
 import { useTheme } from '../../providers/ThemeProvider';
