@@ -49,6 +49,9 @@ export default function CompletionScreen() {
 
   const handleGetStarted = () => {
     // Navigate to paywall
+    await completeOnboarding(); 
+    
+    // 👇 2. Navigate (The MainNavigator will also react, but this is safe)
     router.replace('/paywall');
   };
 
