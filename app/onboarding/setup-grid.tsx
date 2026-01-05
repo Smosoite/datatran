@@ -184,12 +184,33 @@ export default function OnboardingSetupGrid() {
   const handleContinue = async () => {
     setLoading(true);
     try {
-        const updates = locations.map(l => ({ id: l.id, master_id: l.master_id }));
-        const { error } = await supabase.from('defined_locations').upsert(updates);
-        if (error) throw error;
+        // 1. Prepare the payload
+        // We only send 'id' and 'master_id'. 
+        // We strip everything else to avoid schema conflicts.
+        const updates = locations.map(l => ({
+            id: l.id,
+            master_id: l.master_id
+        }));
+        
+        // 2. Perform the update
+        // We use { onConflict: 'id' } to ensure Supabase knows strictly to update existing rows.
+        const { error, data } = await supabase
+            .from('defined_locations')
+            .upsert(updates, { onConflict: 'id' })
+            .select();
+
+        if (error) {
+            console.error("Supabase Error Details:", error);
+            throw new Error(error.message);
+        }
+
+        // 3. Success
         router.push('/onboarding/add-first-item');
+
     } catch (e: any) {
-        showError("Save Failed", e.message);
+        console.error("Save Error:", e);
+        showError("Save Failed", e.message || "Unknown database error");
+    } finally {
         setLoading(false);
     }
   };
