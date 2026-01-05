@@ -47,8 +47,11 @@ export default function WelcomeScreen() {
         ]}
       >
         {/* App Icon */}
-        <View style={[styles.iconContainer, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-          <FontAwesome name="cubes" size={80} color="white" />
+        <View style={[styles.iconContainer, { backgroundColor: 'transparent' }]}>
+          <Image 
+            source={require('../../assets/images/icon.png')} 
+            style={{ width: 120, height: 120, resizeMode: 'contain' }} 
+          />
         </View>
 
         {/* Welcome Text */}
