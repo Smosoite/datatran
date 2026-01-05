@@ -7,11 +7,16 @@ import { useTheme } from '../providers/ThemeProvider';
 import { typography } from '../styles/typography';
 import { showError } from '../lib/toast';
 import { Feather } from '@expo/vector-icons';
+// 👇 IMPORT THIS
+import { useOnboarding } from '../providers/OnboardingProvider';
 
 export default function LoginScreen() {
   const { t, i18n } = useTranslation();
   const { colors } = useTheme();
   const router = useRouter();
+
+  // 👇 USE THE HOOK
+  const { completeOnboarding } = useOnboarding();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -27,6 +32,15 @@ export default function LoginScreen() {
     if (error) {
       showError(t('general.error'), error.message);
       setLoading(false);
+    } else {
+      // 👇 CRITICAL FIX: 
+      // Mark onboarding as complete immediately upon success.
+      // This prevents the app from redirecting existing users to the tutorial.
+      await completeOnboarding();
+      
+      // We don't strictly need to router.replace() here because 
+      // MainNavigator in _layout.tsx will detect the session change 
+      // and redirect to (tabs) automatically.
     } 
   };
 
