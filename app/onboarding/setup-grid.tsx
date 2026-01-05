@@ -35,9 +35,10 @@ export default function OnboardingSetupGrid() {
   const { profile } = useAuth();
   
   // Layout Constants
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions(); 
-  const isLandscape = screenWidth > screenHeight;
-  const VISIBLE_COLS = isLandscape ? 7 : 5; 
+  const { width: screenWidth } = useWindowDimensions(); 
+  
+  // FIXED: 5 Columns strictly
+  const VISIBLE_COLS = 5; 
   const GRID_PADDING = 12; 
   const GAP_SIZE = 6;
   const AVAILABLE_WIDTH = screenWidth - (GRID_PADDING * 2);
@@ -62,16 +63,10 @@ export default function OnboardingSetupGrid() {
             .limit(1)
             .single();
 
-        // If no warehouse, create one!
         if (!wh) {
             const { data: newWh, error: whError } = await supabase.from('warehouses')
-                .insert({ 
-                    name: 'Main Warehouse', 
-                    workgroup_id: profile.workgroup_id 
-                })
-                .select()
-                .single();
-            
+                .insert({ name: 'Main Warehouse', workgroup_id: profile.workgroup_id })
+                .select().single();
             if (whError) throw whError;
             wh = newWh;
         }
@@ -83,23 +78,15 @@ export default function OnboardingSetupGrid() {
             .limit(1)
             .single();
 
-        // If no storage, create one!
         if (!st) {
             const { data: newSt, error: stError } = await supabase.from('storages')
-                .insert({ 
-                    name: 'Section A', 
-                    warehouse_id: wh.id,
-                    workgroup_id: profile.workgroup_id 
-                })
-                .select()
-                .single();
-
+                .insert({ name: 'Section A', warehouse_id: wh.id, workgroup_id: profile.workgroup_id })
+                .select().single();
             if (stError) throw stError;
             st = newSt;
         }
 
         setStorageId(st.id);
-
       } catch (e: any) {
         showError("Initialization Failed", e.message);
       }
@@ -120,7 +107,6 @@ export default function OnboardingSetupGrid() {
       if (error) throw error;
 
       if (!data || data.length === 0) {
-        // AUTO-INITIALIZE: Create default grid
         await initializeDefaultGrid(storageId);
       } else {
         const formattedLocations = data.map(loc => ({
@@ -142,32 +128,25 @@ export default function OnboardingSetupGrid() {
   const initializeDefaultGrid = async (sId: string) => {
     try {
       const newSlots = [];
+      // FIXED: 5x5 Grid (Rows 1-5, Cols 1-5)
       const rows = ['1', '2', '3', '4', '5'];
       const cols = ['1', '2', '3', '4', '5'];
       
       for (const r of rows) {
         for (const c of cols) {
-          // FIX: Removed 'workgroup_id' here
-          newSlots.push({
-            storage_id: sId,
-            shelf: 'A',
-            row: r,
-            column: c
-          });
+          newSlots.push({ storage_id: sId, shelf: 'A', row: r, column: c });
         }
       }
       
       const { error } = await supabase.from('defined_locations').insert(newSlots);
       if (error) throw error;
       
-      // Re-fetch immediately
       const { data } = await supabase.from('defined_locations').select('*').eq('storage_id', sId);
       if (data) {
         setLocations(data.map(l => ({ ...l, master_id: l.id, width_span: 1, height_span: 1, items: [] })));
       }
     } catch (e) {
       console.error(e);
-      showError("Grid Creation Failed", "Could not generate default slots.");
     } finally {
       setLoading(false);
     }
@@ -205,14 +184,9 @@ export default function OnboardingSetupGrid() {
   const handleContinue = async () => {
     setLoading(true);
     try {
-        const updates = locations.map(l => ({
-            id: l.id,
-            master_id: l.master_id
-        }));
-        
+        const updates = locations.map(l => ({ id: l.id, master_id: l.master_id }));
         const { error } = await supabase.from('defined_locations').upsert(updates);
         if (error) throw error;
-
         router.push('/onboarding/add-first-item');
     } catch (e: any) {
         showError("Save Failed", e.message);
@@ -251,12 +225,11 @@ export default function OnboardingSetupGrid() {
     });
   }, [locations, BASE_HEIGHT, GAP_SIZE, UNIT_WIDTH]);
 
-  // --- RENDER HELPERS ---
+  // --- COMPONENTS ---
   const MergeHandle = ({ direction, onPress }: { direction: any, onPress: () => void }) => {
     let style = {};
     if (direction === 'RIGHT') style = { right: -10, top: '50%', marginTop: -10 };
     if (direction === 'DOWN') style = { bottom: -10, left: '50%', marginLeft: -10 };
-    
     return (
         <TouchableOpacity style={[styles.mergeHandle, style]} onPress={onPress}>
             <MaterialCommunityIcons name="link-variant-plus" size={16} color="white" />
@@ -285,8 +258,21 @@ export default function OnboardingSetupGrid() {
                 <View style={{ height: shelf.totalHeight, position: 'relative' }}>
                     {shelf.mappedSlots.map(slot => {
                          const isLeader = slot.id === locations.find(l => l.master_id === slot.master_id)?.id;
-                         const isMergedRight = locations.find(l => l.shelf === slot.shelf && l.row === slot.row && l.column === (parseInt(slot.column)+1).toString())?.master_id === slot.master_id;
-                         const isMergedDown = locations.find(l => l.shelf === slot.shelf && l.column === slot.column && l.row === (parseInt(slot.row)+1).toString())?.master_id === slot.master_id;
+                         
+                         // Determine connections
+                         const getNeighbor = (rOff: number, cOff: number) => {
+                             return locations.find(l => 
+                                 l.shelf === slot.shelf && 
+                                 l.row === (parseInt(slot.row) + rOff).toString() && 
+                                 l.column === (parseInt(slot.column) + cOff).toString()
+                             );
+                         };
+                         
+                         const rightNeighbor = getNeighbor(0, 1);
+                         const downNeighbor = getNeighbor(1, 0);
+
+                         const isMergedRight = rightNeighbor?.master_id === slot.master_id;
+                         const isMergedDown = downNeighbor?.master_id === slot.master_id;
 
                          return (
                             <View key={slot.id} style={{
@@ -302,6 +288,15 @@ export default function OnboardingSetupGrid() {
                                     {isLeader && (
                                         <Text style={{color: colors.text, fontWeight:'bold'}}>{slot.row}-{slot.column}</Text>
                                     )}
+                                    
+                                    {/* VISUAL GAP FILLERS */}
+                                    {isMergedRight && (
+                                        <View style={[styles.gapFillerRight, { backgroundColor: colors.card }]} />
+                                    )}
+                                    {isMergedDown && (
+                                        <View style={[styles.gapFillerDown, { backgroundColor: colors.card }]} />
+                                    )}
+
                                 </View>
                                 {isLeader && (
                                     <>
@@ -333,7 +328,34 @@ const styles = StyleSheet.create({
   header: { paddingTop: 60, paddingHorizontal: 24, paddingBottom: 20 },
   title: { textAlign: 'center', marginBottom: 8 },
   subtitle: { textAlign: 'center', lineHeight: 22 },
-  slot: { flex: 1, justifyContent: 'center', alignItems: 'center', borderRadius: 4, borderWidth: 1 },
+  
+  slot: { 
+      flex: 1, 
+      justifyContent: 'center', 
+      alignItems: 'center', 
+      borderRadius: 4, 
+      borderWidth: 1,
+      overflow: 'visible' // Important for fillers to show
+  },
+  
+  // New Gap Filler Styles
+  gapFillerRight: {
+      position: 'absolute',
+      right: -7, // Covers the GAP_SIZE (6) + borders
+      top: 0,
+      bottom: 0,
+      width: 8,
+      zIndex: 2
+  },
+  gapFillerDown: {
+      position: 'absolute',
+      bottom: -7,
+      left: 0,
+      right: 0,
+      height: 8,
+      zIndex: 2
+  },
+
   mergeHandle: { position: 'absolute', width: 20, height: 20, borderRadius: 10, backgroundColor: '#3b82f6', justifyContent: 'center', alignItems: 'center', zIndex: 99 },
   footer: { position: 'absolute', bottom: 30, left: 24, right: 24 },
   button: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 16, borderRadius: 12 }
