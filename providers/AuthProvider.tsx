@@ -3,6 +3,7 @@ import { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { useTranslation } from 'react-i18next';
 import { differenceInDays } from 'date-fns';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // 1. Updated Types
 export type SubscriptionStatus = 'trial_active' | 'trial_expired' | 'subscribed';

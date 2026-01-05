@@ -54,6 +54,14 @@ const ThemedStack = () => {
     gestureEnabled: false // Prevent swiping away if mandatory
   }} 
 />
+        <Stack.Screen 
+          name="onboarding" 
+          options={{ 
+            headerShown: false, 
+            presentation: 'modal',
+            gestureEnabled: false 
+          }} 
+        />
       </Stack>
     </>
   );

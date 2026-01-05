@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 import { useTheme } from '../providers/ThemeProvider';
 import { showError, showSuccess } from '../lib/toast';
 import { typography } from '../styles/typography';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function SignUpScreen() {
   const { t } = useTranslation();
