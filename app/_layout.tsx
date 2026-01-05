@@ -69,33 +69,40 @@ const MainNavigator = () => {
   useEffect(() => {
     if (isLoading) return;
 
-    const currentRoute = segments[0] || null;
+    // Helper variables to know where we are
+    const currentRoute = segments[0] || '';
     const inAuthFlow = ['login', 'sign-up'].includes(currentRoute); 
     const inSetupFlow = ['workgroup-gate', 'create-workgroup', 'join-workgroup'].includes(currentRoute);
     const inOnboardingFlow = currentRoute === 'onboarding';
 
-    // 1. Auth Check
+    // 1. Check Authentication FIRST
     if (!session) {
       if (!inAuthFlow) router.replace('/login');
       return; 
     }
-    // 2. Workgroup Check
+
+    // 2. Check Workgroup Setup
     if (!profile?.workgroup_id) {
       if (!inSetupFlow) router.replace('/workgroup-gate');
       return;
     }
-    // 3. Onboarding Check
+
+    // 3. Check Onboarding (Only if Logged In + Has Workgroup)
     if (!hasCompletedOnboarding) {
       if (!inOnboardingFlow) router.replace('/onboarding/welcome');
       return;
     }
-    // 4. Redirect to Home
+
+    // 4. If we are logged in & onboarded, kick us out of auth/onboarding pages
     if (inAuthFlow || inSetupFlow || inOnboardingFlow) {
       router.replace('/(tabs)');
     }
 
-  }, [session, profile, isLoading, hasCompletedOnboarding, segments, router]);
+  }, [session, profile, isLoading, hasCompletedOnboarding, segments]); // Removed 'router' from dependency to prevent loops
 
+  // --- UI RENDERING LOGIC ---
+
+  // 1. Show Loading Spinner while checking state
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
@@ -104,6 +111,24 @@ const MainNavigator = () => {
     );
   }
 
+  // 2. GUARD CLAUSES (The Fix)
+  // If we are NOT logged in, but we aren't on the login screen yet...
+  // Don't render ThemedStack! Return null and wait for the useEffect to redirect us.
+  const currentRoute = segments[0] || '';
+  const inAuthFlow = ['login', 'sign-up'].includes(currentRoute); 
+  const inOnboardingFlow = currentRoute === 'onboarding';
+
+  if (!session && !inAuthFlow) {
+    return null; 
+  }
+
+  // 3. If we need Onboarding, but aren't there yet...
+  // Don't render ThemedStack! Wait for redirect.
+  if (session && !hasCompletedOnboarding && !inOnboardingFlow) {
+    return null;
+  }
+
+  // 4. Only render the app stack if we are safe
   return <ThemedStack />;
 };
 
