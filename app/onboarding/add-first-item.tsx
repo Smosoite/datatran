@@ -72,7 +72,7 @@ export default function OnboardingAddFirstItem() {
       if (results.some(r => r.error)) throw new Error("Failed to add items.");
       
       showSuccess(t('general.success'), "First item added successfully!");
-      router.push('/onboarding/demo-inventory.tsx');
+      router.push('/onboarding/demo-inventory');
 
     } catch (error: any) {
       showError(t('general.error'), error.message);
