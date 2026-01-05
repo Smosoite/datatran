@@ -7,6 +7,7 @@ import { typography } from '../../styles/typography';
 import { FontAwesome } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useOnboarding } from '../../providers/OnboardingProvider';
 
 const { width } = Dimensions.get('window');
 
