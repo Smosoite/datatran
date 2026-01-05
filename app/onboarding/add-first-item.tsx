@@ -27,7 +27,7 @@ export default function OnboardingAddFirstItem() {
     setTimeout(() => {
         setLoading(false);
         showSuccess(t('general.success'), "First item added successfully!");
-        router.push('/onboarding/completion');
+        router.push('/onboarding/demo-inventory');
     }, 800);
   };
 
