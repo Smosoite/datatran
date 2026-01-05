@@ -1,12 +1,12 @@
 import '../i18n';
 import i18n from '../i18n';
 import { I18nextProvider } from 'react-i18next';
-import React, { useEffect, useState } from 'react';
-import { useRouter, useSegments, Stack } from 'expo-router';
+import React, { useEffect } from 'react';
+import { useRouter, useSegments, Stack, useRootNavigationState } from 'expo-router';
 import { AuthProvider, useAuth } from '../providers/AuthProvider';
 import { View, ActivityIndicator } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { ThemeProvider, useTheme } from '../providers/ThemeProvider'; 
+import { ThemeProvider, useTheme } from '../providers/ThemeProvider';
 import { StatusBar } from 'expo-status-bar';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 import { FontAwesome } from '@expo/vector-icons';
@@ -29,8 +29,20 @@ const ThemedStack = () => {
           contentStyle: { backgroundColor: colors.background },
         }}
       >
+        {/* Main Tabs */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        {/* --- Setup Screens --- */}
+
+        {/* Auth Screens - Ensure these exist in your file structure! */}
+        <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen name="sign-up" options={{ headerShown: false }} />
+        <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
+
+        {/* Setup Screens */}
+        <Stack.Screen name="workgroup-gate" options={{ headerShown: false }} />
+        <Stack.Screen name="create-workgroup" options={{ headerShown: true, title: 'Create Workgroup' }} />
+        <Stack.Screen name="join-workgroup" options={{ headerShown: true, title: 'Join Workgroup' }} />
+
+        {/* Warehouse & Items */}
         <Stack.Screen name="warehouse/[id]" options={{ headerShown: true, title: 'Warehouse', presentation: 'push' }} />
         <Stack.Screen name="create-warehouse" options={{ headerShown: true, title: 'Create Warehouse', presentation: 'modal' }} />
         <Stack.Screen name="add-item" options={{ headerShown: true, title: 'Add Item', presentation: 'modal' }} />
@@ -42,6 +54,8 @@ const ThemedStack = () => {
         <Stack.Screen name="edit-item/[id]" options={{ headerShown: true, title: 'Edit Item', presentation: 'modal' }} />
         <Stack.Screen name="scan" options={{ headerShown: true, title: 'Scan', presentation: 'modal' }} />
         <Stack.Screen name="restock" options={{ headerShown: true, title: 'Restock', presentation: 'modal' }} />
+        
+        {/* Settings & Misc */}
         <Stack.Screen name="profile" options={{ headerShown: true, title: 'Profile', presentation: 'modal' }} />
         <Stack.Screen name="edit-location/[id]" options={{ headerShown: true, title: 'Edit Location', presentation: 'modal' }} />
         <Stack.Screen name="stock-grid" options={{ headerShown: false, presentation: 'modal' }} />
@@ -49,7 +63,7 @@ const ThemedStack = () => {
         <Stack.Screen name="manage-members" options={{ headerShown: true, presentation: 'push' }} />
         <Stack.Screen name="paywall" options={{ headerShown: false, presentation: 'modal', gestureEnabled: false }} />
         
-        {/* Onboarding is explicitly defined here */}
+        {/* Onboarding - Ensure structure matches app/onboarding/welcome.tsx etc */}
         <Stack.Screen name="onboarding" options={{ headerShown: false, presentation: 'modal', gestureEnabled: false }} />
       </Stack>
     </>
@@ -60,60 +74,73 @@ const ThemedStack = () => {
 const MainNavigator = () => {
   const { session, profile, loading: authLoading } = useAuth();
   const { hasCompletedOnboarding, isLoading: onboardingLoading } = useOnboarding();
-  const [isNavigationReady, setIsNavigationReady] = useState(false);
-  
-  const router = useRouter();
   const { colors } = useTheme();
-  const segments = useSegments();
   
-  // Wait for both Auth and Onboarding to load
+  const segments = useSegments();
+  const router = useRouter();
+  
+  // FIX: Use Expo Router's native hook to check if navigation is ready.
+  // This prevents the "Navigation container not ready" errors.
+  const rootNavigationState = useRootNavigationState();
+  const isNavigationReady = rootNavigationState?.key;
+
+  // Combine loading states
   const isLoading = authLoading || onboardingLoading || !isNavigationReady;
 
-  // Initial mount check to ensure Segments are ready
   useEffect(() => {
-    setIsNavigationReady(true);
-  }, []);
-
-  useEffect(() => {
+    // 1. If we are still initializing data, do nothing yet.
     if (isLoading) return;
 
+    // 2. Determine current location type
     const currentRoute = segments[0] || '';
     
-    const inAuthFlow = ['login', 'sign-up'].includes(currentRoute); 
-    const inSetupFlow = ['workgroup-gate', 'create-workgroup', 'join-workgroup'].includes(currentRoute);
-    const inOnboardingFlow = currentRoute === 'onboarding';
+    // Add your auth route names here
+    const inAuthGroup = ['login', 'sign-up', 'forgot-password'].includes(currentRoute);
+    // Add your setup route names here
+    const inSetupGroup = ['workgroup-gate', 'create-workgroup', 'join-workgroup'].includes(currentRoute);
+    // Add your onboarding route name here
+    const inOnboardingGroup = currentRoute === 'onboarding';
+
+    // --- LOGIC FLOW ---
 
     // A. Not Logged In? -> Go to Login
     if (!session) {
-      if (!inAuthFlow) router.replace('/login');
+      if (!inAuthGroup) {
+        router.replace('/login');
+      }
       return; 
     }
 
-    // B. No Workgroup? -> Go to Setup
+    // B. Logged in, but No Workgroup? -> Go to Workgroup Gate
     if (!profile?.workgroup_id) {
-      if (!inSetupFlow) router.replace('/workgroup-gate');
+      if (!inSetupGroup) {
+        router.replace('/workgroup-gate');
+      }
       return;
     }
 
-    // C. Not Onboarded? -> Go to Onboarding
-    // Note: If you want to skip this for existing users, see Step 3 below
+    // C. Workgroup set, but Not Onboarded? -> Go to Onboarding
     if (!hasCompletedOnboarding) {
-      if (!inOnboardingFlow) router.replace('/onboarding/welcome');
+      if (!inOnboardingGroup) {
+        // Assuming your folder is app/onboarding/welcome.tsx, change if different
+        router.replace('/onboarding/welcome');
+      }
       return;
     }
 
-    // D. Everything Good? -> Go to App (Tabs)
-    // Only redirect if we are stuck in a setup flow
-    if (inAuthFlow || inSetupFlow || inOnboardingFlow) {
+    // D. All Requirements Met? -> Go to App (Tabs)
+    // Only redirect if the user is currently stuck on a Setup/Auth/Onboarding screen
+    if (inAuthGroup || inSetupGroup || inOnboardingGroup) {
       router.replace('/(tabs)');
     }
 
-  }, [session, profile, isLoading, hasCompletedOnboarding, segments]); 
+  }, [session, profile?.workgroup_id, hasCompletedOnboarding, segments, isLoading]); 
 
   // --- RENDERING ---
   
-  // 1. Loading State (Prevents Wall of Errors by NOT rendering the Stack yet)
-  if (isLoading || (!session && !['login', 'sign-up'].includes(segments[0] || ''))) {
+  // FIX: Only show loading spinner on INITIAL load.
+  // Once the app is running, we allow ThemedStack to render to prevent unmounting issues.
+  if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -121,7 +148,6 @@ const MainNavigator = () => {
     );
   }
 
-  // 2. Safe to Render
   return <ThemedStack />;
 };
 
