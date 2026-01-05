@@ -1,8 +1,8 @@
 import '../i18n';
 import i18n from '../i18n';
 import { I18nextProvider } from 'react-i18next';
-import React, { useEffect } from 'react';
-import { useRouter, useSegments, Stack, useRootNavigationState } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { useRouter, useSegments, Stack } from 'expo-router';
 import { AuthProvider, useAuth } from '../providers/AuthProvider';
 import { View, ActivityIndicator } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -32,17 +32,17 @@ const ThemedStack = () => {
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         
-        {/* Auth Screens */}
+        {/* Auth */}
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="sign-up" options={{ headerShown: false }} />
         <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
 
-        {/* Setup Screens */}
+        {/* Setup */}
         <Stack.Screen name="workgroup-gate" options={{ headerShown: false }} />
         <Stack.Screen name="create-workgroup" options={{ headerShown: true, title: 'Create Workgroup' }} />
         <Stack.Screen name="join-workgroup" options={{ headerShown: true, title: 'Join Workgroup' }} />
 
-        {/* App Screens */}
+        {/* Features */}
         <Stack.Screen name="warehouse/[id]" options={{ headerShown: true, title: 'Warehouse', presentation: 'push' }} />
         <Stack.Screen name="create-warehouse" options={{ headerShown: true, title: 'Create Warehouse', presentation: 'modal' }} />
         <Stack.Screen name="add-item" options={{ headerShown: true, title: 'Add Item', presentation: 'modal' }} />
@@ -60,108 +60,92 @@ const ThemedStack = () => {
         <Stack.Screen name="history" options={{ headerShown: true, presentation: 'push' }} /> 
         <Stack.Screen name="manage-members" options={{ headerShown: true, presentation: 'push' }} />
         
-        {/* Paywall Screen */}
+        {/* Special Screens */}
         <Stack.Screen name="paywall" options={{ headerShown: false, presentation: 'modal', gestureEnabled: false }} />
-        
-        {/* Onboarding */}
         <Stack.Screen name="onboarding" options={{ headerShown: false, presentation: 'modal', gestureEnabled: false }} />
       </Stack>
     </>
   );
 };
 
-// --- 2. MainNavigator (Logic Layer) ---
-const MainNavigator = () => {
-  // SAFEGUARD: If useAuth fails (rare), return empty object to prevent crash
-  const authContext = useAuth();
-  const session = authContext?.session;
-  const profile = authContext?.profile;
-  const authLoading = authContext?.loading;
-
-  const onboardingContext = useOnboarding();
-  const hasCompletedOnboarding = onboardingContext?.hasCompletedOnboarding;
-  const onboardingLoading = onboardingContext?.isLoading;
-  
-  // Subscription Hook
+// --- 2. AuthRedirectHandler (Logic Layer) ---
+// We separate this logic component from the UI component to ensure Hooks don't crash
+const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
+  const { session, profile, loading: authLoading } = useAuth();
+  const { hasCompletedOnboarding, isLoading: onboardingLoading } = useOnboarding();
   const { status: subStatus, hoursLeft } = useSubscription();
-
   const { colors } = useTheme();
   
   const segments = useSegments();
   const router = useRouter();
-  
-  const rootNavigationState = useRootNavigationState();
-  const isNavigationReady = rootNavigationState?.key;
-
-  const isDataLoading = authLoading || onboardingLoading || subStatus === 'loading' || !isNavigationReady;
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    if (isDataLoading) return;
+    setIsMounted(true);
+  }, []);
+
+  const isLoading = authLoading || onboardingLoading || subStatus === 'loading' || !isMounted;
+
+  useEffect(() => {
+    if (isLoading) return;
 
     const currentRoute = segments[0] || '';
     
+    // Groups
     const inAuthGroup = ['login', 'sign-up', 'forgot-password'].includes(currentRoute);
     const inSetupGroup = ['workgroup-gate', 'create-workgroup', 'join-workgroup'].includes(currentRoute);
     const inOnboardingGroup = currentRoute === 'onboarding';
     const inPaywall = currentRoute === 'paywall';
 
-    // --- LOGIC FLOW ---
-
-    // 1. Not Logged In? -> Go to Login
+    // 1. Not Logged In
     if (!session) {
-      if (!inAuthGroup) {
-        router.replace('/login');
-      }
-      return; 
+      if (!inAuthGroup) router.replace('/login');
+      return;
     }
 
-    // 2. No Workgroup? -> Go to Setup
+    // 2. No Workgroup
     if (!profile?.workgroup_id) {
-      if (!inSetupGroup) {
-        router.replace('/workgroup-gate');
-      }
+      if (!inSetupGroup) router.replace('/workgroup-gate');
       return;
     }
 
-    // 3. Not Onboarded? -> Go to Onboarding
+    // 3. Not Onboarded
     if (!hasCompletedOnboarding) {
-      if (!inOnboardingGroup) {
-        router.replace('/onboarding/welcome');
-      }
+      if (!inOnboardingGroup) router.replace('/onboarding/welcome');
       return;
     }
 
-    // 4. Trial Expired? -> Go to Paywall
+    // 4. Trial Expired
     if (subStatus === 'trial_expired') {
-        if (!inPaywall) {
-            router.replace('/paywall');
-        }
-        return;
+      if (!inPaywall) router.replace('/paywall');
+      return;
     }
 
-    // 5. Everything Good? -> Go to Tabs
+    // 5. Subscription Warning (Soft check)
+    if (subStatus === 'trial_active' && hoursLeft < 24 && hoursLeft > 0) {
+      // Optional toast logic here
+    }
+
+    // 6. Valid User stuck in restricted screens -> Send to Tabs
     if (inAuthGroup || inSetupGroup || inOnboardingGroup || (inPaywall && subStatus !== 'trial_expired')) {
       router.replace('/(tabs)');
     }
 
-  }, [session, profile?.workgroup_id, hasCompletedOnboarding, subStatus, segments, isDataLoading]); 
+  }, [session, profile, hasCompletedOnboarding, subStatus, segments, isLoading]);
 
-  // --- RENDERING ---
+  // --- RENDERING STRATEGY ---
+  // Always render the children (ThemedStack) so the Navigation Container exists.
+  // Overlay a loading spinner if needed.
   return (
     <View style={{ flex: 1 }}>
-      <ThemedStack />
+      {children}
       
-      {isDataLoading && (
-        <View 
-          style={{ 
-            position: 'absolute', 
-            top: 0, left: 0, right: 0, bottom: 0, 
-            justifyContent: 'center', 
-            alignItems: 'center', 
-            backgroundColor: colors.background,
-            zIndex: 999 
-          }}
-        >
+      {isLoading && (
+        <View style={{ 
+            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, 
+            backgroundColor: colors.background, 
+            justifyContent: 'center', alignItems: 'center', zIndex: 999 
+        }}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       )}
@@ -169,54 +153,8 @@ const MainNavigator = () => {
   );
 };
 
-// --- 3. AppContent ---
-const AppContent = () => {
-  const { colors } = useTheme();
-  
-  const toastConfig = {
-    success: (props: any) => (
-      <BaseToast
-        {...props}
-        style={{ height: 80, borderLeftColor: colors.success, backgroundColor: colors.card, borderLeftWidth: 7, alignItems: 'center' }}
-        text2NumberOfLines={2}
-        contentContainerStyle={{ paddingHorizontal: 15 }}
-        text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
-        text2Style={{ fontSize: 14, color: colors.subtext }}
-        renderLeadingIcon={() => <FontAwesome name="check-circle" size={24} color={colors.success} style={{ marginLeft: 15 }} />}
-      />
-    ),
-    error: (props: any) => (
-      <ErrorToast
-        {...props}
-        style={{ height: 80, borderLeftColor: colors.danger, backgroundColor: colors.card, borderLeftWidth: 7, alignItems: 'center' }}
-        text2NumberOfLines={2}
-        contentContainerStyle={{ paddingHorizontal: 15 }}
-        text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
-        text2Style={{ fontSize: 14, color: colors.subtext }}
-        renderLeadingIcon={() => <FontAwesome name="warning" size={24} color={colors.danger} style={{ marginLeft: 15 }} />}
-      />
-    ),
-    info: (props: any) => (
-      <InfoToast
-        {...props}
-        style={{ height: 80, borderLeftColor: colors.info, backgroundColor: colors.card, borderLeftWidth: 7, alignItems: 'center' }}
-        text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
-        text2Style={{ fontSize: 14, color: colors.subtext }}
-        renderLeadingIcon={() => <FontAwesome name="info-circle" size={24} color={colors.info} style={{ marginLeft: 15 }} />}
-      />
-    ),
-  };
-
-  return (
-    <>
-      <MainNavigator />
-      <Toast config={toastConfig} />
-    </>
-  );
-};
-
-// --- 4. CLEAN PROVIDER WRAPPER ---
-// This ensures providers are definitely mounted before AppContent runs
+// --- 3. Providers Wrapper ---
+// Separate component to enforce strict order of Context vs Navigation
 const AppProviders = ({ children }: { children: React.ReactNode }) => (
   <I18nextProvider i18n={i18n}>
     <ThemeProvider>
@@ -235,7 +173,48 @@ const AppProviders = ({ children }: { children: React.ReactNode }) => (
   </I18nextProvider>
 );
 
-// --- 5. Root Layout ---
+// --- 4. Toast Config ---
+const toastConfig = (colors: any) => ({
+  success: (props: any) => (
+    <BaseToast {...props} 
+      style={{ borderLeftColor: colors.success, backgroundColor: colors.card }} 
+      contentContainerStyle={{ paddingHorizontal: 15 }}
+      text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
+      text2Style={{ fontSize: 14, color: colors.subtext }}
+    />
+  ),
+  error: (props: any) => (
+    <ErrorToast {...props} 
+      style={{ borderLeftColor: colors.danger, backgroundColor: colors.card }} 
+      text1Style={{ color: colors.text }}
+      text2Style={{ color: colors.subtext }}
+    />
+  ),
+  info: (props: any) => (
+    <InfoToast {...props} 
+      style={{ borderLeftColor: colors.info, backgroundColor: colors.card }} 
+      text1Style={{ color: colors.text }}
+      text2Style={{ color: colors.subtext }}
+    />
+  )
+});
+
+// --- 5. Content Component ---
+// Accesses Theme for Toast config
+const AppContent = () => {
+  const { colors } = useTheme();
+  
+  return (
+    <>
+      <AuthRedirectHandler>
+        <ThemedStack />
+      </AuthRedirectHandler>
+      <Toast config={toastConfig(colors)} />
+    </>
+  );
+};
+
+// --- 6. Root Layout ---
 export default function RootLayout() {
   useFrameworkReady();
 
