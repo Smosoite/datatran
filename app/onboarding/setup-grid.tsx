@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, useWindowDimensions, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, useWindowDimensions, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../providers/ThemeProvider';
@@ -7,7 +7,7 @@ import { useAuth } from '../../providers/AuthProvider';
 import { supabase } from '../../lib/supabase';
 import { typography } from '../../styles/typography';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { showError, showSuccess } from '../../lib/toast';
+import { showError } from '../../lib/toast';
 import * as Haptics from 'expo-haptics';
 
 // --- Types ---
@@ -37,7 +37,7 @@ export default function OnboardingSetupGrid() {
   // Layout Constants
   const { width: screenWidth, height: screenHeight } = useWindowDimensions(); 
   const isLandscape = screenWidth > screenHeight;
-  const VISIBLE_COLS = isLandscape ? 7 : 5; // Slightly fewer for onboarding readability
+  const VISIBLE_COLS = isLandscape ? 7 : 5; 
   const GRID_PADDING = 12; 
   const GAP_SIZE = 6;
   const AVAILABLE_WIDTH = screenWidth - (GRID_PADDING * 2);
@@ -48,34 +48,67 @@ export default function OnboardingSetupGrid() {
   const [locations, setLocations] = useState<LocationSlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [storageId, setStorageId] = useState<string | null>(null);
-  
-  // We default to Edit Mode for onboarding so they can try it immediately
-  const [isEditMode, setIsEditMode] = useState(true);
 
-  // 1. Fetch the user's first storage
+  // --- 1. ROBUST INITIALIZATION ---
   useEffect(() => {
     const init = async () => {
       if (!profile?.workgroup_id) return;
       
-      // Get the first storage available
-      const { data: storages } = await supabase
-        .from('storages')
-        .select('id')
-        .eq('workgroup_id', profile.workgroup_id)
-        .limit(1);
+      try {
+        // A. Check for Warehouse
+        let { data: wh } = await supabase.from('warehouses')
+            .select('id')
+            .eq('workgroup_id', profile.workgroup_id)
+            .limit(1)
+            .single();
 
-      if (storages && storages.length > 0) {
-        setStorageId(storages[0].id);
-      } else {
-        // Fallback: If no storage exists, maybe navigate back or show error
-        showError("No Storage Found", "Please create a warehouse first.");
-        router.back();
+        // If no warehouse, create one!
+        if (!wh) {
+            const { data: newWh, error: whError } = await supabase.from('warehouses')
+                .insert({ 
+                    name: 'Main Warehouse', 
+                    workgroup_id: profile.workgroup_id 
+                })
+                .select()
+                .single();
+            
+            if (whError) throw whError;
+            wh = newWh;
+        }
+
+        // B. Check for Storage
+        let { data: st } = await supabase.from('storages')
+            .select('id')
+            .eq('warehouse_id', wh.id)
+            .limit(1)
+            .single();
+
+        // If no storage, create one!
+        if (!st) {
+            const { data: newSt, error: stError } = await supabase.from('storages')
+                .insert({ 
+                    name: 'Section A', 
+                    warehouse_id: wh.id,
+                    workgroup_id: profile.workgroup_id 
+                })
+                .select()
+                .single();
+
+            if (stError) throw stError;
+            st = newSt;
+        }
+
+        // Now we definitely have a storage ID
+        setStorageId(st.id);
+
+      } catch (e: any) {
+        showError("Initialization Failed", e.message);
       }
     };
     init();
   }, [profile]);
 
-  // 2. Fetch or Create Locations
+  // --- 2. FETCH OR CREATE LOCATIONS ---
   const fetchData = useCallback(async () => {
     if (!storageId) return;
     setLoading(true);
@@ -88,7 +121,7 @@ export default function OnboardingSetupGrid() {
       if (error) throw error;
 
       if (!data || data.length === 0) {
-        // AUTO-INITIALIZE: If grid is empty, create a default 5x5 grid
+        // AUTO-INITIALIZE: Create default 5x5 grid
         await initializeDefaultGrid(storageId);
       } else {
         const formattedLocations = data.map(loc => ({
@@ -105,12 +138,12 @@ export default function OnboardingSetupGrid() {
       showError(t('general.error'), err.message);
       setLoading(false);
     }
-  }, [storageId]);
+  }, [storageId, profile?.workgroup_id]); // added profile dep
 
   const initializeDefaultGrid = async (sId: string) => {
+    if (!profile?.workgroup_id) return;
     try {
       const newSlots = [];
-      // Create a simple A1-A5 grid
       const rows = ['1', '2', '3', '4', '5'];
       const cols = ['1', '2', '3', '4', '5'];
       
@@ -121,7 +154,7 @@ export default function OnboardingSetupGrid() {
             shelf: 'A',
             row: r,
             column: c,
-            workgroup_id: profile?.workgroup_id
+            workgroup_id: profile.workgroup_id
           });
         }
       }
@@ -129,7 +162,7 @@ export default function OnboardingSetupGrid() {
       const { error } = await supabase.from('defined_locations').insert(newSlots);
       if (error) throw error;
       
-      // Re-fetch after creation
+      // Re-fetch immediately
       const { data } = await supabase.from('defined_locations').select('*').eq('storage_id', sId);
       if (data) {
         setLocations(data.map(l => ({ ...l, master_id: l.id, width_span: 1, height_span: 1, items: [] })));
@@ -145,27 +178,21 @@ export default function OnboardingSetupGrid() {
     fetchData();
   }, [fetchData]);
 
-  // --- MERGE LOGIC (Simplified from original) ---
+  // --- MERGE LOGIC ---
   const handleMerge = async (sourceSlot: LocationSlot, direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT') => {
-    // ... (Keep existing merge logic logic exactly as is, just compacted for brevity here) ...
-    // NOTE: Copying key logic to ensure it works
     const shelfSlots = locations.filter(l => l.shelf === sourceSlot.shelf);
     let neighbor: LocationSlot | undefined;
     
-    // Simple neighbor finding logic for onboarding demo
     const uniqueCols = [...new Set(shelfSlots.map(l => l.column))].sort(naturalSort);
     const uniqueRows = [...new Set(shelfSlots.map(l => l.row))].sort(naturalSort);
     const colIdx = uniqueCols.indexOf(sourceSlot.column);
     const rowIdx = uniqueRows.indexOf(sourceSlot.row);
 
     if (direction === 'RIGHT' && colIdx < uniqueCols.length - 1) neighbor = shelfSlots.find(l => l.row === sourceSlot.row && l.column === uniqueCols[colIdx + 1]);
-    if (direction === 'LEFT' && colIdx > 0) neighbor = shelfSlots.find(l => l.row === sourceSlot.row && l.column === uniqueCols[colIdx - 1]);
     if (direction === 'DOWN' && rowIdx < uniqueRows.length - 1) neighbor = shelfSlots.find(l => l.column === sourceSlot.column && l.row === uniqueRows[rowIdx + 1]);
-    if (direction === 'UP' && rowIdx > 0) neighbor = shelfSlots.find(l => l.column === sourceSlot.column && l.row === uniqueRows[rowIdx - 1]);
 
     if (!neighbor || neighbor.master_id === sourceSlot.master_id) return;
 
-    // Perform Merge
     const winningId = sourceSlot.master_id;
     const losingId = neighbor.master_id;
 
@@ -177,10 +204,8 @@ export default function OnboardingSetupGrid() {
   };
 
   const handleContinue = async () => {
-    // 1. Save Changes
     setLoading(true);
     try {
-        // Naive save: update all master_ids that changed
         const updates = locations.map(l => ({
             id: l.id,
             master_id: l.master_id
@@ -189,7 +214,6 @@ export default function OnboardingSetupGrid() {
         const { error } = await supabase.from('defined_locations').upsert(updates);
         if (error) throw error;
 
-        // 2. Navigate
         router.push('/onboarding/add-first-item');
     } catch (e: any) {
         showError("Save Failed", e.message);
@@ -197,7 +221,7 @@ export default function OnboardingSetupGrid() {
     }
   };
 
-  // --- VISUAL GRIsD CALCULATION ---
+  // --- VISUAL GRID CALCULATION ---
   const visualGrid = useMemo(() => {
     const shelvesDict: { [key: string]: LocationSlot[] } = {};
     locations.forEach(loc => {
@@ -222,7 +246,7 @@ export default function OnboardingSetupGrid() {
 
         return {
             shelfLabel: shelfKey,
-            totalHeight: (uniqueRows.length * BASE_HEIGHT) + ((uniqueRows.length - 1) * GAP_SIZE),
+            totalHeight: Math.max((uniqueRows.length * BASE_HEIGHT) + ((uniqueRows.length - 1) * GAP_SIZE), BASE_HEIGHT),
             mappedSlots
         };
     });
@@ -234,7 +258,6 @@ export default function OnboardingSetupGrid() {
     if (direction === 'RIGHT') style = { right: -10, top: '50%', marginTop: -10 };
     if (direction === 'DOWN') style = { bottom: -10, left: '50%', marginLeft: -10 };
     
-    // Only showing Right/Down handles for onboarding simplicity
     return (
         <TouchableOpacity style={[styles.mergeHandle, style]} onPress={onPress}>
             <MaterialCommunityIcons name="link-variant-plus" size={16} color="white" />
@@ -252,7 +275,7 @@ export default function OnboardingSetupGrid() {
           {t('onboarding.setupGrid', 'Design Your Layout')}
         </Text>
         <Text style={[typography.body, styles.subtitle, { color: colors.subtext }]}>
-          {t('onboarding.setupGridDesc', 'Items can span multiple slots. Tap the icons between slots to merge them into larger bins.')}
+          Tap the icons to merge slots into larger bins.
         </Text>
       </View>
 
@@ -263,10 +286,6 @@ export default function OnboardingSetupGrid() {
                 <View style={{ height: shelf.totalHeight, position: 'relative' }}>
                     {shelf.mappedSlots.map(slot => {
                          const isLeader = slot.id === locations.find(l => l.master_id === slot.master_id)?.id;
-                         
-                         // Check merges
-                         const getNeighbor = (dir: 'RIGHT'|'DOWN') => { /* simplified check */ return false; }; // Omitted for brevity, using simple logic below
-                         // For styling purposes:
                          const isMergedRight = locations.find(l => l.shelf === slot.shelf && l.row === slot.row && l.column === (parseInt(slot.column)+1).toString())?.master_id === slot.master_id;
                          const isMergedDown = locations.find(l => l.shelf === slot.shelf && l.column === slot.column && l.row === (parseInt(slot.row)+1).toString())?.master_id === slot.master_id;
 
