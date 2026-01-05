@@ -15,6 +15,8 @@ export default function CompletionScreen() {
   const { t } = useTranslation();
   const { colors } = useTheme();
   const router = useRouter();
+
+  const { completeOnboarding } = useOnboarding();
   
   const fadeAnim = new Animated.Value(0);
   const scaleAnim = new Animated.Value(0.8);
