@@ -57,7 +57,7 @@ export default function DemoWarehouseScreen() {
   };
 
   const handleContinue = () => {
-    router.push('/onboarding/setup-grid');
+    router.push('/onboarding/add-first-item');
   };
 
   return (
