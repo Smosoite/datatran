@@ -22,9 +22,12 @@ i18n
     lng: Localization.locale?.split('-')[0] || 'en', // Safely detect language
     fallbackLng: 'en',
     compatibilityJSON: 'v3', // Add this for compatibility
-    interpolation: {
+   interpolation: {
       escapeValue: false,
     },
-  });
+    react: {
+      useSuspense: false, 
+    },
+  })
 
 export default i18n;
