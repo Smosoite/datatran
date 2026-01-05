@@ -47,7 +47,7 @@ export default function CompletionScreen() {
     ]).start();
   }, []);
 
-  const handleGetStarted = () => {
+  const handleGetStarted = async () => {
     // Navigate to paywall
     await completeOnboarding(); 
     
