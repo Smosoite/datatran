@@ -79,78 +79,76 @@ const MainNavigator = () => {
   const segments = useSegments();
   const router = useRouter();
   
-  // FIX: Use Expo Router's native hook to check if navigation is ready.
-  // This prevents the "Navigation container not ready" errors.
-  const rootNavigationState = useRootNavigationState();
-  const isNavigationReady = rootNavigationState?.key;
-
-  // Combine loading states
-  const isLoading = authLoading || onboardingLoading || !isNavigationReady;
+  // Combine data loading states
+  const isDataLoading = authLoading || onboardingLoading;
 
   useEffect(() => {
-    // 1. If we are still initializing data, do nothing yet.
-    if (isLoading) return;
+    // 1. If data is still loading, wait.
+    if (isDataLoading) return;
 
-    // 2. Determine current location type
+    // 2. Determine current location
     const currentRoute = segments[0] || '';
     
-    // Add your auth route names here
     const inAuthGroup = ['login', 'sign-up', 'forgot-password'].includes(currentRoute);
-    // Add your setup route names here
     const inSetupGroup = ['workgroup-gate', 'create-workgroup', 'join-workgroup'].includes(currentRoute);
-    // Add your onboarding route name here
     const inOnboardingGroup = currentRoute === 'onboarding';
 
     // --- LOGIC FLOW ---
 
     // A. Not Logged In? -> Go to Login
     if (!session) {
-      if (!inAuthGroup) {
-        router.replace('/login');
-      }
+      if (!inAuthGroup) router.replace('/login');
       return; 
     }
 
-    // B. Logged in, but No Workgroup? -> Go to Workgroup Gate
+    // B. No Workgroup? -> Go to Setup
     if (!profile?.workgroup_id) {
-      if (!inSetupGroup) {
-        router.replace('/workgroup-gate');
-      }
+      if (!inSetupGroup) router.replace('/workgroup-gate');
       return;
     }
 
-    // C. Workgroup set, but Not Onboarded? -> Go to Onboarding
+    // C. Not Onboarded? -> Go to Onboarding
     if (!hasCompletedOnboarding) {
-      if (!inOnboardingGroup) {
-        // Assuming your folder is app/onboarding/welcome.tsx, change if different
-        router.replace('/onboarding/welcome');
-      }
+      if (!inOnboardingGroup) router.replace('/onboarding/welcome');
       return;
     }
 
-    // D. All Requirements Met? -> Go to App (Tabs)
-    // Only redirect if the user is currently stuck on a Setup/Auth/Onboarding screen
+    // D. Everything Good? -> Go to Tabs
     if (inAuthGroup || inSetupGroup || inOnboardingGroup) {
       router.replace('/(tabs)');
     }
 
-  }, [session, profile?.workgroup_id, hasCompletedOnboarding, segments, isLoading]); 
+  }, [session, profile?.workgroup_id, hasCompletedOnboarding, segments, isDataLoading]); 
 
   // --- RENDERING ---
+
+  // STRATEGY: 
+  // 1. We ALWAYS render ThemedStack (in the background). 
+  //    This ensures the Router is mounted and ready to receive commands.
+  // 2. If we are loading, we render a "Cover View" on top of it.
   
-  // FIX: Only show loading spinner on INITIAL load.
-  // Once the app is running, we allow ThemedStack to render to prevent unmounting issues.
-  if (isLoading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  return (
+    <View style={{ flex: 1 }}>
+      {/* The Stack is always here, ensuring 'router' works */}
+      <ThemedStack />
 
-  return <ThemedStack />;
-};
-
+      {/* The Loading Overlay */}
+      {isDataLoading && (
+        <View 
+          style={{ 
+            position: 'absolute', 
+            top: 0, left: 0, right: 0, bottom: 0, 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            backgroundColor: colors.background,
+            zIndex: 999 // Ensure it sits on top
+          }}
+        >
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      )}
+    </View>
+  );
 // --- 3. AppContent ---
 const AppContent = () => {
   const { colors } = useTheme();
