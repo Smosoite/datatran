@@ -72,10 +72,17 @@ const ThemedStack = () => {
 
 // --- 2. MainNavigator (Logic Layer) ---
 const MainNavigator = () => {
-  const { session, profile, loading: authLoading } = useAuth();
-  const { hasCompletedOnboarding, isLoading: onboardingLoading } = useOnboarding();
+  // SAFEGUARD: If useAuth fails (rare), return empty object to prevent crash
+  const authContext = useAuth();
+  const session = authContext?.session;
+  const profile = authContext?.profile;
+  const authLoading = authContext?.loading;
+
+  const onboardingContext = useOnboarding();
+  const hasCompletedOnboarding = onboardingContext?.hasCompletedOnboarding;
+  const onboardingLoading = onboardingContext?.isLoading;
   
-  // NEW: Subscription Hook
+  // Subscription Hook
   const { status: subStatus, hoursLeft } = useSubscription();
 
   const { colors } = useTheme();
@@ -83,12 +90,9 @@ const MainNavigator = () => {
   const segments = useSegments();
   const router = useRouter();
   
-  // Prevent navigation errors by waiting for the root state
   const rootNavigationState = useRootNavigationState();
   const isNavigationReady = rootNavigationState?.key;
 
-  // Combine data loading states.
-  // Note: We check subStatus !== 'loading' to ensure we don't route before checking the trial
   const isDataLoading = authLoading || onboardingLoading || subStatus === 'loading' || !isNavigationReady;
 
   useEffect(() => {
@@ -96,7 +100,6 @@ const MainNavigator = () => {
 
     const currentRoute = segments[0] || '';
     
-    // Define Route Groups to avoid infinite redirects
     const inAuthGroup = ['login', 'sign-up', 'forgot-password'].includes(currentRoute);
     const inSetupGroup = ['workgroup-gate', 'create-workgroup', 'join-workgroup'].includes(currentRoute);
     const inOnboardingGroup = currentRoute === 'onboarding';
@@ -128,7 +131,7 @@ const MainNavigator = () => {
       return;
     }
 
-    // 4. Trial Expired? -> Go to Paywall (Lockout)
+    // 4. Trial Expired? -> Go to Paywall
     if (subStatus === 'trial_expired') {
         if (!inPaywall) {
             router.replace('/paywall');
@@ -136,16 +139,7 @@ const MainNavigator = () => {
         return;
     }
 
-    // 5. Subscription Warning? (Show Toast, but allow access)
-    // Only show if trial is active, hours are low, and we are not already on the paywall screen
-    if (subStatus === 'trial_active' && hoursLeft < 24 && hoursLeft > 0) {
-         // Logic to prevent spamming toasts can be added here, 
-         // but Toast.show handles queues well enough for now.
-         // We don't block navigation here.
-    }
-
-    // 6. Everything Good? -> Go to Tabs
-    // Only redirect if stuck in a setup flow or paywall (when not expired)
+    // 5. Everything Good? -> Go to Tabs
     if (inAuthGroup || inSetupGroup || inOnboardingGroup || (inPaywall && subStatus !== 'trial_expired')) {
       router.replace('/(tabs)');
     }
@@ -153,8 +147,6 @@ const MainNavigator = () => {
   }, [session, profile?.workgroup_id, hasCompletedOnboarding, subStatus, segments, isDataLoading]); 
 
   // --- RENDERING ---
-  // We overlay a loading spinner, but we keep ThemedStack rendered underneath.
-  
   return (
     <View style={{ flex: 1 }}>
       <ThemedStack />
@@ -223,25 +215,33 @@ const AppContent = () => {
   );
 };
 
-// --- 4. Root Layout ---
+// --- 4. CLEAN PROVIDER WRAPPER ---
+// This ensures providers are definitely mounted before AppContent runs
+const AppProviders = ({ children }: { children: React.ReactNode }) => (
+  <I18nextProvider i18n={i18n}>
+    <ThemeProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <AuthProvider>
+          <OnboardingProvider>
+            <CopilotProvider stopOnOutsideClick androidStatusBarVisible>
+              <ModalProvider>
+                {children}
+              </ModalProvider>
+            </CopilotProvider>
+          </OnboardingProvider>
+        </AuthProvider>
+      </GestureHandlerRootView>
+    </ThemeProvider>
+  </I18nextProvider>
+);
+
+// --- 5. Root Layout ---
 export default function RootLayout() {
   useFrameworkReady();
 
   return (
-    <I18nextProvider i18n={i18n}>
-      <ThemeProvider>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <AuthProvider>
-            <OnboardingProvider>
-              <CopilotProvider stopOnOutsideClick androidStatusBarVisible>
-                <ModalProvider>
-                  <AppContent />
-                </ModalProvider>
-              </CopilotProvider>
-            </OnboardingProvider>
-          </AuthProvider>
-        </GestureHandlerRootView>
-      </ThemeProvider>
-    </I18nextProvider>
+    <AppProviders>
+      <AppContent />
+    </AppProviders>
   );
 }
