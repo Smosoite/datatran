@@ -1,29 +1,30 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../providers/ThemeProvider';
 import { typography } from '../styles/typography';
-import { FontAwesome, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
+import { FontAwesome } from '@expo/vector-icons';
 import { useSubscription } from '../hooks/useSubscription';
 import { showSuccess, showError } from '../lib/toast';
 
 const { width } = Dimensions.get('window');
 
 // --- DATA: Business Tiers ---
+// Note: Prices and counts are numbers/logic, but the "Save" text needs translation key or format
 const BUSINESS_TIERS = [
-    { count: 5, price: 399, save: '20%' },
-    { count: 10, price: 749, save: '25%' },
-    { count: 20, price: 1399, save: '30%' },
-    { count: 50, price: 3299, save: '35%' },
-    { count: 100, price: 5999, save: '40%' },
+    { count: 5, price: 399, savePercent: 20 },
+    { count: 10, price: 749, savePercent: 25 },
+    { count: 20, price: 1399, savePercent: 30 },
+    { count: 50, price: 3299, savePercent: 35 },
+    { count: 100, price: 5999, savePercent: 40 },
 ];
 
 export default function PaywallScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const { colors } = useTheme();
-  const { status, hoursLeft, startTrial, buySubscription } = useSubscription();
+  const { status, startTrial, buySubscription } = useSubscription();
   
   const [processing, setProcessing] = useState(false);
   
@@ -39,7 +40,7 @@ export default function PaywallScreen() {
     if (isExpired) {
        // Logic handled in _layout, visual only here
     }
-  }, [status]);
+  }, [status, isExpired]);
 
   const handleStartTrial = async () => {
     setProcessing(true);
@@ -47,10 +48,10 @@ export default function PaywallScreen() {
       const success = await startTrial();
       setProcessing(false);
       if (success) {
-        showSuccess(t('general.success'), "7-Day Free Trial Started!");
+        showSuccess(t('general.success'), t('paywall.trialStarted', "7-Day Free Trial Started!"));
         router.replace('/(tabs)');
       } else {
-        showError(t('general.error'), "Could not start trial.");
+        showError(t('general.error'), t('paywall.trialError', "Could not start trial."));
       }
     }, 1500);
   };
@@ -64,13 +65,13 @@ export default function PaywallScreen() {
       
       if (success) {
         if (activeTab === 'business') {
-            showSuccess("Enterprise Activated!", `You have received ${selectedBusinessTier.count} license codes.`);
+            showSuccess(t('paywall.enterpriseActive', "Enterprise Activated!"), t('paywall.codesReceived', { count: selectedBusinessTier.count }));
         } else {
-            showSuccess("Pro Activated!", "Welcome to Premium.");
+            showSuccess(t('paywall.proActive', "Pro Activated!"), t('paywall.welcomePremium', "Welcome to Premium."));
         }
         router.replace('/(tabs)');
       } else {
-        showError("Purchase Cancelled", "No charge was made.");
+        showError(t('paywall.purchaseCancelled', "Purchase Cancelled"), t('paywall.noCharge', "No charge was made."));
       }
     }, 2000);
   };
@@ -88,10 +89,12 @@ export default function PaywallScreen() {
            <FontAwesome name={activeTab === 'personal' ? "user" : "building"} size={32} color="#fff" />
          </View>
          <Text style={[typography.h1, styles.title, { color: colors.text }]}>
-            {isExpired ? "Trial Expired" : "Upgrade Your Workflow"}
+            {isExpired ? t('paywall.trialExpired', "Trial Expired") : t('paywall.upgradeTitle', "Upgrade Your Workflow")}
          </Text>
          <Text style={[typography.body, styles.subtitle, { color: colors.subtext }]}>
-            {isExpired ? "To continue using the app, please select a plan." : "Choose the plan that fits your needs."}
+            {isExpired 
+                ? t('paywall.expiredDesc', "To continue using the app, please select a plan.") 
+                : t('paywall.upgradeDesc', "Choose the plan that fits your needs.")}
          </Text>
       </View>
 
@@ -101,13 +104,17 @@ export default function PaywallScreen() {
             style={[styles.toggleButton, activeTab === 'personal' && { backgroundColor: colors.primary }]}
             onPress={() => setActiveTab('personal')}
          >
-            <Text style={[typography.button, { color: activeTab === 'personal' ? '#fff' : colors.subtext }]}>Personal Pro</Text>
+            <Text style={[typography.button, { color: activeTab === 'personal' ? '#fff' : colors.subtext }]}>
+                {t('paywall.personalPro', "Personal Pro")}
+            </Text>
          </Pressable>
          <Pressable 
             style={[styles.toggleButton, activeTab === 'business' && { backgroundColor: colors.primary }]}
             onPress={() => setActiveTab('business')}
          >
-            <Text style={[typography.button, { color: activeTab === 'business' ? '#fff' : colors.subtext }]}>Business Team</Text>
+            <Text style={[typography.button, { color: activeTab === 'business' ? '#fff' : colors.subtext }]}>
+                {t('paywall.businessTeam', "Business Team")}
+            </Text>
          </Pressable>
       </View>
 
@@ -116,22 +123,28 @@ export default function PaywallScreen() {
         // === PERSONAL VIEW ===
         <View>
             <View style={styles.featuresContainer}>
-                <FeatureRow icon="database" text="Unlimited Inventory Items" colors={colors} />
-                <FeatureRow icon="cloud-download" text="CSV Data Export" colors={colors} />
-                <FeatureRow icon="mobile" text="Use on multiple devices" colors={colors} />
+                <FeatureRow icon="database" text={t('paywall.featUnlimited', "Unlimited Inventory Items")} colors={colors} />
+                <FeatureRow icon="cloud-download" text={t('paywall.featExport', "CSV Data Export")} colors={colors} />
+                <FeatureRow icon="mobile" text={t('paywall.featDevices', "Use on multiple devices")} colors={colors} />
             </View>
 
             {/* Billing Cycle Toggle */}
             <View style={styles.billingToggle}>
                 <Pressable onPress={() => setBillingCycle('monthly')} style={{flexDirection:'row', alignItems:'center'}}>
                     <FontAwesome name={billingCycle === 'monthly' ? "dot-circle-o" : "circle-o"} size={20} color={colors.primary} />
-                    <Text style={{marginLeft: 8, color: colors.text, fontWeight:'600'}}>Monthly</Text>
+                    <Text style={{marginLeft: 8, color: colors.text, fontWeight:'600'}}>
+                        {t('paywall.monthly', "Monthly")}
+                    </Text>
                 </Pressable>
                 <Pressable onPress={() => setBillingCycle('yearly')} style={{flexDirection:'row', alignItems:'center'}}>
                     <FontAwesome name={billingCycle === 'yearly' ? "dot-circle-o" : "circle-o"} size={20} color={colors.primary} />
-                    <Text style={{marginLeft: 8, color: colors.text, fontWeight:'600'}}>Yearly</Text>
+                    <Text style={{marginLeft: 8, color: colors.text, fontWeight:'600'}}>
+                        {t('paywall.yearly', "Yearly")}
+                    </Text>
                     <View style={[styles.saveBadge, {backgroundColor: colors.success}]}>
-                        <Text style={{color:'#fff', fontSize:10, fontWeight:'bold'}}>SAVE 20%</Text>
+                        <Text style={{color:'#fff', fontSize:10, fontWeight:'bold'}}>
+                            {t('paywall.savePercent', "SAVE 20%")}
+                        </Text>
                     </View>
                 </Pressable>
             </View>
@@ -139,18 +152,18 @@ export default function PaywallScreen() {
             {/* Personal Price Card */}
             <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.primary }]}>
                 <Text style={[typography.h3, { color: colors.text, marginBottom: 4 }]}>
-                    {billingCycle === 'monthly' ? 'Pro Monthly' : 'Pro Annual'}
+                    {billingCycle === 'monthly' ? t('paywall.proMonthly', "Pro Monthly") : t('paywall.proAnnual', "Pro Annual")}
                 </Text>
                 <View style={{flexDirection: 'row', alignItems: 'flex-end'}}>
                     <Text style={{ fontSize: 36, fontWeight: 'bold', color: colors.text }}>
                         {billingCycle === 'monthly' ? '$9.99' : '$99.99'}
                     </Text>
                     <Text style={{ fontSize: 16, color: colors.subtext, marginBottom: 6 }}>
-                        {billingCycle === 'monthly' ? ' / month' : ' / year'}
+                        {billingCycle === 'monthly' ? t('paywall.perMonth', " / month") : t('paywall.perYear', " / year")}
                     </Text>
                 </View>
                 <Text style={{ color: colors.subtext, marginTop: 8, fontSize: 13 }}>
-                    Recurring billing. Cancel anytime via App Store settings.
+                    {t('paywall.recurringCancel', "Recurring billing. Cancel anytime via App Store settings.")}
                 </Text>
             </View>
         </View>
@@ -159,12 +172,14 @@ export default function PaywallScreen() {
         // === BUSINESS VIEW ===
         <View>
             <View style={styles.featuresContainer}>
-                <FeatureRow icon="users" text="Full Pro Access for Team Members" colors={colors} />
-                <FeatureRow icon="key" text="Generates shareable license codes" colors={colors} />
-                <FeatureRow icon="shield" text="Centralized Admin Control" colors={colors} />
+                <FeatureRow icon="users" text={t('paywall.featTeamAccess', "Full Pro Access for Team Members")} colors={colors} />
+                <FeatureRow icon="key" text={t('paywall.featCodes', "Generates shareable license codes")} colors={colors} />
+                <FeatureRow icon="shield" text={t('paywall.featAdmin', "Centralized Admin Control")} colors={colors} />
             </View>
             
-            <Text style={[typography.h3, {color: colors.text, marginBottom: 12}]}>Select Team Size</Text>
+            <Text style={[typography.h3, {color: colors.text, marginBottom: 12}]}>
+                {t('paywall.selectTeamSize', "Select Team Size")}
+            </Text>
 
             {/* Tier Selector */}
             <View style={{gap: 10, marginBottom: 20}}>
@@ -188,12 +203,14 @@ export default function PaywallScreen() {
                                     {isSelected && <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary}} />}
                                 </View>
                                 <Text style={[typography.body, {color: colors.text, fontWeight: '600', marginLeft: 10}]}>
-                                    {tier.count} Users
+                                    {t('paywall.userCount', { count: tier.count, defaultValue: `${tier.count} Users` })}
                                 </Text>
                             </View>
                             <View style={{alignItems:'flex-end'}}>
                                 <Text style={{fontWeight:'bold', color: colors.text, fontSize: 16}}>${tier.price}</Text>
-                                <Text style={{color: colors.success, fontSize: 10, fontWeight:'bold'}}>SAVE {tier.save}</Text>
+                                <Text style={{color: colors.success, fontSize: 10, fontWeight:'bold'}}>
+                                    {t('paywall.savePercentValue', { percent: tier.savePercent, defaultValue: `SAVE ${tier.savePercent}%` })}
+                                </Text>
                             </View>
                         </Pressable>
                     )
@@ -215,8 +232,8 @@ export default function PaywallScreen() {
                 <>
                     <Text style={[typography.button, { color: colors.primaryText, fontSize: 16 }]}>
                         {activeTab === 'personal' 
-                            ? `Subscribe ${billingCycle === 'monthly' ? '$9.99' : '$99.99'}`
-                            : `Buy ${selectedBusinessTier.count} Licenses ($${selectedBusinessTier.price})`
+                            ? t('paywall.subscribePrice', { price: billingCycle === 'monthly' ? '$9.99' : '$99.99' })
+                            : t('paywall.buyLicenses', { count: selectedBusinessTier.count, price: selectedBusinessTier.price })
                         }
                     </Text>
                     <FontAwesome name="lock" size={16} color={colors.primaryText} style={{marginLeft: 10}} />
@@ -231,15 +248,17 @@ export default function PaywallScreen() {
                 onPress={handleStartTrial}
                 disabled={processing}
             >
-                <Text style={[typography.button, { color: colors.primary }]}>Start 7-Day Free Trial</Text>
+                <Text style={[typography.button, { color: colors.primary }]}>
+                    {t('paywall.startTrial', "Start 7-Day Free Trial")}
+                </Text>
             </Pressable>
         )}
         
         {/* Helper Text */}
         <Text style={{ textAlign: 'center', marginTop: 15, color: colors.subtext, fontSize: 12, paddingHorizontal: 20 }}>
             {activeTab === 'business' 
-                ? "Business licenses are billed annually. You will receive activation codes immediately after purchase to distribute to your team."
-                : "Payment charged to iTunes/Play Store account at confirmation of purchase."
+                ? t('paywall.businessDisclaimer', "Business licenses are billed annually. You will receive activation codes immediately after purchase to distribute to your team.")
+                : t('paywall.personalDisclaimer', "Payment charged to iTunes/Play Store account at confirmation of purchase.")
             }
         </Text>
 
