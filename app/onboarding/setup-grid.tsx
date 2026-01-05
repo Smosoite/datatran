@@ -98,7 +98,6 @@ export default function OnboardingSetupGrid() {
             st = newSt;
         }
 
-        // Now we definitely have a storage ID
         setStorageId(st.id);
 
       } catch (e: any) {
@@ -121,7 +120,7 @@ export default function OnboardingSetupGrid() {
       if (error) throw error;
 
       if (!data || data.length === 0) {
-        // AUTO-INITIALIZE: Create default 5x5 grid
+        // AUTO-INITIALIZE: Create default grid
         await initializeDefaultGrid(storageId);
       } else {
         const formattedLocations = data.map(loc => ({
@@ -138,10 +137,9 @@ export default function OnboardingSetupGrid() {
       showError(t('general.error'), err.message);
       setLoading(false);
     }
-  }, [storageId, profile?.workgroup_id]); // added profile dep
+  }, [storageId]);
 
   const initializeDefaultGrid = async (sId: string) => {
-    if (!profile?.workgroup_id) return;
     try {
       const newSlots = [];
       const rows = ['1', '2', '3', '4', '5'];
@@ -149,12 +147,12 @@ export default function OnboardingSetupGrid() {
       
       for (const r of rows) {
         for (const c of cols) {
+          // FIX: Removed 'workgroup_id' here
           newSlots.push({
             storage_id: sId,
             shelf: 'A',
             row: r,
-            column: c,
-            workgroup_id: profile.workgroup_id
+            column: c
           });
         }
       }
@@ -164,178 +162,4 @@ export default function OnboardingSetupGrid() {
       
       // Re-fetch immediately
       const { data } = await supabase.from('defined_locations').select('*').eq('storage_id', sId);
-      if (data) {
-        setLocations(data.map(l => ({ ...l, master_id: l.id, width_span: 1, height_span: 1, items: [] })));
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  // --- MERGE LOGIC ---
-  const handleMerge = async (sourceSlot: LocationSlot, direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT') => {
-    const shelfSlots = locations.filter(l => l.shelf === sourceSlot.shelf);
-    let neighbor: LocationSlot | undefined;
-    
-    const uniqueCols = [...new Set(shelfSlots.map(l => l.column))].sort(naturalSort);
-    const uniqueRows = [...new Set(shelfSlots.map(l => l.row))].sort(naturalSort);
-    const colIdx = uniqueCols.indexOf(sourceSlot.column);
-    const rowIdx = uniqueRows.indexOf(sourceSlot.row);
-
-    if (direction === 'RIGHT' && colIdx < uniqueCols.length - 1) neighbor = shelfSlots.find(l => l.row === sourceSlot.row && l.column === uniqueCols[colIdx + 1]);
-    if (direction === 'DOWN' && rowIdx < uniqueRows.length - 1) neighbor = shelfSlots.find(l => l.column === sourceSlot.column && l.row === uniqueRows[rowIdx + 1]);
-
-    if (!neighbor || neighbor.master_id === sourceSlot.master_id) return;
-
-    const winningId = sourceSlot.master_id;
-    const losingId = neighbor.master_id;
-
-    setLocations(prev => prev.map(l => {
-        if (l.master_id === losingId) return { ...l, master_id: winningId };
-        return l;
-    }));
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-  };
-
-  const handleContinue = async () => {
-    setLoading(true);
-    try {
-        const updates = locations.map(l => ({
-            id: l.id,
-            master_id: l.master_id
-        }));
-        
-        const { error } = await supabase.from('defined_locations').upsert(updates);
-        if (error) throw error;
-
-        router.push('/onboarding/add-first-item');
-    } catch (e: any) {
-        showError("Save Failed", e.message);
-        setLoading(false);
-    }
-  };
-
-  // --- VISUAL GRID CALCULATION ---
-  const visualGrid = useMemo(() => {
-    const shelvesDict: { [key: string]: LocationSlot[] } = {};
-    locations.forEach(loc => {
-      if (!shelvesDict[loc.shelf]) shelvesDict[loc.shelf] = [];
-      shelvesDict[loc.shelf].push(loc);
-    });
-
-    return Object.keys(shelvesDict).sort(naturalSort).map(shelfKey => {
-        const slots = shelvesDict[shelfKey];
-        const uniqueRows = [...new Set(slots.map(l => l.row))].sort(naturalSort);
-        const uniqueCols = [...new Set(slots.map(l => l.column))].sort(naturalSort);
-        
-        const mappedSlots = slots.map(slot => {
-            const rowIdx = uniqueRows.indexOf(slot.row);
-            const colIdx = uniqueCols.indexOf(slot.column);
-            return { 
-                ...slot, 
-                _top: (rowIdx * (BASE_HEIGHT + GAP_SIZE)), 
-                _left: (colIdx * (UNIT_WIDTH + GAP_SIZE)) 
-            };
-        });
-
-        return {
-            shelfLabel: shelfKey,
-            totalHeight: Math.max((uniqueRows.length * BASE_HEIGHT) + ((uniqueRows.length - 1) * GAP_SIZE), BASE_HEIGHT),
-            mappedSlots
-        };
-    });
-  }, [locations, BASE_HEIGHT, GAP_SIZE, UNIT_WIDTH]);
-
-  // --- RENDER HELPERS ---
-  const MergeHandle = ({ direction, onPress }: { direction: any, onPress: () => void }) => {
-    let style = {};
-    if (direction === 'RIGHT') style = { right: -10, top: '50%', marginTop: -10 };
-    if (direction === 'DOWN') style = { bottom: -10, left: '50%', marginLeft: -10 };
-    
-    return (
-        <TouchableOpacity style={[styles.mergeHandle, style]} onPress={onPress}>
-            <MaterialCommunityIcons name="link-variant-plus" size={16} color="white" />
-        </TouchableOpacity>
-    );
-  };
-
-  if (loading) return <View style={styles.center}><ActivityIndicator size="large" color={colors.primary} /></View>;
-
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      
-      <View style={styles.header}>
-        <Text style={[typography.h1, styles.title, { color: colors.text }]}>
-          {t('onboarding.setupGrid', 'Design Your Layout')}
-        </Text>
-        <Text style={[typography.body, styles.subtitle, { color: colors.subtext }]}>
-          Tap the icons to merge slots into larger bins.
-        </Text>
-      </View>
-
-      <ScrollView contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 24 }}>
-         {visualGrid.map((shelf) => (
-            <View key={shelf.shelfLabel} style={{ marginBottom: 20 }}>
-                <Text style={[typography.h3, { color: colors.text, marginBottom: 8 }]}>Shelf {shelf.shelfLabel}</Text>
-                <View style={{ height: shelf.totalHeight, position: 'relative' }}>
-                    {shelf.mappedSlots.map(slot => {
-                         const isLeader = slot.id === locations.find(l => l.master_id === slot.master_id)?.id;
-                         const isMergedRight = locations.find(l => l.shelf === slot.shelf && l.row === slot.row && l.column === (parseInt(slot.column)+1).toString())?.master_id === slot.master_id;
-                         const isMergedDown = locations.find(l => l.shelf === slot.shelf && l.column === slot.column && l.row === (parseInt(slot.row)+1).toString())?.master_id === slot.master_id;
-
-                         return (
-                            <View key={slot.id} style={{
-                                position: 'absolute', top: slot._top, left: slot._left,
-                                width: UNIT_WIDTH, height: BASE_HEIGHT, zIndex: isLeader ? 10 : 1
-                            }}>
-                                <View style={[styles.slot, { 
-                                    backgroundColor: colors.card, 
-                                    borderColor: colors.border,
-                                    borderRightWidth: isMergedRight ? 0 : 1,
-                                    borderBottomWidth: isMergedDown ? 0 : 1
-                                }]}>
-                                    {isLeader && (
-                                        <Text style={{color: colors.text, fontWeight:'bold'}}>{slot.row}-{slot.column}</Text>
-                                    )}
-                                </View>
-                                {isLeader && (
-                                    <>
-                                        <MergeHandle direction="RIGHT" onPress={() => handleMerge(slot, 'RIGHT')} />
-                                        <MergeHandle direction="DOWN" onPress={() => handleMerge(slot, 'DOWN')} />
-                                    </>
-                                )}
-                            </View>
-                         );
-                    })}
-                </View>
-            </View>
-         ))}
-      </ScrollView>
-
-      <View style={styles.footer}>
-        <TouchableOpacity style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleContinue}>
-            <Text style={[typography.button, { color: colors.primaryText }]}>Save Layout & Continue</Text>
-            <Feather name="arrow-right" size={20} color={colors.primaryText} style={{marginLeft: 8}} />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { paddingTop: 60, paddingHorizontal: 24, paddingBottom: 20 },
-  title: { textAlign: 'center', marginBottom: 8 },
-  subtitle: { textAlign: 'center', lineHeight: 22 },
-  slot: { flex: 1, justifyContent: 'center', alignItems: 'center', borderRadius: 4, borderWidth: 1 },
-  mergeHandle: { position: 'absolute', width: 20, height: 20, borderRadius: 10, backgroundColor: '#3b82f6', justifyContent: 'center', alignItems: 'center', zIndex: 99 },
-  footer: { position: 'absolute', bottom: 30, left: 24, right: 24 },
-  button: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 16, borderRadius: 12 }
-});
+      if (
