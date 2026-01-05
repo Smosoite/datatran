@@ -127,9 +127,9 @@ const MainNavigator = () => {
 
   // 👇 CRITICAL FIX: If we are not onboarded, DO NOT render ThemedStack (which contains HomeScreen)
   // We render null so the router can handle the redirect in the useEffect above without crashing UI
-  if (!session || (!profile?.workgroup_id) || (!hasCompletedOnboarding)) {
-      return null; 
-  }
+  //if (!session || (!profile?.workgroup_id) || (!hasCompletedOnboarding)) {
+ //  return null; 
+//  }
 
   // Only render the app if we passed all checks
   return <ThemedStack />;
