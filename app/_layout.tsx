@@ -1,7 +1,7 @@
 import '../i18n';
 import i18n from '../i18n';
-import { I18nextProvider } from 'react-i18next'; // Added this
-import React, { useEffect } from 'react';
+import { I18nextProvider } from 'react-i18next';
+import React, { useEffect, useState } from 'react';
 import { useRouter, useSegments, Stack } from 'expo-router';
 import { AuthProvider, useAuth } from '../providers/AuthProvider';
 import { View, ActivityIndicator } from 'react-native';
@@ -17,7 +17,6 @@ import { OnboardingProvider, useOnboarding } from '../providers/OnboardingProvid
 
 // --- 1. ThemedStack (Visual Layer) ---
 const ThemedStack = () => {
-  // FIX: Removed `const { t } = useTheme();` which caused a crash
   const { mode, colors } = useTheme();
 
   return (
@@ -31,7 +30,7 @@ const ThemedStack = () => {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        {/* All your other screens... */}
+        {/* --- Setup Screens --- */}
         <Stack.Screen name="warehouse/[id]" options={{ headerShown: true, title: 'Warehouse', presentation: 'push' }} />
         <Stack.Screen name="create-warehouse" options={{ headerShown: true, title: 'Create Warehouse', presentation: 'modal' }} />
         <Stack.Screen name="add-item" options={{ headerShown: true, title: 'Add Item', presentation: 'modal' }} />
@@ -49,6 +48,8 @@ const ThemedStack = () => {
         <Stack.Screen name="history" options={{ headerShown: true, presentation: 'push' }} /> 
         <Stack.Screen name="manage-members" options={{ headerShown: true, presentation: 'push' }} />
         <Stack.Screen name="paywall" options={{ headerShown: false, presentation: 'modal', gestureEnabled: false }} />
+        
+        {/* Onboarding is explicitly defined here */}
         <Stack.Screen name="onboarding" options={{ headerShown: false, presentation: 'modal', gestureEnabled: false }} />
       </Stack>
     </>
@@ -59,51 +60,60 @@ const ThemedStack = () => {
 const MainNavigator = () => {
   const { session, profile, loading: authLoading } = useAuth();
   const { hasCompletedOnboarding, isLoading: onboardingLoading } = useOnboarding();
+  const [isNavigationReady, setIsNavigationReady] = useState(false);
   
   const router = useRouter();
   const { colors } = useTheme();
   const segments = useSegments();
   
-  const isLoading = authLoading || onboardingLoading;
+  // Wait for both Auth and Onboarding to load
+  const isLoading = authLoading || onboardingLoading || !isNavigationReady;
+
+  // Initial mount check to ensure Segments are ready
+  useEffect(() => {
+    setIsNavigationReady(true);
+  }, []);
 
   useEffect(() => {
     if (isLoading) return;
 
-    // Helper variables to know where we are
     const currentRoute = segments[0] || '';
+    
     const inAuthFlow = ['login', 'sign-up'].includes(currentRoute); 
     const inSetupFlow = ['workgroup-gate', 'create-workgroup', 'join-workgroup'].includes(currentRoute);
     const inOnboardingFlow = currentRoute === 'onboarding';
 
-    // 1. Check Authentication FIRST
+    // A. Not Logged In? -> Go to Login
     if (!session) {
       if (!inAuthFlow) router.replace('/login');
       return; 
     }
 
-    // 2. Check Workgroup Setup
+    // B. No Workgroup? -> Go to Setup
     if (!profile?.workgroup_id) {
       if (!inSetupFlow) router.replace('/workgroup-gate');
       return;
     }
 
-    // 3. Check Onboarding (Only if Logged In + Has Workgroup)
+    // C. Not Onboarded? -> Go to Onboarding
+    // Note: If you want to skip this for existing users, see Step 3 below
     if (!hasCompletedOnboarding) {
       if (!inOnboardingFlow) router.replace('/onboarding/welcome');
       return;
     }
 
-    // 4. If we are logged in & onboarded, kick us out of auth/onboarding pages
+    // D. Everything Good? -> Go to App (Tabs)
+    // Only redirect if we are stuck in a setup flow
     if (inAuthFlow || inSetupFlow || inOnboardingFlow) {
       router.replace('/(tabs)');
     }
 
-  }, [session, profile, isLoading, hasCompletedOnboarding, segments]); // Removed 'router' from dependency to prevent loops
+  }, [session, profile, isLoading, hasCompletedOnboarding, segments]); 
 
-  // --- UI RENDERING LOGIC ---
-
-  // 1. Show Loading Spinner while checking state
-  if (isLoading) {
+  // --- RENDERING ---
+  
+  // 1. Loading State (Prevents Wall of Errors by NOT rendering the Stack yet)
+  if (isLoading || (!session && !['login', 'sign-up'].includes(segments[0] || ''))) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -111,29 +121,11 @@ const MainNavigator = () => {
     );
   }
 
-  // 2. GUARD CLAUSES (The Fix)
-  // If we are NOT logged in, but we aren't on the login screen yet...
-  // Don't render ThemedStack! Return null and wait for the useEffect to redirect us.
-  const currentRoute = segments[0] || '';
-  const inAuthFlow = ['login', 'sign-up'].includes(currentRoute); 
-  const inOnboardingFlow = currentRoute === 'onboarding';
-
-  if (!session && !inAuthFlow) {
-    return null; 
-  }
-
-  // 3. If we need Onboarding, but aren't there yet...
-  // Don't render ThemedStack! Wait for redirect.
-  if (session && !hasCompletedOnboarding && !inOnboardingFlow) {
-    return null;
-  }
-
-  // 4. Only render the app stack if we are safe
+  // 2. Safe to Render
   return <ThemedStack />;
 };
 
-// --- 3. AppContent (Toast Logic MOVED OUTSIDE) ---
-// FIX: This component is now defined outside RootLayout to prevent re-renders
+// --- 3. AppContent ---
 const AppContent = () => {
   const { colors } = useTheme();
   
