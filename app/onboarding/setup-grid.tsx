@@ -190,14 +190,14 @@ export default function OnboardingSetupGrid() {
         if (error) throw error;
 
         // 2. Navigate
-        router.push('/onboarding/demo-inventory');
+        router.push('/onboarding/add-first-item');
     } catch (e: any) {
         showError("Save Failed", e.message);
         setLoading(false);
     }
   };
 
-  // --- VISUAL GRID CALCULATION ---
+  // --- VISUAL GRIsD CALCULATION ---
   const visualGrid = useMemo(() => {
     const shelvesDict: { [key: string]: LocationSlot[] } = {};
     locations.forEach(loc => {
