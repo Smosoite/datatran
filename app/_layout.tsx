@@ -1,6 +1,6 @@
 import '../i18n'; 
 import { useTranslation } from 'react-i18next';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter, useSegments, Stack } from 'expo-router';
 import { AuthProvider, useAuth } from '../providers/AuthProvider';
 import { View, ActivityIndicator } from 'react-native';
@@ -10,17 +10,17 @@ import { StatusBar } from 'expo-status-bar';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 import { FontAwesome } from '@expo/vector-icons';
 import { ModalProvider } from '../providers/ModalProvider';
-import { typography } from '../styles/typography';
 import { CopilotProvider } from "react-native-copilot"
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
-// --- FIX: This component is now correctly using the restored ThemeProvider ---
+import AsyncStorage from '@react-native-async-storage/async-storage'; // Import AsyncStorage
+
+// --- ThemedStack (Visual Layer) ---
 const ThemedStack = () => {
   const { t } = useTranslation();
-  // Get `mode` for the status bar and `colors` for styling
   const { mode, colors } = useTheme();
+
   return (
     <>
-      {/* Use `mode` to determine the status bar style */}
       <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
       <Stack
         screenOptions={{
@@ -34,7 +34,6 @@ const ThemedStack = () => {
         <Stack.Screen name="create-warehouse" options={{ headerShown: true, title: t('warehouse.createHeader'), presentation: 'modal' }} />
         <Stack.Screen name="add-item" options={{ headerShown: true, title: t('item.addHeader'), presentation: 'modal' }} />
         <Stack.Screen name="create-storage" options={{ headerShown: true, title: '', presentation: 'modal' }} />
-        {/* Reminder: The title for this screen should be set dynamically inside `app/storage/[id].tsx` */}
         <Stack.Screen name="storage/[id]" options={{ headerShown: true, presentation: 'push' }} />
         <Stack.Screen name="create-location" options={{ headerShown: true, title: '', presentation: 'modal' }} />
         <Stack.Screen name="select-location-modal" options={{ headerShown: true, title: t('location.selectLocal'), presentation: 'modal' }} />
@@ -47,14 +46,18 @@ const ThemedStack = () => {
         <Stack.Screen name="stock-grid" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="history" options={{ headerShown: true, presentation: 'push' }} /> 
         <Stack.Screen name="manage-members" options={{ headerShown: true, presentation: 'push' }} />
+        
+        {/* Paywall: Accessible after onboarding */}
         <Stack.Screen 
-  name="paywall" 
-  options={{ 
-    headerShown: false, 
-    presentation: 'modal',
-    gestureEnabled: false // Prevent swiping away if mandatory
-  }} 
-/>
+          name="paywall" 
+          options={{ 
+            headerShown: false, 
+            presentation: 'modal',
+            gestureEnabled: false 
+          }} 
+        />
+        
+        {/* Onboarding Flow */}
         <Stack.Screen 
           name="onboarding" 
           options={{ 
@@ -67,110 +70,127 @@ const ThemedStack = () => {
     </>
   );
 };
-// This component's logic is already correct and robust.
+
+// --- MainNavigator (Logic Layer) ---
 const MainNavigator = () => {
-  const { session, profile, loading } = useAuth();
+  const { session, profile, loading: authLoading } = useAuth();
   const router = useRouter();
-    const { colors } = useTheme();
+  const { colors } = useTheme();
   const segments = useSegments();
+  
+  // State to track if we've checked AsyncStorage for onboarding status
+  const [isOnboardingChecked, setIsOnboardingChecked] = useState(false);
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+
+  // Check Onboarding Status on Mount
   useEffect(() => {
-    if (loading) return;
+    const checkOnboarding = async () => {
+      try {
+        const value = await AsyncStorage.getItem('ONBOARDING_COMPLETED');
+        setHasCompletedOnboarding(value === 'true');
+      } catch (e) {
+        console.error("Failed to check onboarding status", e);
+      } finally {
+        setIsOnboardingChecked(true);
+      }
+    };
+    checkOnboarding();
+  }, []);
+
+  useEffect(() => {
+    // Wait for both Auth and Onboarding checks to complete
+    if (authLoading || !isOnboardingChecked) return;
+
     const currentRoute = segments[0] || null;
-    const inAuthFlow = ['login', 'sign-up', 'paywall'].includes(currentRoute);
+    
+    // Define Flow Groups
+    // NOTE: removed 'paywall' from inAuthFlow so logged-in users aren't kicked out of it
+    const inAuthFlow = ['login', 'sign-up'].includes(currentRoute); 
     const inSetupFlow = ['workgroup-gate', 'create-workgroup', 'join-workgroup'].includes(currentRoute);
+    const inOnboardingFlow = currentRoute === 'onboarding';
+
+    // 1. Check Authentication
     if (!session) {
-      if (!inAuthFlow) router.replace('/login');
+      // Allow paywall for non-logged users if needed, otherwise keep strict
+      if (!inAuthFlow && currentRoute !== 'paywall') router.replace('/login');
       return;
     }
+
+    // 2. Check Workgroup Setup
     if (!profile?.workgroup_id) {
       if (!inSetupFlow) router.replace('/workgroup-gate');
       return;
     }
-    if (inAuthFlow || inSetupFlow) {
+
+    // 3. Check Onboarding (Only if logged in & has workgroup)
+    if (!hasCompletedOnboarding) {
+      if (!inOnboardingFlow) router.replace('/onboarding/welcome');
+      return;
+    }
+
+    // 4. Default Redirects for Logged In Users
+    // If user tries to go back to login, setup, or onboarding after finishing -> Send to Tabs
+    if (inAuthFlow || inSetupFlow || inOnboardingFlow) {
       router.replace('/(tabs)');
     }
 
-  }, [session, profile, loading, segments, router]);
+  }, [session, profile, authLoading, isOnboardingChecked, hasCompletedOnboarding, segments, router]);
 
-  if (loading) {
-    // 2. Apply the primary theme color to the spinner
+  // Show spinner while checking Auth OR Onboarding status
+  if (authLoading || !isOnboardingChecked) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
+
   return <ThemedStack />;
 };
+
+// --- Root Layout ---
 export default function RootLayout() {
   useFrameworkReady();
-  // We need access to the theme to style our toasts, so we'll create a small helper component
+
+  // Helper for Toasts
   const AppWithToasts = () => {
     const { colors } = useTheme();
-
-const toastConfig = {
-      // Success Toast
-      success: (props) => (
+    
+    // ... (Keep your existing Toast Configuration exactly as is) ...
+    const toastConfig = {
+      success: (props: any) => (
         <BaseToast
           {...props}
-          // --- FIX: Add alignItems: 'center' to center content vertically ---
-          style={{ 
-            height: 80, 
-            borderLeftColor: colors.success, 
-            backgroundColor: colors.card, 
-            borderLeftWidth: 7,
-            alignItems: 'center', // This is the key change for vertical alignment
-          }}
+          style={{ height: 80, borderLeftColor: colors.success, backgroundColor: colors.card, borderLeftWidth: 7, alignItems: 'center' }}
           text2NumberOfLines={2}
           contentContainerStyle={{ paddingHorizontal: 15 }}
           text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
           text2Style={{ fontSize: 14, color: colors.subtext }}
-          renderLeadingIcon={() => (
-            <FontAwesome 
-              name="check-circle" 
-              size={24} 
-              color={colors.success} 
-              style={{ marginLeft: 15 }} 
-            />
-          )}
+          renderLeadingIcon={() => <FontAwesome name="check-circle" size={24} color={colors.success} style={{ marginLeft: 15 }} />}
         />
       ),
-      // Error Toast
-      error: (props) => (
+      error: (props: any) => (
         <ErrorToast
           {...props}
-          // --- FIX: Add alignItems: 'center' to center content vertically ---
-          style={{ 
-            height: 80, 
-            borderLeftColor: colors.danger, 
-            backgroundColor: colors.card, 
-            borderLeftWidth: 7,
-            alignItems: 'center', // This is the key change for vertical alignment
-          }}
+          style={{ height: 80, borderLeftColor: colors.danger, backgroundColor: colors.card, borderLeftWidth: 7, alignItems: 'center' }}
           text2NumberOfLines={2}
           contentContainerStyle={{ paddingHorizontal: 15 }}
           text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
           text2Style={{ fontSize: 14, color: colors.subtext }}
-          renderLeadingIcon={() => (
-            <FontAwesome 
-              name="warning" 
-              size={24} 
-              color={colors.danger} 
-              style={{ marginLeft: 15 }} 
-            />
-          )}
+          renderLeadingIcon={() => <FontAwesome name="warning" size={24} color={colors.danger} style={{ marginLeft: 15 }} />}
         />
       ),
-       info: (props) => (
-         <BaseToast
-           {...props}
-           style={{ borderLeftColor: colors.info, backgroundColor: colors.card, borderLeftWidth: 7, alignItems: 'center' }}
-           text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
-           text2Style={{ fontSize: 14, color: colors.subtext }}
-           renderLeadingIcon={() => <FontAwesome name="info-circle" size={24} color={colors.info} style={{ marginLeft: 15 }} />}
-         />
-       ),
+      info: (props: any) => (
+        <BaseToast
+          {...props}
+          style={{ borderLeftColor: colors.info, backgroundColor: colors.card, borderLeftWidth: 7, alignItems: 'center' }}
+          text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
+          text2Style={{ fontSize: 14, color: colors.subtext }}
+          renderLeadingIcon={() => <FontAwesome name="info-circle" size={24} color={colors.info} style={{ marginLeft: 15 }} />}
+        />
+      ),
     };
+
     return (
       <>
         <MainNavigator />
@@ -178,15 +198,15 @@ const toastConfig = {
       </>
     );
   };
+
   return (
     <ThemeProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <AuthProvider>
           <CopilotProvider stopOnOutsideClick androidStatusBarVisible>
-          {/* 2. Move ModalProvider to wrap the component that renders your screens */}
-          <ModalProvider>
-            <AppWithToasts />
-          </ModalProvider>
+            <ModalProvider>
+              <AppWithToasts />
+            </ModalProvider>
           </CopilotProvider>
         </AuthProvider>
       </GestureHandlerRootView>
