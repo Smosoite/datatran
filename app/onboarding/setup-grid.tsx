@@ -190,7 +190,7 @@ export default function OnboardingSetupGrid() {
         if (error) throw error;
 
         // 2. Navigate
-        router.push('/onboarding/add-first-item');
+        router.push('/onboarding/demo-inventory');
     } catch (e: any) {
         showError("Save Failed", e.message);
         setLoading(false);
