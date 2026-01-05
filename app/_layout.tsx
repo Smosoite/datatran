@@ -2,11 +2,11 @@ import '../i18n';
 import i18n from '../i18n';
 import { I18nextProvider } from 'react-i18next';
 import React, { useEffect } from 'react';
-import { useRouter, useSegments, Stack, useRootNavigationState } from 'expo-router';
+import { useRouter, useSegments, Stack } from 'expo-router';
 import { AuthProvider, useAuth } from '../providers/AuthProvider';
 import { View, ActivityIndicator } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { ThemeProvider, useTheme } from '../providers/ThemeProvider';
+import { ThemeProvider, useTheme } from '../providers/ThemeProvider'; 
 import { StatusBar } from 'expo-status-bar';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 import { FontAwesome } from '@expo/vector-icons';
@@ -29,10 +29,9 @@ const ThemedStack = () => {
           contentStyle: { backgroundColor: colors.background },
         }}
       >
-        {/* Main Tabs */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-
-        {/* Auth Screens - Ensure these exist in your file structure! */}
+        
+        {/* Auth Screens */}
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="sign-up" options={{ headerShown: false }} />
         <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
@@ -42,7 +41,7 @@ const ThemedStack = () => {
         <Stack.Screen name="create-workgroup" options={{ headerShown: true, title: 'Create Workgroup' }} />
         <Stack.Screen name="join-workgroup" options={{ headerShown: true, title: 'Join Workgroup' }} />
 
-        {/* Warehouse & Items */}
+        {/* App Screens */}
         <Stack.Screen name="warehouse/[id]" options={{ headerShown: true, title: 'Warehouse', presentation: 'push' }} />
         <Stack.Screen name="create-warehouse" options={{ headerShown: true, title: 'Create Warehouse', presentation: 'modal' }} />
         <Stack.Screen name="add-item" options={{ headerShown: true, title: 'Add Item', presentation: 'modal' }} />
@@ -54,8 +53,6 @@ const ThemedStack = () => {
         <Stack.Screen name="edit-item/[id]" options={{ headerShown: true, title: 'Edit Item', presentation: 'modal' }} />
         <Stack.Screen name="scan" options={{ headerShown: true, title: 'Scan', presentation: 'modal' }} />
         <Stack.Screen name="restock" options={{ headerShown: true, title: 'Restock', presentation: 'modal' }} />
-        
-        {/* Settings & Misc */}
         <Stack.Screen name="profile" options={{ headerShown: true, title: 'Profile', presentation: 'modal' }} />
         <Stack.Screen name="edit-location/[id]" options={{ headerShown: true, title: 'Edit Location', presentation: 'modal' }} />
         <Stack.Screen name="stock-grid" options={{ headerShown: false, presentation: 'modal' }} />
@@ -63,7 +60,7 @@ const ThemedStack = () => {
         <Stack.Screen name="manage-members" options={{ headerShown: true, presentation: 'push' }} />
         <Stack.Screen name="paywall" options={{ headerShown: false, presentation: 'modal', gestureEnabled: false }} />
         
-        {/* Onboarding - Ensure structure matches app/onboarding/welcome.tsx etc */}
+        {/* Onboarding */}
         <Stack.Screen name="onboarding" options={{ headerShown: false, presentation: 'modal', gestureEnabled: false }} />
       </Stack>
     </>
@@ -83,12 +80,11 @@ const MainNavigator = () => {
   const isDataLoading = authLoading || onboardingLoading;
 
   useEffect(() => {
-    // 1. If data is still loading, wait.
     if (isDataLoading) return;
 
-    // 2. Determine current location
     const currentRoute = segments[0] || '';
     
+    // Define Route Groups
     const inAuthGroup = ['login', 'sign-up', 'forgot-password'].includes(currentRoute);
     const inSetupGroup = ['workgroup-gate', 'create-workgroup', 'join-workgroup'].includes(currentRoute);
     const inOnboardingGroup = currentRoute === 'onboarding';
@@ -97,23 +93,30 @@ const MainNavigator = () => {
 
     // A. Not Logged In? -> Go to Login
     if (!session) {
-      if (!inAuthGroup) router.replace('/login');
+      if (!inAuthGroup) {
+        router.replace('/login');
+      }
       return; 
     }
 
     // B. No Workgroup? -> Go to Setup
     if (!profile?.workgroup_id) {
-      if (!inSetupGroup) router.replace('/workgroup-gate');
+      if (!inSetupGroup) {
+        router.replace('/workgroup-gate');
+      }
       return;
     }
 
     // C. Not Onboarded? -> Go to Onboarding
     if (!hasCompletedOnboarding) {
-      if (!inOnboardingGroup) router.replace('/onboarding/welcome');
+      if (!inOnboardingGroup) {
+        router.replace('/onboarding/welcome');
+      }
       return;
     }
 
     // D. Everything Good? -> Go to Tabs
+    // Only redirect if stuck in a setup flow
     if (inAuthGroup || inSetupGroup || inOnboardingGroup) {
       router.replace('/(tabs)');
     }
@@ -121,18 +124,13 @@ const MainNavigator = () => {
   }, [session, profile?.workgroup_id, hasCompletedOnboarding, segments, isDataLoading]); 
 
   // --- RENDERING ---
-
-  // STRATEGY: 
-  // 1. We ALWAYS render ThemedStack (in the background). 
-  //    This ensures the Router is mounted and ready to receive commands.
-  // 2. If we are loading, we render a "Cover View" on top of it.
+  // We overlay a loading spinner, but we keep ThemedStack rendered underneath.
+  // This prevents the "Navigation Not Ready" and "Flood" errors.
   
   return (
     <View style={{ flex: 1 }}>
-      {/* The Stack is always here, ensuring 'router' works */}
       <ThemedStack />
-
-      {/* The Loading Overlay */}
+      
       {isDataLoading && (
         <View 
           style={{ 
@@ -141,7 +139,7 @@ const MainNavigator = () => {
             justifyContent: 'center', 
             alignItems: 'center', 
             backgroundColor: colors.background,
-            zIndex: 999 // Ensure it sits on top
+            zIndex: 999 
           }}
         >
           <ActivityIndicator size="large" color={colors.primary} />
@@ -149,6 +147,8 @@ const MainNavigator = () => {
       )}
     </View>
   );
+};
+
 // --- 3. AppContent ---
 const AppContent = () => {
   const { colors } = useTheme();
