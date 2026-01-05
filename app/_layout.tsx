@@ -1,6 +1,6 @@
-import '../i18n'; // Keep this side-effect import
-import i18n from '../i18n'; // Import the instance for the Provider
-import { I18nextProvider } from 'react-i18next'; // 👇 IMPORT THIS
+import '../i18n';
+import i18n from '../i18n';
+import { I18nextProvider } from 'react-i18next';
 import React, { useEffect } from 'react';
 import { useRouter, useSegments, Stack } from 'expo-router';
 import { AuthProvider, useAuth } from '../providers/AuthProvider';
@@ -11,13 +11,13 @@ import { StatusBar } from 'expo-status-bar';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 import { FontAwesome } from '@expo/vector-icons';
 import { ModalProvider } from '../providers/ModalProvider';
-import { CopilotProvider } from "react-native-copilot"
+import { CopilotProvider } from "react-native-copilot";
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { OnboardingProvider, useOnboarding } from '../providers/OnboardingProvider';
 
 // --- ThemedStack (Visual Layer) ---
 const ThemedStack = () => {
-  const { t } = useTheme(); // Just using useTheme here to ensure context exists
+  // FIX: Removed `const { t } = useTheme();` - Theme does not contain 't'.
   const { mode, colors } = useTheme();
 
   return (
@@ -125,68 +125,61 @@ const MainNavigator = () => {
     );
   }
 
-  // 👇 CRITICAL FIX: If we are not onboarded, DO NOT render ThemedStack (which contains HomeScreen)
-  // We render null so the router can handle the redirect in the useEffect above without crashing UI
-  //if (!session || (!profile?.workgroup_id) || (!hasCompletedOnboarding)) {
- //  return null; 
-//  }
-
-  // Only render the app if we passed all checks
   return <ThemedStack />;
+};
+
+// --- App Content (Toast Logic Moved Here) ---
+// FIX: Defined OUTSIDE RootLayout to prevent unmounting/remounting on every render
+const AppContent = () => {
+  const { colors } = useTheme();
+  
+  const toastConfig = {
+    success: (props: any) => (
+      <BaseToast
+        {...props}
+        style={{ height: 80, borderLeftColor: colors.success, backgroundColor: colors.card, borderLeftWidth: 7, alignItems: 'center' }}
+        text2NumberOfLines={2}
+        contentContainerStyle={{ paddingHorizontal: 15 }}
+        text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
+        text2Style={{ fontSize: 14, color: colors.subtext }}
+        renderLeadingIcon={() => <FontAwesome name="check-circle" size={24} color={colors.success} style={{ marginLeft: 15 }} />}
+      />
+    ),
+    error: (props: any) => (
+      <ErrorToast
+        {...props}
+        style={{ height: 80, borderLeftColor: colors.danger, backgroundColor: colors.card, borderLeftWidth: 7, alignItems: 'center' }}
+        text2NumberOfLines={2}
+        contentContainerStyle={{ paddingHorizontal: 15 }}
+        text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
+        text2Style={{ fontSize: 14, color: colors.subtext }}
+        renderLeadingIcon={() => <FontAwesome name="warning" size={24} color={colors.danger} style={{ marginLeft: 15 }} />}
+      />
+    ),
+    info: (props: any) => (
+      <BaseToast
+        {...props}
+        style={{ borderLeftColor: colors.info, backgroundColor: colors.card, borderLeftWidth: 7, alignItems: 'center' }}
+        text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
+        text2Style={{ fontSize: 14, color: colors.subtext }}
+        renderLeadingIcon={() => <FontAwesome name="info-circle" size={24} color={colors.info} style={{ marginLeft: 15 }} />}
+      />
+    ),
+  };
+
+  return (
+    <>
+      <MainNavigator />
+      <Toast config={toastConfig} />
+    </>
+  );
 };
 
 // --- Root Layout ---
 export default function RootLayout() {
   useFrameworkReady();
 
-  // Helper for Toasts
-  const AppWithToasts = () => {
-    const { colors } = useTheme();
-    
-    const toastConfig = {
-      success: (props: any) => (
-        <BaseToast
-          {...props}
-          style={{ height: 80, borderLeftColor: colors.success, backgroundColor: colors.card, borderLeftWidth: 7, alignItems: 'center' }}
-          text2NumberOfLines={2}
-          contentContainerStyle={{ paddingHorizontal: 15 }}
-          text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
-          text2Style={{ fontSize: 14, color: colors.subtext }}
-          renderLeadingIcon={() => <FontAwesome name="check-circle" size={24} color={colors.success} style={{ marginLeft: 15 }} />}
-        />
-      ),
-      error: (props: any) => (
-        <ErrorToast
-          {...props}
-          style={{ height: 80, borderLeftColor: colors.danger, backgroundColor: colors.card, borderLeftWidth: 7, alignItems: 'center' }}
-          text2NumberOfLines={2}
-          contentContainerStyle={{ paddingHorizontal: 15 }}
-          text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
-          text2Style={{ fontSize: 14, color: colors.subtext }}
-          renderLeadingIcon={() => <FontAwesome name="warning" size={24} color={colors.danger} style={{ marginLeft: 15 }} />}
-        />
-      ),
-      info: (props: any) => (
-        <BaseToast
-          {...props}
-          style={{ borderLeftColor: colors.info, backgroundColor: colors.card, borderLeftWidth: 7, alignItems: 'center' }}
-          text1Style={{ fontSize: 16, fontWeight: '600', color: colors.text }}
-          text2Style={{ fontSize: 14, color: colors.subtext }}
-          renderLeadingIcon={() => <FontAwesome name="info-circle" size={24} color={colors.info} style={{ marginLeft: 15 }} />}
-        />
-      ),
-    };
-
-    return (
-      <>
-        <MainNavigator />
-        <Toast config={toastConfig} />
-      </>
-    );
-  };
-
   return (
-    // 👇 CRITICAL FIX: Explicitly wrap in I18nextProvider
     <I18nextProvider i18n={i18n}>
       <ThemeProvider>
         <GestureHandlerRootView style={{ flex: 1 }}>
@@ -194,7 +187,8 @@ export default function RootLayout() {
             <OnboardingProvider>
               <CopilotProvider stopOnOutsideClick androidStatusBarVisible>
                 <ModalProvider>
-                  <AppWithToasts />
+                  {/* FIX: Render the separate component here */}
+                  <AppContent />
                 </ModalProvider>
               </CopilotProvider>
             </OnboardingProvider>
