@@ -1,6 +1,6 @@
 import '../i18n';
 import i18n from '../i18n';
-import { I18nextProvider } from 'react-i18next';
+import { I18nextProvider } from 'react-i18next'; // Added this
 import React, { useEffect } from 'react';
 import { useRouter, useSegments, Stack } from 'expo-router';
 import { AuthProvider, useAuth } from '../providers/AuthProvider';
@@ -15,9 +15,9 @@ import { CopilotProvider } from "react-native-copilot";
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { OnboardingProvider, useOnboarding } from '../providers/OnboardingProvider';
 
-// --- ThemedStack (Visual Layer) ---
+// --- 1. ThemedStack (Visual Layer) ---
 const ThemedStack = () => {
-  // FIX: Removed `const { t } = useTheme();` - Theme does not contain 't'.
+  // FIX: Removed `const { t } = useTheme();` which caused a crash
   const { mode, colors } = useTheme();
 
   return (
@@ -31,6 +31,7 @@ const ThemedStack = () => {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        {/* All your other screens... */}
         <Stack.Screen name="warehouse/[id]" options={{ headerShown: true, title: 'Warehouse', presentation: 'push' }} />
         <Stack.Screen name="create-warehouse" options={{ headerShown: true, title: 'Create Warehouse', presentation: 'modal' }} />
         <Stack.Screen name="add-item" options={{ headerShown: true, title: 'Add Item', presentation: 'modal' }} />
@@ -47,30 +48,14 @@ const ThemedStack = () => {
         <Stack.Screen name="stock-grid" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="history" options={{ headerShown: true, presentation: 'push' }} /> 
         <Stack.Screen name="manage-members" options={{ headerShown: true, presentation: 'push' }} />
-        
-        <Stack.Screen 
-          name="paywall" 
-          options={{ 
-            headerShown: false, 
-            presentation: 'modal',
-            gestureEnabled: false 
-          }} 
-        />
-        
-        <Stack.Screen 
-          name="onboarding" 
-          options={{ 
-            headerShown: false, 
-            presentation: 'modal',
-            gestureEnabled: false 
-          }} 
-        />
+        <Stack.Screen name="paywall" options={{ headerShown: false, presentation: 'modal', gestureEnabled: false }} />
+        <Stack.Screen name="onboarding" options={{ headerShown: false, presentation: 'modal', gestureEnabled: false }} />
       </Stack>
     </>
   );
 };
 
-// --- MainNavigator (Logic Layer) ---
+// --- 2. MainNavigator (Logic Layer) ---
 const MainNavigator = () => {
   const { session, profile, loading: authLoading } = useAuth();
   const { hasCompletedOnboarding, isLoading: onboardingLoading } = useOnboarding();
@@ -85,38 +70,32 @@ const MainNavigator = () => {
     if (isLoading) return;
 
     const currentRoute = segments[0] || null;
-    
-    // Define Flow Groups
     const inAuthFlow = ['login', 'sign-up'].includes(currentRoute); 
     const inSetupFlow = ['workgroup-gate', 'create-workgroup', 'join-workgroup'].includes(currentRoute);
     const inOnboardingFlow = currentRoute === 'onboarding';
 
-    // 1. Check Authentication FIRST
+    // 1. Auth Check
     if (!session) {
       if (!inAuthFlow) router.replace('/login');
       return; 
     }
-
-    // 2. Check Workgroup Setup
+    // 2. Workgroup Check
     if (!profile?.workgroup_id) {
       if (!inSetupFlow) router.replace('/workgroup-gate');
       return;
     }
-
-    // 3. Check Onboarding (Only if Logged In + Has Workgroup)
+    // 3. Onboarding Check
     if (!hasCompletedOnboarding) {
       if (!inOnboardingFlow) router.replace('/onboarding/welcome');
       return;
     }
-
-    // 4. Default Redirects
+    // 4. Redirect to Home
     if (inAuthFlow || inSetupFlow || inOnboardingFlow) {
       router.replace('/(tabs)');
     }
 
   }, [session, profile, isLoading, hasCompletedOnboarding, segments, router]);
 
-  // Loading State
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
@@ -128,8 +107,8 @@ const MainNavigator = () => {
   return <ThemedStack />;
 };
 
-// --- App Content (Toast Logic Moved Here) ---
-// FIX: Defined OUTSIDE RootLayout to prevent unmounting/remounting on every render
+// --- 3. AppContent (Toast Logic MOVED OUTSIDE) ---
+// FIX: This component is now defined outside RootLayout to prevent re-renders
 const AppContent = () => {
   const { colors } = useTheme();
   
@@ -175,7 +154,7 @@ const AppContent = () => {
   );
 };
 
-// --- Root Layout ---
+// --- 4. Root Layout ---
 export default function RootLayout() {
   useFrameworkReady();
 
@@ -187,7 +166,6 @@ export default function RootLayout() {
             <OnboardingProvider>
               <CopilotProvider stopOnOutsideClick androidStatusBarVisible>
                 <ModalProvider>
-                  {/* FIX: Render the separate component here */}
                   <AppContent />
                 </ModalProvider>
               </CopilotProvider>
