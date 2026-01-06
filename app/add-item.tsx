@@ -1,380 +1,250 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  TextInput, 
+  Pressable, 
+  ActivityIndicator, 
+  KeyboardAvoidingView, 
+  Platform,
+  Keyboard,
+  TouchableWithoutFeedback,
+  Dimensions
+} from 'react-native';
+import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, ActivityIndicator } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { FontAwesome } from '@expo/vector-icons';
+import { CameraView, useCameraPermissions } from 'expo-camera'; 
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../providers/AuthProvider';
 import { useTheme } from '../providers/ThemeProvider';
-import { DropdownPicker } from '../components/dropdownPicker';
-import { showError, showSuccess } from '../lib/toast';
+import { useAuth } from '../providers/AuthProvider'; // <--- ADDED THIS
+import { showError } from '../lib/toast';
 import { typography } from '../styles/typography';
 
-// --- COPILOT IMPORTS ---
-import { CopilotStep, walkthroughable, useCopilot } from "react-native-copilot";
-import AsyncStorage from '@react-native-async-storage/async-storage';
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 
-const WalkableTextInput = walkthroughable(TextInput);
-const WalkableView = walkthroughable(View);
-const WalkablePressable = walkthroughable(Pressable);
-
-type DefinedLocation = { 
-  id: string; 
-  shelf: string; 
-  row: string | null; 
-  column: string | null;
-  items: { name: string }[] | null;
-};
-
-export default function AddItemScreen() {
+export default function ScanScreen() {
   const { t } = useTranslation();
+  const { colors } = useTheme(); 
+  const { profile } = useAuth(); // <--- GET PROFILE
   const router = useRouter();
-  const { profile } = useAuth();
-  const { start: startTour } = useCopilot();
-   
-  const { barcode: initialBarcode } = useLocalSearchParams<{ barcode?: string }>();
-  const { colors } = useTheme();
-
-  // Form state
-  const [name, setName] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [restockThreshold, setRestockThreshold] = useState('');
-  const [itemBarcode, setItemBarcode] = useState(initialBarcode || null);
+  
+  const [permission, requestPermission] = useCameraPermissions();
+  const [scanned, setScanned] = useState(false);
+  const [barcode, setBarcode] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Layout State for Tour
-  const [isLayoutReady, setIsLayoutReady] = useState(false);
-
-  // State for location selections
-  const [warehouses, setWarehouses] = useState<{ label: string; value: string }[]>([]);
-  const [storages, setStorages] = useState<{ label: string; value: string }[]>([]);
-  const [allLocations, setAllLocations] = useState<DefinedLocation[]>([]);
-   
-  const [selectedWarehouse, setSelectedWarehouse] = useState<string | null>(null);
-  const [selectedStorage, setSelectedStorage] = useState<string | null>(null);
-  const [selectedShelf, setSelectedShelf] = useState<string | null>(null);
-  const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>([]);
-
-  const { warehouseId, storageId } = useLocalSearchParams<{ warehouseId?: string; storageId?: string }>();
-
-  // --- TOUR LOGIC ---
   useEffect(() => {
-    if (loading || !isLayoutReady || warehouses.length === 0) return;
-    
-    const checkFirstTime = async () => {
-        try {
-            const hasSeen = await AsyncStorage.getItem('HAS_SEEN_ADD_ITEM_TOUR');
-            if (!hasSeen) {
-                setTimeout(() => {
-                  startTour();
-                }, 1000);
-                await AsyncStorage.setItem('HAS_SEEN_ADD_ITEM_TOUR', 'true');
-            }
-        } catch (e) { 
-          console.warn('Tour check error:', e); 
-        }
-    };
-    checkFirstTime();
-  }, [loading, isLayoutReady, warehouses]);
+    if (!permission) {
+        requestPermission();
+    }
+  }, [permission]);
 
-  // Fetch Data: Warehouses
-  useEffect(() => {
-    const fetchWarehouses = async () => {
-      const { data } = await supabase.from('warehouses').select('id, name');
-      if (data) {
-        setWarehouses(data.map(w => ({ label: w.name, value: w.id })));
-        if (warehouseId) setSelectedWarehouse(warehouseId);
-      }
-    };
-    fetchWarehouses();
-  }, [warehouseId]);
+  // --- ACTIONS ---
 
-  // Fetch Data: Storages
-  useEffect(() => {
-    if (!selectedWarehouse) {
-      setStorages([]);
-      setAllLocations([]);
+  const handleScanOrSubmit = async (code: string) => {
+    if (scanned || loading) return; 
+    if (!code.trim()) {
+      showError(t('general.error'), t('scan.enterNum')); 
       return;
     }
-    const fetchStorages = async () => {
-      const { data } = await supabase.from('storages').select('id, name').eq('warehouse_id', selectedWarehouse);
-      if (data) {
-        setStorages(data.map(s => ({ label: s.name, value: s.id })));
-        if (storageId) setSelectedStorage(storageId);
-      }
-    };
-    fetchStorages();
-  }, [selectedWarehouse, storageId]);
 
-  // Fetch Data: Locations
-  useEffect(() => {
-    const fetchLocations = async () => {
-      if (!selectedStorage) {
-        setAllLocations([]);
-        return;
-      };
-      const { data, error } = await supabase
-        .from('defined_locations')
-        .select('id, shelf, row, column, items ( name )')
-        .eq('storage_id', selectedStorage);
-       
-      if (error) {
-          showError(t('general.error'), t('general.locationError'));
-      } else {
-        setAllLocations(data || []);
-      }
-    };
-    fetchLocations();
-  }, [selectedStorage, t]);
-   
-  // Computed Data
-  const shelfOptions = useMemo(() => {
-      const shelves = [...new Set(allLocations.map(l => l.shelf))].sort((a,b) => a.localeCompare(b, undefined, { numeric: true }));
-      return shelves.map(s => ({ label: s, value: s }));
-  }, [allLocations]);
-
-  const shelfLocations = useMemo(() => {
-      if (!selectedShelf) return [];
-      return allLocations
-        .filter(l => l.shelf === selectedShelf)
-        .sort((a, b) => {
-            const rowDiff = (a.row || '').localeCompare(b.row || '', undefined, { numeric: true });
-            if (rowDiff !== 0) return rowDiff;
-            return (a.column || '').localeCompare(b.column || '', undefined, { numeric: true });
-        });
-  }, [allLocations, selectedShelf]);
-
-  const toggleLocationSelection = (id: string) => {
-      setSelectedLocationIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  };
-
-  // --- MAIN ACTION ---
-  const handleAddItem = async () => {
-    // 1. Validation: Form Fields
-    if (!name.trim() || !quantity || !restockThreshold || !selectedWarehouse || !selectedStorage) {
-      showError(t('general.error'), t('general.fillFields'));
-      return;
-    }
-    
-    // 2. Validation: Location
-    if (selectedLocationIds.length === 0) {
-        showError(t('general.error'), "Please select at least one location slot.");
+    // Safety check for profile
+    if (!profile?.workgroup_id) {
+        showError(t('general.error'), "No active workgroup found.");
         return;
     }
 
-    // 3. Validation: Auth Profile (Prevents the crash if profile is loading/null)
-    if (!profile || !profile.workgroup_id) {
-        showError(t('general.error'), "User profile not loaded. Please try again.");
-        return;
-    }
-
+    setScanned(true); 
     setLoading(true);
-    
+    setBarcode(code); 
+    Keyboard.dismiss(); 
+
     try {
-      // 4. Prepare Promises
-      const promises = selectedLocationIds.map(locId => {
-          return supabase.rpc('add_new_item', {
-            p_name: name.trim(),
-            p_quantity: parseInt(quantity, 10) || 0, // Fallback to 0 if NaN
-            p_restock_threshold: parseInt(restockThreshold, 10) || 0,
-            p_warehouse_id: selectedWarehouse,
-            p_storage_id: selectedStorage,
-            p_location_id: locId,
-            p_workgroup_id: profile.workgroup_id,
-            // Ensure Barcode is NULL if empty string
-            p_barcode: itemBarcode && itemBarcode.trim() !== '' ? itemBarcode.trim() : null,
-          });
-      });
+      // 2. Database Lookup SCOPED to Workgroup
+      const { data: item, error } = await supabase
+        .from('items')
+        .select('id')
+        .eq('barcode', code.trim())
+        .eq('workgroup_id', profile.workgroup_id) // <--- CRITICAL FIX
+        .single(); // It is now safe to use .single() because duplicates are impossible within one group
 
-      const results = await Promise.all(promises);
-
-      // 5. Check Results
-      const failures = results.filter(r => r.error);
-      const successes = results.filter(r => !r.error);
-
-      // Log for debugging
-      if (failures.length > 0) {
-          console.log("Add Item Failures:", failures.map(f => f.error));
+      // Handle actual DB errors (ignoring 'Item not found' code PGRST116)
+      if (error && error.code !== 'PGRST116') {
+        throw error;
       }
-
-      if (successes.length === 0 && failures.length > 0) {
-          // CASE: All Failed
-          const msg = failures[0].error?.message || "Database Error";
-          throw new Error(msg);
-      } else if (successes.length > 0) {
-          // CASE: Success (or Partial Success)
-          const msg = successes.length === results.length 
-            ? `Added item to ${successes.length} location(s).`
-            : `Added to ${successes.length} locations. ${failures.length} failed.`;
-          
-          showSuccess(t('general.success'), msg);
-          
-          // Navigate back
-          router.back();
+       
+      if (item) {
+        // 3a. Item Exists in THIS workgroup -> Edit
+        router.push(`/edit-item/${item.id}`);
+      } else {
+        // 3b. Item New (or exists in other groups but not here) -> Add
+        router.push({ 
+          pathname: '/select-location-modal', 
+          params: { barcode: code.trim() } 
+        });
       }
+      
+      // Delay resetting 'scanned' slightly
+      setTimeout(() => {
+         setScanned(false);
+         setLoading(false);
+      }, 1000);
+
     } catch (error: any) {
-      console.error("ADD ITEM ERROR:", error);
-      showError(t('general.error'), error.message || "An unexpected error occurred");
+      console.error(error);
+      showError(t('general.error'), error.message || t('general.errorOccurred'));
       setLoading(false); 
+      setScanned(false); 
     }
   };
+
+  if (!colors) return <View style={{flex:1}} />;
+
+  if (!permission) {
+    return <View style={{flex:1, backgroundColor: colors.background}} />;
+  }
+
+  if (!permission.granted) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={[typography.h3, { textAlign: 'center', color: colors.text, marginBottom: 20 }]}>
+            {t('scan.permissionNeeded', 'Camera permission is required to scan barcodes.')}
+        </Text>
+        <Pressable onPress={requestPermission} style={[styles.actionButton, { backgroundColor: colors.primary }]}>
+            <Text style={[typography.button, { color: '#fff' }]}>{t('scan.grantPermission', 'Grant Permission')}</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
-    <ScrollView 
-        style={{ flex: 1, backgroundColor: colors.background }} 
-        contentContainerStyle={styles.contentContainer}
-        keyboardShouldPersistTaps="handled"
-        onLayout={() => setTimeout(() => setIsLayoutReady(true), 100)}
-    >
-      <View style={styles.header}>
-        <Text style={[typography.h1, { color: colors.text }]}>{t('item.addHeader')}</Text>
-      </View>
-
-      <DropdownPicker
-        label={t('warehouse.title')}
-        placeholder={t('warehouse.selectPlaceholder')}
-        options={warehouses}
-        selectedValue={selectedWarehouse}
-        onValueChange={(value) => {
-          setSelectedWarehouse(value);
-          setSelectedStorage(null);
-          setSelectedShelf(null);
-          setSelectedLocationIds([]);
-        }}
-      />
-      {selectedWarehouse && (
-        <DropdownPicker
-          label={t('storage.title')}
-          placeholder={t('storage.selectPlaceholder')}
-          options={storages}
-          selectedValue={selectedStorage}
-          onValueChange={(value) => {
-            setSelectedStorage(value);
-            setSelectedShelf(null);
-            setSelectedLocationIds([]);
-          }}
-        />
-      )}
-
-      <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('item.name')}</Text>
-      <CopilotStep text="Enter a unique name for your item here." order={1} name="Item Name">
-          <WalkableTextInput 
-            collapsable={false}
-            style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} 
-            value={name} 
-            onChangeText={setName} 
-            placeholder="e.g. Copper Wire Spool"
-            placeholderTextColor={colors.subtext}
-          />
-      </CopilotStep>
-
-      <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('item.quantity')}</Text>
-      <CopilotStep text="Set the initial quantity." order={2} name="Item Quantity">
-        <WalkableTextInput
-          collapsable={false}
-          style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} 
-          value={quantity} 
-          onChangeText={setQuantity} 
-          keyboardType="numeric"
-          placeholder="e.g. 100"
-          placeholderTextColor={colors.subtext}
-        />
-      </CopilotStep>
-
-      <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('item.restockThreshold')}</Text>
-      <CopilotStep text="Set a threshold for low stock alerts." order={3} name="Restock Alert">
-        <WalkableTextInput
-          collapsable={false}
-          style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} 
-          value={restockThreshold} 
-          onChangeText={setRestockThreshold} 
-          keyboardType="numeric"
-          placeholder="e.g. 10"
-          placeholderTextColor={colors.subtext}
-        />
-      </CopilotStep>
-
-      {selectedStorage && shelfOptions.length > 0 && (
-        <>
-          <Text style={[typography.h2, styles.sectionHeader, { color: colors.text, borderBottomColor: colors.border }]}>
-            {t('item.location')}
-          </Text>
-          
-          <DropdownPicker
-            label={t('location.shelf')}
-            options={shelfOptions}
-            selectedValue={selectedShelf}
-            onValueChange={(value) => {
-              setSelectedShelf(value);
-              setSelectedLocationIds([]); 
-            }}
-          />
-
-          {selectedShelf && (
-            <CopilotStep text="Tap available slots to assign storage locations." order={4} name="Location Grid">
-              <WalkableView style={styles.gridContainer} collapsable={false}>
-                <View style={styles.gridControls}>
-                  <Text style={[typography.caption, { color: colors.text }]}>Selected: {selectedLocationIds.length}</Text>
-                </View>
-
-                <View style={styles.slotsGrid}>
-                  {shelfLocations.map((loc) => {
-                    const isOccupied = loc.items && loc.items.length > 0;
-                    const isSelected = selectedLocationIds.includes(loc.id);
-                    return (
-                      <Pressable
-                        key={loc.id}
-                        onPress={() => toggleLocationSelection(loc.id)}
-                        disabled={isOccupied}
-                        style={[
-                          styles.slotButton,
-                          { 
-                            borderColor: colors.border,
-                            backgroundColor: isOccupied ? 'rgba(128,128,128,0.1)' : isSelected ? colors.primary : colors.card 
-                          }
-                        ]}
-                      >
-                        <Text style={[styles.slotText, { color: isSelected ? '#FFF' : colors.text }]}>
-                          {loc.row ? `${loc.row}-` : ''}{loc.column}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </WalkableView>
-            </CopilotStep>
-          )}
-        </>
-      )}
-      
-      <CopilotStep text="Save your item!" order={5} name="Save Item">
-        <WalkablePressable
-          collapsable={false}
-          style={[styles.button, { backgroundColor: colors.primary, opacity: (loading || selectedLocationIds.length === 0) ? 0.6 : 1 }]} 
-          onPress={handleAddItem} 
-          disabled={loading || selectedLocationIds.length === 0}
+    <View style={{ flex: 1, backgroundColor: '#000' }}>
+        
+        {/* CAMERA LAYER */}
+        <CameraView
+            style={StyleSheet.absoluteFill}
+            facing="back"
+            onBarcodeScanned={scanned ? undefined : ({ data }) => handleScanOrSubmit(data)}
         >
-          {loading ? (
-             <ActivityIndicator color="#fff" />
-          ) : (
-             <Text style={[typography.button, styles.buttonText, { color: '#fff' }]}>{t('item.addButton')}</Text>
-          )}
-        </WalkablePressable>
-      </CopilotStep>
-    </ScrollView>
+            <View style={styles.overlay}>
+                <View style={[styles.scanBox, { borderColor: scanned ? colors.success : '#fff' }]} />
+                <Text style={{ color: '#fff', marginTop: 10, textAlign: 'center', ...typography.caption }}>
+                    {loading ? t('scan.processing', 'Processing...') : t('scan.align', 'Align barcode within frame')}
+                </Text>
+            </View>
+        </CameraView>
+
+        {/* MANUAL INPUT LAYER */}
+        <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.manualContainer}
+        >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={[styles.manualContent, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+            
+             <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>
+                {t('scan.orManual', 'Or enter manually')}
+             </Text>
+             
+             <View style={styles.inputRow}>
+                <TextInput
+                  style={[
+                    typography.body, 
+                    styles.input, 
+                    { color: colors.text, backgroundColor: colors.background, borderColor: colors.border }
+                  ]}
+                  placeholder={t('scan.enterNum', 'e.g. 123456789')}
+                  placeholderTextColor={colors.subtext || '#888'}
+                  value={barcode}
+                  onChangeText={setBarcode}
+                  keyboardType="numeric"
+                  returnKeyType="done"
+                  onSubmitEditing={() => handleScanOrSubmit(barcode)}
+                  editable={!loading}
+                />
+                <Pressable 
+                    style={[styles.goButton, { backgroundColor: colors.primary }]}
+                    onPress={() => handleScanOrSubmit(barcode)}
+                    disabled={loading}
+                >
+                    {loading ? <ActivityIndicator size="small" color="#fff" /> : <FontAwesome name="arrow-right" size={16} color="#fff" />}
+                </Pressable>
+             </View>
+
+          </View>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-    contentContainer: { padding: 20 },
-    header: { alignItems: 'center', marginBottom: 20 },
-    sectionHeader: { fontWeight: '600', marginTop: 20, marginBottom: 15, borderBottomWidth: 1, paddingBottom: 5 },
-    label: { marginBottom: 8, fontWeight: '500' },
-    input: { borderWidth: 1, borderRadius: 8, padding: 12, marginBottom: 20 },
-    button: { padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 20 },
-    buttonText: { fontWeight: 'bold' },
-    gridContainer: { marginTop: 10 },
-    gridControls: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
-    slotsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    slotButton: { width: 60, height: 40, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderRadius: 6 },
-    slotText: { fontSize: 12, fontWeight: 'bold' },
+  container: {
+    padding: 24,
+    flex: 1,
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: 150, 
+  },
+  scanBox: {
+      width: 250,
+      height: 250,
+      borderWidth: 2,
+      borderRadius: 20,
+      backgroundColor: 'transparent'
+  },
+  manualContainer: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+  },
+  manualContent: {
+      padding: 20,
+      paddingBottom: 40,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      borderTopWidth: 1,
+      elevation: 5,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: -2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 5,
+  },
+  sectionTitle: { 
+    marginBottom: 12, 
+    fontSize: 14, 
+    opacity: 0.8,
+    textAlign: 'center'
+  },
+  inputRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  input: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    fontSize: 16,
+  },
+  goButton: {
+      width: 50,
+      borderRadius: 12,
+      justifyContent: 'center',
+      alignItems: 'center',
+  },
+  actionButton: {
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  }
 });
