@@ -61,7 +61,7 @@ const ThemedStack = () => {
         <Stack.Screen name="manage-members" options={{ headerShown: true, presentation: 'push' }} />
         
         {/* Paywall & Onboarding */}
-        <Stack.Screen name="paywall" options={{ headerShown: false, presentation: 'modal', gestureEnabled: false }} />
+        {/* Note: 'paywall' screen usually maps to app/paywall.tsx. If it is in onboarding folder, ensure naming is correct */}
         <Stack.Screen name="onboarding" options={{ headerShown: false, presentation: 'modal', gestureEnabled: false }} />
       </Stack>
     </>
@@ -75,7 +75,7 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
   const { hasCompletedOnboarding, isLoading: onboardingLoading } = useOnboarding();
   const { status: subStatus, hoursLeft } = useSubscription(); // hooks/useSubscription
   const { colors } = useTheme();
-  
+   
   const segments = useSegments();
   const router = useRouter();
   const [isMounted, setIsMounted] = useState(false);
@@ -93,8 +93,9 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
     
     const inAuthGroup = ['login', 'sign-up', 'forgot-password'].includes(currentRoute);
     const inSetupGroup = ['workgroup-gate', 'create-workgroup', 'join-workgroup'].includes(currentRoute);
+    
+    // Check if we are ANYWHERE inside the onboarding folder
     const inOnboardingGroup = currentRoute === 'onboarding';
-    const inPaywall = currentRoute === 'paywall';
 
     // --- LOGIC FLOW ---
 
@@ -112,25 +113,26 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
 
     // 3. Not Onboarded
     if (!hasCompletedOnboarding) {
-      if (!inOnboardingGroup) router.replace('/onboarding/welcome');
+      // FIX: Your file is at /app/onboarding/paywall.tsx, so we must redirect there.
+      // Do not redirect to /onboarding/welcome if it doesn't exist.
+      // Also check if we are already in the onboarding flow to prevent loops.
+      if (!inOnboardingGroup) {
+          router.replace('/onboarding/paywall');
+      }
       return;
     }
 
     // 4. Subscription Check
     // If Trial Expired OR Not Started (none) -> Force Paywall
     if (subStatus === 'trial_expired' || subStatus === 'none') {
-      // If we are already on the paywall, stay there.
-      if (!inPaywall) {
-         router.replace('/paywall');
+      // FIX: Redirect to the specific file /onboarding/paywall
+      if (!inOnboardingGroup) {
+         router.replace('/onboarding/paywall');
       }
       return;
     }
 
     // 5. Valid User stuck in restricted screens -> Send to Tabs
-    // FIX: Remove '|| inPaywall' from this list.
-    // If a user (who has access) manually navigates to the Paywall (to upgrade), 
-    // we should NOT force them back to tabs. We only force them OUT of Auth/Setup/Onboarding.
-    
     if (inAuthGroup || inSetupGroup || inOnboardingGroup) {
       router.replace('/(tabs)');
     }
@@ -141,7 +143,7 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
   return (
     <View style={{ flex: 1 }}>
       {children}
-      
+       
       {isLoading && (
         <View style={{ 
             position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, 
@@ -204,7 +206,7 @@ const toastConfig = (colors: any) => ({
 // --- 5. Content Component ---
 const AppContent = () => {
   const { colors } = useTheme();
-  
+   
   return (
     <>
       <AuthRedirectHandler>
