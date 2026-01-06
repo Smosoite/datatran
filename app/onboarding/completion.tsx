@@ -52,7 +52,7 @@ export default function CompletionScreen() {
 
     // 2. Navigate to Paywall
     // Ensure your Paywall route is accessible to "Incomplete" users.
-    router.replace('/paywall');
+    router.replace('/onboarding/paywall');
   };
 
   return (
