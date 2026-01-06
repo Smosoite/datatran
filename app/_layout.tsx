@@ -15,7 +15,7 @@ import { CopilotProvider } from "react-native-copilot";
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { OnboardingProvider, useOnboarding } from '../providers/OnboardingProvider';
 import { useSubscription } from '../hooks/useSubscription';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // Added Import
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // --- 1. ThemedStack (Visual Layer) ---
 const ThemedStack = () => {
@@ -79,9 +79,8 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
   
   const [isMounted, setIsMounted] = useState(false);
-  const [isDemoMode, setIsDemoMode] = useState(false); // New State for Demo Mode
+  const [isDemoMode, setIsDemoMode] = useState(false);
 
-  // Check for Demo Flag on Mount
   useEffect(() => {
     const checkDemo = async () => {
         const demo = await AsyncStorage.getItem('DEMO_SUBSCRIPTION_ACTIVE');
@@ -89,7 +88,7 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
         setIsMounted(true);
     };
     checkDemo();
-  }, [hasCompletedOnboarding]); // Re-check if onboarding status changes (e.g. after paywall)
+  }, [hasCompletedOnboarding]);
 
   const isLoading = authLoading || onboardingLoading || subStatus === 'loading' || !isMounted;
 
@@ -98,43 +97,50 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
 
     const currentRoute = segments[0] || '';
     
+    // Group definitions
     const inAuthGroup = ['login', 'sign-up', 'forgot-password'].includes(currentRoute);
     const inSetupGroup = ['workgroup-gate', 'create-workgroup', 'join-workgroup'].includes(currentRoute);
     const inOnboardingGroup = currentRoute === 'onboarding';
 
-    // --- LOGIC FLOW ---
+    // --- LOGIC FLOW (Strict Order) ---
 
-    // 1. Not Logged In
+    // 1. Not Logged In? -> Login
     if (!session) {
       if (!inAuthGroup) router.replace('/login');
       return;
     }
 
-    // 2. No Workgroup
+    // 2. No Workgroup? -> Setup
     if (!profile?.workgroup_id) {
       if (!inSetupGroup) router.replace('/workgroup-gate');
       return;
     }
 
-    // 3. Not Onboarded
+    // 3. Not Onboarded? -> Onboarding Flow (Tutorial)
+    // IMPORTANT: This MUST come before the subscription check.
     if (!hasCompletedOnboarding) {
+      // NOTE: Ensure you have an 'index.tsx' or 'welcome.tsx' inside /app/onboarding/ 
+      // If you ONLY have paywall, then this logic was technically correct before, 
+      // but if you want a "Welcome" screen, change the path below to '/onboarding/welcome'
+      // Assuming you have an 'onboarding' folder with an index or welcome file:
       if (!inOnboardingGroup) {
+          router.replace('/onboarding/welcome'); // <--- Point to your actual first onboarding screen
+      }
+      return;
+    }
+
+    // 4. Subscription Check (Paywall)
+    // Only happens if Onboarding is marked COMPLETE
+    if (!isDemoMode && (subStatus === 'trial_expired' || subStatus === 'none')) {
+      // Redirect to Paywall specifically
+      if (currentRoute !== 'paywall' && !pathname.includes('paywall')) {
           router.replace('/onboarding/paywall');
       }
       return;
     }
 
-    // 4. Subscription Check
-    // If Trial Expired OR Not Started -> Force Paywall
-    // FIX: We bypass this check if `isDemoMode` is true
-    if (!isDemoMode && (subStatus === 'trial_expired' || subStatus === 'none')) {
-      if (!inOnboardingGroup) {
-         router.replace('/onboarding/paywall');
-      }
-      return;
-    }
-
-    // 5. Valid User stuck in restricted screens -> Send to Tabs
+    // 5. All Good -> Main App (Tabs)
+    // If we are stuck in Auth/Setup/Onboarding pages but are fully valid, kick us to home.
     if (inAuthGroup || inSetupGroup || inOnboardingGroup) {
       router.replace('/(tabs)');
     }
