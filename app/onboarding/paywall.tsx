@@ -27,7 +27,7 @@ const API_KEYS = {
   google: "goog_your_api_key_here"
 };
 
-// ⚡️ DEV SWITCH: Set to false to enable real RevenueCat payments
+// ⚡️ DEV SWITCH: Set to true to enable "Demo" mode (Bypasses Store)
 const DEMO_MODE = true;
 
 type PlanType = 'individual' | 'company';
@@ -67,7 +67,7 @@ export default function PaywallScreen() {
               product: { identifier: 'yearly_pro', priceString: '$99.99', price: 99.99, title: 'Yearly', description: '', currencyCode: 'USD' }, 
               offeringIdentifier: 'default' 
             } as any,
-            // Company Plans (Mocking the ID format logic)
+            // Company Plans
             ...[5, 10, 20, 50, 100].map(count => ({
                 identifier: `company_${count}_yearly`,
                 packageType: 'CUSTOM',
@@ -100,12 +100,10 @@ export default function PaywallScreen() {
   const selectedProduct = useMemo(() => {
     if (planType === 'individual') {
       const identifier = billingCycle === 'monthly' ? '$rc_monthly' : '$rc_annual'; 
-      // Updated find logic to match both RC types and our mock types
       return packages.find(p => p.packageType === 'MONTHLY' && billingCycle === 'monthly' 
         || p.packageType === 'ANNUAL' && billingCycle === 'yearly'
         || p.identifier === identifier);
     } else {
-      // Company Logic: Map user count to specific Product IDs
       const targetId = `company_${userCount}_yearly`;
       return packages.find(p => p.product.identifier === targetId);
     }
@@ -117,11 +115,26 @@ export default function PaywallScreen() {
   const finalizeOnboardingAndRedirect = async () => {
     try {
       setLoading(true);
+      // Mark onboarding as complete
       await AsyncStorage.setItem('ONBOARDING_COMPLETED', 'true');
-      if (completeOnboarding) await completeOnboarding();
-      else router.replace('/(tabs)/settings');
+      
+      // If we are in demo mode, we might need to set a "Demo Subscription" flag
+      // so your useSubscription hook knows we are valid.
+      if (DEMO_MODE) {
+        await AsyncStorage.setItem('DEMO_SUBSCRIPTION_ACTIVE', 'true');
+      }
+
+      if (completeOnboarding) {
+        await completeOnboarding();
+      }
+      
+      // Force navigation to the Front Page (Tabs)
+      router.replace('/(tabs)');
+      
     } catch (error) {
-      router.replace('/(tabs)/settings');
+      console.error("Redirection error:", error);
+      // Fallback
+      router.replace('/(tabs)');
     } finally {
       setLoading(false);
     }
@@ -137,9 +150,9 @@ export default function PaywallScreen() {
 
     // --- DEMO MODE BYPASS ---
     if (DEMO_MODE) {
-        setTimeout(() => {
+        setTimeout(async () => {
             console.log("DEV: Mock Purchase Successful");
-            finalizeOnboardingAndRedirect();
+            await finalizeOnboardingAndRedirect();
         }, 1000);
         return;
     }
@@ -152,7 +165,7 @@ export default function PaywallScreen() {
       }
     } catch (e: any) {
       if (!e.userCancelled) Alert.alert(t('common.error'), e.message);
-      setLoading(false); // Only unset loading here if error, success handles it in finalize
+      setLoading(false); 
     }
   };
 
@@ -161,10 +174,10 @@ export default function PaywallScreen() {
 
     // --- DEMO MODE BYPASS ---
     if (DEMO_MODE) {
-        setTimeout(() => {
+        setTimeout(async () => {
             console.log("DEV: Mock Restore Successful");
             Alert.alert(t('common.success'), "Dev: Restore Successful");
-            finalizeOnboardingAndRedirect();
+            await finalizeOnboardingAndRedirect();
         }, 1000);
         return;
     }
@@ -197,6 +210,7 @@ export default function PaywallScreen() {
         
         {/* HEADER */}
         <View style={styles.headerRow}>
+          {/* Close button acts as a bypass in this logic if you want 'X' to mean 'Skip/Demo' */}
           <Pressable onPress={() => finalizeOnboardingAndRedirect()} style={styles.closeButton}>
             <FontAwesome name="times" size={20} color={colors.subtext} />
           </Pressable>
