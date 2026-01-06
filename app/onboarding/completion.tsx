@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, Image, Animated, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Animated, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../providers/ThemeProvider';
@@ -23,12 +23,7 @@ export default function CompletionScreen() {
   const slideAnim = new Animated.Value(50);
 
   useEffect(() => {
-    // Optimization: We mark it as done in storage immediately.
-    // If the user closes the app now, they will skip the intro next time
-    // and land directly on the Paywall (via _layout logic).
-    AsyncStorage.setItem('ONBOARDING_COMPLETED', 'true');
-
-    // Start animations
+    // Start animations on mount
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -50,12 +45,15 @@ export default function CompletionScreen() {
   }, []);
 
   const handleGetStarted = async () => {
-    // 1. Update the Context (triggers the React state change)
-    await completeOnboarding(); 
+    // 1. Mark as done in storage so next app launch skips intro
+    await AsyncStorage.setItem('ONBOARDING_COMPLETED', 'true');
+
+    // 2. Update Context (if your provider needs it)
+    if (completeOnboarding) {
+        await completeOnboarding(); 
+    }
     
-    // 2. Force Navigation to Paywall
-    // The _layout.tsx would eventually catch this, but manual navigation 
-    // feels instantly responsive to the user.
+    // 3. Navigate to Paywall
     router.replace('/paywall');
   };
 
@@ -141,7 +139,8 @@ export default function CompletionScreen() {
           style={[styles.getStartedButton, { backgroundColor: 'rgba(255,255,255,0.9)' }]}
           onPress={handleGetStarted}
         >
-          <Text style={[typography.button, styles.getStartedText, { color: colors.primary }]}> onPress={() => router.push('/paywall')}
+          {/* FIXED: Removed the stray onPress text string from inside the Text component */}
+          <Text style={[typography.button, styles.getStartedText, { color: colors.primary }]}>
             {t('onboarding.unlockFullAccess', 'Unlock Full Access')}
           </Text>
           <FontAwesome name="unlock" size={16} color={colors.primary} style={{ marginLeft: 8 }} />
