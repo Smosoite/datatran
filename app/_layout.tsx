@@ -117,8 +117,9 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
     }
 
     // 4. Subscription Check
-    // If Trial Expired OR Trial Not Started (none) -> Force Paywall
+    // If Trial Expired OR Not Started (none) -> Force Paywall
     if (subStatus === 'trial_expired' || subStatus === 'none') {
+      // If we are already on the paywall, stay there.
       if (!inPaywall) {
          router.replace('/paywall');
       }
