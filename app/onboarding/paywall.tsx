@@ -17,9 +17,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Purchases, { PurchasesPackage } from 'react-native-purchases';
 
 // Contexts & Styles
-import { useTheme } from '../providers/ThemeProvider'; 
-import { useOnboarding } from '../providers/OnboardingProvider'; 
-import { typography } from '../styles/typography'; 
+import { useTheme } from '../../providers/ThemeProvider'; 
+import { useOnboarding } from '../../providers/OnboardingProvider'; 
+import { typography } from '../../styles/typography'; 
 
 // --- CONFIGURATION ---
 const API_KEYS = {
