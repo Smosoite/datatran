@@ -45,17 +45,17 @@ export default function CompletionScreen() {
   }, []);
 
   const handleGetStarted = async () => {
-    // 1. Mark as done in storage so next app launch skips intro
+    // 1. Mark as done in storage ONLY. 
+    // This ensures if they force-close the app, they won't see onboarding again.
     await AsyncStorage.setItem('ONBOARDING_COMPLETED', 'true');
 
-    // 2. Update Context (if your provider needs it)
-    if (completeOnboarding) {
-        await completeOnboarding(); 
-    }
+    // 2. CRITICAL CHANGE: Do NOT call completeOnboarding() here.
+    // Calling the context function triggers the Root Layout to auto-redirect 
+    // to the home tabs, skipping the paywall.
+    // if (completeOnboarding) { await completeOnboarding(); } <--- REMOVE THIS
     
-    // 3. Navigate to Paywall
+    // 3. Manually navigate to Paywall
     router.replace('/paywall');
-  };
 
   return (
     <LinearGradient
