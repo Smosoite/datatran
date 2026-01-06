@@ -1,5 +1,5 @@
-import { Link, Stack, useRouter } from 'expo-router';
-import { StyleSheet, Text, View, Pressable, DevSettings } from 'react-native';
+import { Stack, useRouter } from 'expo-router';
+import { StyleSheet, Text, View, Pressable } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import { typography } from '../styles/typography';
@@ -8,21 +8,22 @@ export default function NotFoundScreen() {
   const { t } = useTranslation();
   const router = useRouter();
 
-  // Helper to clear the stuck state
+  // 1. Force navigation to the Dashboard
+  // This bypasses the root redirect logic and sends you straight to the tabs
+  const handleForceHome = () => {
+    // Navigate explicitly to the tabs container
+    router.replace('/(tabs)/home'); 
+  };
+
+  // 2. Reset Memory and restart
+  // This removes the flag and sends you to the absolute root to re-trigger onboarding
   const handleReset = async () => {
     try {
-      // 1. Clear the data
       await AsyncStorage.removeItem('ONBOARDING_COMPLETED');
+      console.log('User Reset: ONBOARDING_COMPLETED removed');
       
-      // 2. Force a hard reload of the app bundle.
-      // This is safer than router.replace() when the navigation state is broken.
-      // It will trigger the app/_layout.tsx logic from the very beginning.
-      if (__DEV__) {
-        DevSettings.reload();
-      } else {
-        // Fallback for production builds where DevSettings might not work
-        router.replace('/'); 
-      }
+      // Use replace instead of reload to avoid crashing
+      router.replace('/'); 
     } catch (e) {
       console.error("Reset failed", e);
     }
@@ -30,23 +31,26 @@ export default function NotFoundScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: t('common.oops', 'Oops!') }} />
+      <Stack.Screen options={{ title: 'Oops!' }} />
       <View style={styles.container}>
         <Text style={[typography.h1, styles.title]}>
           {t('notFound.title', "This screen doesn't exist.")}
         </Text>
+        <Text style={[typography.caption, {marginBottom: 30, color: '#666'}]}>
+          Debug Path: {router.usePathname()}
+        </Text>
 
-        {/* Standard Go Home Link - Points to Root, not specific tab */}
-        <Link href="/" style={styles.link}>
-          <Text style={[typography.body, styles.linkText]}>
-            {t('notFound.goHome', 'Go to home screen!')}
-          </Text>
-        </Link>
+        {/* Option 1: Try to go to the Dashboard (Tabs) */}
+        <Pressable onPress={handleForceHome} style={styles.mainButton}>
+           <Text style={[typography.button, { color: '#fff' }]}>
+             {t('notFound.goHome', 'Force Go to Dashboard')}
+           </Text>
+        </Pressable>
 
-        {/* 🛠 DEV FIX: Nuclear Button */}
+        {/* Option 2: Wipe Memory and Restart */}
         <Pressable onPress={handleReset} style={styles.resetButton}>
-          <Text style={[typography.button, { color: '#fff' }]}>
-            {t('dev.resetOnboarding', 'DEV: Hard Reset App')}
+          <Text style={[typography.button, { color: '#FF5252' }]}>
+            {t('dev.resetOnboarding', 'DEV: Reset Onboarding')}
           </Text>
         </Pressable>
       </View>
@@ -63,27 +67,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   title: {
-    marginBottom: 20,
+    marginBottom: 10,
     textAlign: 'center',
   },
-  link: {
-    marginTop: 16,
+  mainButton: {
+    backgroundColor: '#007AFF',
     paddingVertical: 16,
-  },
-  linkText: {
-    color: '#2e78b7',
-    textDecorationLine: 'underline',
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    marginBottom: 16,
+    width: '100%',
+    alignItems: 'center',
   },
   resetButton: {
-    marginTop: 40,
-    paddingVertical: 14,
-    paddingHorizontal: 30,
-    backgroundColor: '#FF5252', 
-    borderRadius: 8,
-    elevation: 5, // Adds shadow on Android to make it look "clickable"
-    shadowColor: '#000', // iOS Shadow
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FF5252',
+    width: '100%',
+    alignItems: 'center',
   },
 });
