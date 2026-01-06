@@ -1,3 +1,4 @@
+// app/onboarding/completion.tsx
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -6,7 +7,7 @@ import { useTheme } from '../../providers/ThemeProvider';
 import { typography } from '../../styles/typography';
 import { FontAwesome } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+// Removed AsyncStorage import - we should set this AFTER the paywall
 import { useOnboarding } from '../../providers/OnboardingProvider';
 
 const { width } = Dimensions.get('window');
@@ -16,14 +17,14 @@ export default function CompletionScreen() {
   const { colors } = useTheme();
   const router = useRouter();
 
-  const { completeOnboarding } = useOnboarding();
-  
+  // We don't need completeOnboarding here anymore
+  // const { completeOnboarding } = useOnboarding();
+   
   const fadeAnim = new Animated.Value(0);
   const scaleAnim = new Animated.Value(0.8);
   const slideAnim = new Animated.Value(50);
 
   useEffect(() => {
-    // Start animations on mount
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -45,16 +46,12 @@ export default function CompletionScreen() {
   }, []);
 
   const handleGetStarted = async () => {
-    // 1. Mark as done in storage ONLY. 
-    // This ensures if they force-close the app, they won't see onboarding again.
-    await AsyncStorage.setItem('ONBOARDING_COMPLETED', 'true');
+    // 1. Do NOT set AsyncStorage here. 
+    // If you set it here, the Root Layout might catch the change 
+    // and redirect to Home before the Paywall loads.
 
-    // 2. CRITICAL CHANGE: Do NOT call completeOnboarding() here.
-    // Calling the context function triggers the Root Layout to auto-redirect 
-    // to the home tabs, skipping the paywall.
-    // if (completeOnboarding) { await completeOnboarding(); } <--- REMOVE THIS
-    
-    // 3. Manually navigate to Paywall
+    // 2. Navigate to Paywall
+    // Ensure your Paywall route is accessible to "Incomplete" users.
     router.replace('/paywall');
   };
 
@@ -75,12 +72,10 @@ export default function CompletionScreen() {
           }
         ]}
       >
-        {/* Success Icon */}
         <View style={[styles.iconContainer, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
           <FontAwesome name="check-circle" size={80} color="white" />
         </View>
 
-        {/* Completion Message */}
         <Text style={[typography.h1, styles.title]}>
           {t('onboarding.congratulations', 'Congratulations!')}
         </Text>
@@ -89,7 +84,7 @@ export default function CompletionScreen() {
           {t('onboarding.completionMessage', 'You\'ve completed the StoreTool tour and are ready to start managing your inventory like a pro!')}
         </Text>
 
-        {/* Key Takeaways */}
+        {/* ... (Takeaways section remains unchanged) ... */}
         <View style={styles.takeawaysContainer}>
           <Text style={[typography.h3, styles.takeawaysTitle]}>
             {t('onboarding.youLearned', 'What you learned:')}
@@ -126,7 +121,6 @@ export default function CompletionScreen() {
           </View>
         </View>
 
-        {/* Next Steps */}
         <View style={styles.nextStepsContainer}>
           <Text style={[typography.body, styles.nextStepsText]}>
             {t('onboarding.nextSteps', 'Ready to unlock the full potential of StoreTool?')}
@@ -134,13 +128,11 @@ export default function CompletionScreen() {
         </View>
       </Animated.View>
 
-      {/* Action Button */}
       <View style={styles.footer}>
         <Pressable 
           style={[styles.getStartedButton, { backgroundColor: 'rgba(255,255,255,0.9)' }]}
           onPress={handleGetStarted}
         >
-          {/* FIXED: Removed the stray onPress text string from inside the Text component */}
           <Text style={[typography.button, styles.getStartedText, { color: colors.primary }]}>
             {t('onboarding.unlockFullAccess', 'Unlock Full Access')}
           </Text>
@@ -155,6 +147,7 @@ export default function CompletionScreen() {
   );
 }
 
+// ... styles remain unchanged
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { 
@@ -175,13 +168,13 @@ const styles = StyleSheet.create({
   title: { 
     color: 'white', 
     textAlign: 'center', 
-    marginBottom: 16,
+    marginBottom: 16, 
     fontWeight: 'bold',
   },
   subtitle: { 
     color: 'rgba(255,255,255,0.9)', 
     textAlign: 'center', 
-    marginBottom: 32,
+    marginBottom: 32, 
     lineHeight: 24,
   },
   takeawaysContainer: {
