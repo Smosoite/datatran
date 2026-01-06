@@ -1,5 +1,5 @@
 import { Link, Stack, useRouter } from 'expo-router';
-import { StyleSheet, Text, View, Pressable } from 'react-native';
+import { StyleSheet, Text, View, Pressable, DevSettings } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import { typography } from '../styles/typography';
@@ -11,12 +11,20 @@ export default function NotFoundScreen() {
   // Helper to clear the stuck state
   const handleReset = async () => {
     try {
-      // Clear the specific key causing the loop
+      // 1. Clear the data
       await AsyncStorage.removeItem('ONBOARDING_COMPLETED');
-      // Navigate to the absolute root to re-trigger the initial layout check
-      router.replace('/(tabs)/settings'); 
+      
+      // 2. Force a hard reload of the app bundle.
+      // This is safer than router.replace() when the navigation state is broken.
+      // It will trigger the app/_layout.tsx logic from the very beginning.
+      if (__DEV__) {
+        DevSettings.reload();
+      } else {
+        // Fallback for production builds where DevSettings might not work
+        router.replace('/'); 
+      }
     } catch (e) {
-      console.error(e);
+      console.error("Reset failed", e);
     }
   };
 
@@ -28,17 +36,17 @@ export default function NotFoundScreen() {
           {t('notFound.title', "This screen doesn't exist.")}
         </Text>
 
-        {/* Standard Go Home Link */}
+        {/* Standard Go Home Link - Points to Root, not specific tab */}
         <Link href="/" style={styles.link}>
           <Text style={[typography.body, styles.linkText]}>
             {t('notFound.goHome', 'Go to home screen!')}
           </Text>
         </Link>
 
-        {/* 🛠 DEV FIX: Button to unstick your devices */}
+        {/* 🛠 DEV FIX: Nuclear Button */}
         <Pressable onPress={handleReset} style={styles.resetButton}>
           <Text style={[typography.button, { color: '#fff' }]}>
-            {t('dev.resetOnboarding', 'DEV: Reset Onboarding')}
+            {t('dev.resetOnboarding', 'DEV: Hard Reset App')}
           </Text>
         </Pressable>
       </View>
@@ -68,9 +76,14 @@ const styles = StyleSheet.create({
   },
   resetButton: {
     marginTop: 40,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    backgroundColor: '#FF5252', // Red to indicate a destructive/dev action
+    paddingVertical: 14,
+    paddingHorizontal: 30,
+    backgroundColor: '#FF5252', 
     borderRadius: 8,
+    elevation: 5, // Adds shadow on Android to make it look "clickable"
+    shadowColor: '#000', // iOS Shadow
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
 });
