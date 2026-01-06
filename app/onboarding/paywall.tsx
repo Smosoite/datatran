@@ -18,9 +18,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Adjust these imports based on your actual folder structure
-import { useTheme } from '../providers/ThemeProvider'; 
-import { useOnboarding } from '../providers/OnboardingProvider'; 
-import { typography } from '../styles/typography'; 
+import { useTheme } from '../../providers/ThemeProvider'; 
+import { useOnboarding } from '../../providers/OnboardingProvider'; 
+import { typography } from '../../styles/typography'; 
 
 const { width } = Dimensions.get('window');
 
