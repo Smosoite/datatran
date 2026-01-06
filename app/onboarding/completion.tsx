@@ -23,7 +23,9 @@ export default function CompletionScreen() {
   const slideAnim = new Animated.Value(50);
 
   useEffect(() => {
-    // Mark onboarding as completed
+    // Optimization: We mark it as done in storage immediately.
+    // If the user closes the app now, they will skip the intro next time
+    // and land directly on the Paywall (via _layout logic).
     AsyncStorage.setItem('ONBOARDING_COMPLETED', 'true');
 
     // Start animations
@@ -48,10 +50,12 @@ export default function CompletionScreen() {
   }, []);
 
   const handleGetStarted = async () => {
-    // Navigate to paywall
+    // 1. Update the Context (triggers the React state change)
     await completeOnboarding(); 
     
-    // 👇 2. Navigate (The MainNavigator will also react, but this is safe)
+    // 2. Force Navigation to Paywall
+    // The _layout.tsx would eventually catch this, but manual navigation 
+    // feels instantly responsive to the user.
     router.replace('/paywall');
   };
 
@@ -144,7 +148,7 @@ export default function CompletionScreen() {
         </Pressable>
         
         <Text style={[typography.caption, styles.footerNote]}>
-          {t('onboarding.freeTrialNote', '14-day free trial • No commitment')}
+          {t('onboarding.freeTrialNote', '7-day free trial • No commitment')}
         </Text>
       </View>
     </LinearGradient>
