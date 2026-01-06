@@ -141,7 +141,7 @@ export default function CompletionScreen() {
           style={[styles.getStartedButton, { backgroundColor: 'rgba(255,255,255,0.9)' }]}
           onPress={handleGetStarted}
         >
-          <Text style={[typography.button, styles.getStartedText, { color: colors.primary }]}>
+          <Text style={[typography.button, styles.getStartedText, { color: colors.primary }]}> onPress={() => router.push('/paywall')}
             {t('onboarding.unlockFullAccess', 'Unlock Full Access')}
           </Text>
           <FontAwesome name="unlock" size={16} color={colors.primary} style={{ marginLeft: 8 }} />
