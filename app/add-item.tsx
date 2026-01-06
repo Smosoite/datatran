@@ -56,7 +56,7 @@ export default function AddItemScreen() {
 
   const { warehouseId, storageId } = useLocalSearchParams<{ warehouseId?: string; storageId?: string }>();
 
-  // --- FIXED TOUR LOGIC ---
+  // --- TOUR LOGIC ---
   useEffect(() => {
     if (loading || !isLayoutReady || warehouses.length === 0) return;
     
@@ -65,7 +65,6 @@ export default function AddItemScreen() {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_ADD_ITEM_TOUR');
             if (!hasSeen) {
                 setTimeout(() => {
-                  console.log('Starting tour...');
                   startTour();
                 }, 1000);
                 await AsyncStorage.setItem('HAS_SEEN_ADD_ITEM_TOUR', 'true');
@@ -77,7 +76,7 @@ export default function AddItemScreen() {
     checkFirstTime();
   }, [loading, isLayoutReady, warehouses]);
 
-  // Fetch data
+  // Fetch Data: Warehouses
   useEffect(() => {
     const fetchWarehouses = async () => {
       const { data } = await supabase.from('warehouses').select('id, name');
@@ -89,6 +88,7 @@ export default function AddItemScreen() {
     fetchWarehouses();
   }, [warehouseId]);
 
+  // Fetch Data: Storages
   useEffect(() => {
     if (!selectedWarehouse) {
       setStorages([]);
@@ -105,6 +105,7 @@ export default function AddItemScreen() {
     fetchStorages();
   }, [selectedWarehouse, storageId]);
 
+  // Fetch Data: Locations
   useEffect(() => {
     const fetchLocations = async () => {
       if (!selectedStorage) {
@@ -125,6 +126,7 @@ export default function AddItemScreen() {
     fetchLocations();
   }, [selectedStorage, t]);
    
+  // Computed Data
   const shelfOptions = useMemo(() => {
       const shelves = [...new Set(allLocations.map(l => l.shelf))].sort((a,b) => a.localeCompare(b, undefined, { numeric: true }));
       return shelves.map(s => ({ label: s, value: s }));
@@ -145,54 +147,74 @@ export default function AddItemScreen() {
       setSelectedLocationIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
+  // --- MAIN ACTION ---
   const handleAddItem = async () => {
+    // 1. Validation: Form Fields
     if (!name.trim() || !quantity || !restockThreshold || !selectedWarehouse || !selectedStorage) {
       showError(t('general.error'), t('general.fillFields'));
       return;
     }
+    
+    // 2. Validation: Location
     if (selectedLocationIds.length === 0) {
         showError(t('general.error'), "Please select at least one location slot.");
         return;
     }
+
+    // 3. Validation: Auth Profile (Prevents the crash if profile is loading/null)
+    if (!profile || !profile.workgroup_id) {
+        showError(t('general.error'), "User profile not loaded. Please try again.");
+        return;
+    }
+
     setLoading(true);
     
     try {
+      // 4. Prepare Promises
       const promises = selectedLocationIds.map(locId => {
           return supabase.rpc('add_new_item', {
             p_name: name.trim(),
-            p_quantity: parseInt(quantity, 10), 
-            p_restock_threshold: parseInt(restockThreshold, 10),
+            p_quantity: parseInt(quantity, 10) || 0, // Fallback to 0 if NaN
+            p_restock_threshold: parseInt(restockThreshold, 10) || 0,
             p_warehouse_id: selectedWarehouse,
             p_storage_id: selectedStorage,
             p_location_id: locId,
             p_workgroup_id: profile.workgroup_id,
-            p_barcode: itemBarcode,
+            // Ensure Barcode is NULL if empty string
+            p_barcode: itemBarcode && itemBarcode.trim() !== '' ? itemBarcode.trim() : null,
           });
       });
 
       const results = await Promise.all(promises);
 
-      // --- FIX: Better Error Handling ---
+      // 5. Check Results
       const failures = results.filter(r => r.error);
       const successes = results.filter(r => !r.error);
 
+      // Log for debugging
+      if (failures.length > 0) {
+          console.log("Add Item Failures:", failures.map(f => f.error));
+      }
+
       if (successes.length === 0 && failures.length > 0) {
-          // COMPLETE FAILURE
-          throw new Error(failures[0].error?.message || "Failed to add items.");
+          // CASE: All Failed
+          const msg = failures[0].error?.message || "Database Error";
+          throw new Error(msg);
       } else if (successes.length > 0) {
-          // PARTIAL OR COMPLETE SUCCESS
+          // CASE: Success (or Partial Success)
           const msg = successes.length === results.length 
             ? `Added item to ${successes.length} location(s).`
             : `Added to ${successes.length} locations. ${failures.length} failed.`;
           
           showSuccess(t('general.success'), msg);
           
-          // IMPORTANT: If we go back, do NOT set loading false (component unmounts)
+          // Navigate back
           router.back();
       }
     } catch (error: any) {
-      showError(t('general.error'), error.message);
-      setLoading(false); // Only stop loading if we stay on page
+      console.error("ADD ITEM ERROR:", error);
+      showError(t('general.error'), error.message || "An unexpected error occurred");
+      setLoading(false); 
     }
   };
 
@@ -234,18 +256,10 @@ export default function AddItemScreen() {
       )}
 
       <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('item.name')}</Text>
-      <CopilotStep 
-        text="Enter a unique name for your item here." 
-        order={1} 
-        name="Item Name"
-      >
+      <CopilotStep text="Enter a unique name for your item here." order={1} name="Item Name">
           <WalkableTextInput 
             collapsable={false}
-            style={[
-              typography.body, 
-              styles.input, 
-              { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }
-            ]} 
+            style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} 
             value={name} 
             onChangeText={setName} 
             placeholder="e.g. Copper Wire Spool"
@@ -254,18 +268,10 @@ export default function AddItemScreen() {
       </CopilotStep>
 
       <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('item.quantity')}</Text>
-      <CopilotStep 
-        text="Set the initial quantity." 
-        order={2} 
-        name="Item Quantity"
-      >
+      <CopilotStep text="Set the initial quantity." order={2} name="Item Quantity">
         <WalkableTextInput
           collapsable={false}
-          style={[
-            typography.body, 
-            styles.input, 
-            { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }
-          ]} 
+          style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} 
           value={quantity} 
           onChangeText={setQuantity} 
           keyboardType="numeric"
@@ -275,18 +281,10 @@ export default function AddItemScreen() {
       </CopilotStep>
 
       <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('item.restockThreshold')}</Text>
-      <CopilotStep 
-        text="Set a threshold for low stock alerts." 
-        order={3} 
-        name="Restock Alert"
-      >
+      <CopilotStep text="Set a threshold for low stock alerts." order={3} name="Restock Alert">
         <WalkableTextInput
           collapsable={false}
-          style={[
-            typography.body, 
-            styles.input, 
-            { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }
-          ]} 
+          style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} 
           value={restockThreshold} 
           onChangeText={setRestockThreshold} 
           keyboardType="numeric"
@@ -312,16 +310,10 @@ export default function AddItemScreen() {
           />
 
           {selectedShelf && (
-            <CopilotStep 
-              text="Tap available slots to assign storage locations." 
-              order={4} 
-              name="Location Grid"
-            >
+            <CopilotStep text="Tap available slots to assign storage locations." order={4} name="Location Grid">
               <WalkableView style={styles.gridContainer} collapsable={false}>
                 <View style={styles.gridControls}>
-                  <Text style={[typography.caption, { color: colors.text }]}>
-                    Selected: {selectedLocationIds.length}
-                  </Text>
+                  <Text style={[typography.caption, { color: colors.text }]}>Selected: {selectedLocationIds.length}</Text>
                 </View>
 
                 <View style={styles.slotsGrid}>
@@ -337,18 +329,11 @@ export default function AddItemScreen() {
                           styles.slotButton,
                           { 
                             borderColor: colors.border,
-                            backgroundColor: isOccupied 
-                              ? 'rgba(128,128,128,0.1)' 
-                              : isSelected 
-                                ? colors.primary 
-                                : colors.card 
+                            backgroundColor: isOccupied ? 'rgba(128,128,128,0.1)' : isSelected ? colors.primary : colors.card 
                           }
                         ]}
                       >
-                        <Text style={[
-                          styles.slotText, 
-                          { color: isSelected ? '#FFF' : colors.text }
-                        ]}>
+                        <Text style={[styles.slotText, { color: isSelected ? '#FFF' : colors.text }]}>
                           {loc.row ? `${loc.row}-` : ''}{loc.column}
                         </Text>
                       </Pressable>
@@ -361,29 +346,17 @@ export default function AddItemScreen() {
         </>
       )}
       
-      <CopilotStep 
-        text="Save your item!" 
-        order={5} 
-        name="Save Item"
-      >
+      <CopilotStep text="Save your item!" order={5} name="Save Item">
         <WalkablePressable
           collapsable={false}
-          style={[
-            styles.button, 
-            { 
-              backgroundColor: colors.primary, 
-              opacity: (loading || selectedLocationIds.length === 0) ? 0.6 : 1 
-            }
-          ]} 
+          style={[styles.button, { backgroundColor: colors.primary, opacity: (loading || selectedLocationIds.length === 0) ? 0.6 : 1 }]} 
           onPress={handleAddItem} 
           disabled={loading || selectedLocationIds.length === 0}
         >
           {loading ? (
              <ActivityIndicator color="#fff" />
           ) : (
-             <Text style={[typography.button, styles.buttonText, { color: '#fff' }]}>
-                {t('item.addButton')}
-             </Text>
+             <Text style={[typography.button, styles.buttonText, { color: '#fff' }]}>{t('item.addButton')}</Text>
           )}
         </WalkablePressable>
       </CopilotStep>
