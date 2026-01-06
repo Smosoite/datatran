@@ -1,25 +1,17 @@
 // app/onboarding/completion.tsx
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, Animated, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Animated, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../providers/ThemeProvider';
 import { typography } from '../../styles/typography';
 import { FontAwesome } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-// Removed AsyncStorage import - we should set this AFTER the paywall
-import { useOnboarding } from '../../providers/OnboardingProvider';
-
-const { width } = Dimensions.get('window');
 
 export default function CompletionScreen() {
   const { t } = useTranslation();
   const { colors } = useTheme();
   const router = useRouter();
 
-  // We don't need completeOnboarding here anymore
-  // const { completeOnboarding } = useOnboarding();
-   
   const fadeAnim = new Animated.Value(0);
   const scaleAnim = new Animated.Value(0.8);
   const slideAnim = new Animated.Value(50);
@@ -46,20 +38,13 @@ export default function CompletionScreen() {
   }, []);
 
   const handleGetStarted = async () => {
-    // 1. Do NOT set AsyncStorage here. 
-    // If you set it here, the Root Layout might catch the change 
-    // and redirect to Home before the Paywall loads.
-
-    // 2. Navigate to Paywall
-    // Ensure your Paywall route is accessible to "Incomplete" users.
+    // Navigate to Paywall to finalize account setup
     router.replace('/onboarding/paywall');
   };
 
   return (
-    <LinearGradient
-      colors={[colors.primary, colors.selector]}
-      style={styles.container}
-    >
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
       <Animated.View 
         style={[
           styles.content,
@@ -72,159 +57,142 @@ export default function CompletionScreen() {
           }
         ]}
       >
-        <View style={[styles.iconContainer, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-          <FontAwesome name="check-circle" size={80} color="white" />
+        <View style={styles.iconContainer}>
+          <FontAwesome name="check-circle" size={80} color={colors.success || '#4CAF50'} />
         </View>
 
-        <Text style={[typography.h1, styles.title]}>
-          {t('onboarding.congratulations', 'Congratulations!')}
+        <Text style={[typography.h1, styles.title, { color: colors.text }]}>
+          {t('onboarding.congratulations', 'You are ready!')}
         </Text>
         
-        <Text style={[typography.body, styles.subtitle]}>
-          {t('onboarding.completionMessage', 'You\'ve completed the StoreTool tour and are ready to start managing your inventory like a pro!')}
+        <Text style={[typography.body, styles.subtitle, { color: colors.subtext }]}>
+          {t('onboarding.completionMessage', "You've completed the tour. Now, let's unlock the full power of StoreTool.")}
         </Text>
 
-        {/* ... (Takeaways section remains unchanged) ... */}
-        <View style={styles.takeawaysContainer}>
-          <Text style={[typography.h3, styles.takeawaysTitle]}>
-            {t('onboarding.youLearned', 'What you learned:')}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[typography.h3, styles.cardTitle, { color: colors.text }]}>
+            {t('onboarding.youLearned', 'What you can do now:')}
           </Text>
           
-          <View style={styles.takeawaysList}>
-            <View style={styles.takeawayItem}>
-              <FontAwesome name="check" size={16} color="white" />
-              <Text style={[typography.body, styles.takeawayText]}>
-                {t('onboarding.takeaway1', 'How to organize warehouses and storage units')}
-              </Text>
-            </View>
-            
-            <View style={styles.takeawayItem}>
-              <FontAwesome name="check" size={16} color="white" />
-              <Text style={[typography.body, styles.takeawayText]}>
-                {t('onboarding.takeaway2', 'Managing inventory with real-time tracking')}
-              </Text>
-            </View>
-            
-            <View style={styles.takeawayItem}>
-              <FontAwesome name="check" size={16} color="white" />
-              <Text style={[typography.body, styles.takeawayText]}>
-                {t('onboarding.takeaway3', 'Using barcode scanning for quick operations')}
-              </Text>
-            </View>
-            
-            <View style={styles.takeawayItem}>
-              <FontAwesome name="check" size={16} color="white" />
-              <Text style={[typography.body, styles.takeawayText]}>
-                {t('onboarding.takeaway4', 'Team collaboration and role management')}
-              </Text>
-            </View>
+          <View style={styles.list}>
+            <CheckItem text={t('onboarding.takeaway1', 'Organize warehouses & shelves')} colors={colors} />
+            <CheckItem text={t('onboarding.takeaway2', 'Track stock in real-time')} colors={colors} />
+            <CheckItem text={t('onboarding.takeaway3', 'Scan items instantly')} colors={colors} />
+            <CheckItem text={t('onboarding.takeaway4', 'Manage your team')} colors={colors} />
           </View>
         </View>
 
-        <View style={styles.nextStepsContainer}>
-          <Text style={[typography.body, styles.nextStepsText]}>
-            {t('onboarding.nextSteps', 'Ready to unlock the full potential of StoreTool?')}
-          </Text>
-        </View>
       </Animated.View>
+      </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { backgroundColor: colors.background }]}>
         <Pressable 
-          style={[styles.getStartedButton, { backgroundColor: 'rgba(255,255,255,0.9)' }]}
+          style={[styles.button, { backgroundColor: colors.primary }]}
           onPress={handleGetStarted}
         >
-          <Text style={[typography.button, styles.getStartedText, { color: colors.primary }]}>
+          <Text style={[typography.button, styles.buttonText, { color: '#fff' }]}>
             {t('onboarding.unlockFullAccess', 'Unlock Full Access')}
           </Text>
-          <FontAwesome name="unlock" size={16} color={colors.primary} style={{ marginLeft: 8 }} />
+          <FontAwesome name="unlock-alt" size={16} color="#fff" style={{ marginLeft: 8 }} />
         </Pressable>
         
-        <Text style={[typography.caption, styles.footerNote]}>
-          {t('onboarding.freeTrialNote', '7-day free trial • No commitment')}
+        <Text style={[typography.caption, styles.footerNote, { color: colors.subtext }]}>
+          {t('onboarding.freeTrialNote', 'Start your 7-day free trial')}
         </Text>
       </View>
-    </LinearGradient>
+    </View>
   );
 }
 
-// ... styles remain unchanged
+function CheckItem({ text, colors }: { text: string, colors: any }) {
+    return (
+        <View style={[styles.checkItem, { backgroundColor: colors.background }]}>
+            <FontAwesome name="check" size={14} color={colors.success || '#4CAF50'} style={{ marginTop: 2 }} />
+            <Text style={[styles.checkText, { color: colors.text }]}>{text}</Text>
+        </View>
+    )
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { 
-    flex: 1, 
     alignItems: 'center', 
     justifyContent: 'center', 
     paddingHorizontal: 32,
     paddingTop: 60,
+    paddingBottom: 40,
   },
   iconContainer: { 
-    width: 160, 
-    height: 160, 
-    borderRadius: 80, 
-    justifyContent: 'center', 
-    alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 24,
   },
   title: { 
-    color: 'white', 
     textAlign: 'center', 
-    marginBottom: 16, 
-    fontWeight: 'bold',
+    marginBottom: 12, 
+    fontSize: 28 
   },
   subtitle: { 
-    color: 'rgba(255,255,255,0.9)', 
     textAlign: 'center', 
-    marginBottom: 32, 
+    marginBottom: 40, 
     lineHeight: 24,
+    maxWidth: '90%'
   },
-  takeawaysContainer: {
+  
+  // Card Style
+  card: {
+    borderRadius: 20,
+    padding: 24,
     width: '100%',
-    marginBottom: 32,
+    borderWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
   },
-  takeawaysTitle: {
-    color: 'white',
-    fontWeight: 'bold',
-    marginBottom: 16,
-    textAlign: 'center',
+  cardTitle: {
+      marginBottom: 16,
+      textAlign: 'center',
+      fontSize: 14,
+      textTransform: 'uppercase',
+      opacity: 0.8,
+      letterSpacing: 1
   },
-  takeawaysList: { gap: 12 },
-  takeawayItem: { 
+  list: { gap: 12 },
+  checkItem: { 
     flexDirection: 'row', 
     alignItems: 'flex-start',
     gap: 12,
+    padding: 12,
+    borderRadius: 10,
   },
-  takeawayText: { 
-    color: 'rgba(255,255,255,0.9)',
+  checkText: { 
     flex: 1,
-    lineHeight: 20,
+    fontSize: 14,
+    fontWeight: '500'
   },
-  nextStepsContainer: {
-    alignItems: 'center',
-  },
-  nextStepsText: {
-    color: 'rgba(255,255,255,0.9)',
-    textAlign: 'center',
-    fontWeight: '600',
-    fontSize: 16,
-  },
+  
   footer: { 
     paddingHorizontal: 32, 
-    paddingBottom: 50,
+    paddingBottom: 50, 
     alignItems: 'center',
   },
-  getStartedButton: { 
+  button: { 
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16, 
+    paddingVertical: 18, 
     paddingHorizontal: 32, 
-    borderRadius: 25,
-    marginBottom: 12,
-    minWidth: 250,
+    borderRadius: 16,
+    marginBottom: 16,
+    width: '100%',
     justifyContent: 'center',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 4,
   },
-  getStartedText: { fontWeight: 'bold', fontSize: 16 },
+  buttonText: { fontWeight: 'bold', fontSize: 16 },
   footerNote: { 
-    color: 'rgba(255,255,255,0.8)',
     textAlign: 'center',
   },
 });
