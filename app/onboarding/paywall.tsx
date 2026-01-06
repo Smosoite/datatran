@@ -27,25 +27,58 @@ const API_KEYS = {
   google: "goog_your_api_key_here"
 };
 
+// ⚡️ DEV SWITCH: Set to false to enable real RevenueCat payments
+const DEMO_MODE = true;
+
 type PlanType = 'individual' | 'company';
 type BillingCycle = 'monthly' | 'yearly';
 type UserCount = 5 | 10 | 20 | 50 | 100;
 
 export default function PaywallScreen() {
   const { t } = useTranslation();
-  const { colors } = useTheme(); // Now fully controlling the look
+  const { colors } = useTheme(); 
   const router = useRouter();
   const { completeOnboarding } = useOnboarding();
-  
+   
   const [loading, setLoading] = useState(false);
   const [planType, setPlanType] = useState<PlanType>('individual');
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('yearly');
   const [userCount, setUserCount] = useState<UserCount>(5);
   const [packages, setPackages] = useState<PurchasesPackage[]>([]);
 
-  // 1. Initialize RevenueCat
+  // 1. Initialize RevenueCat (or Mock Data)
   useEffect(() => {
     const setupPurchases = async () => {
+      // --- DEMO MODE LOGIC ---
+      if (DEMO_MODE) {
+        console.log("DEV: Loading Mock Packages");
+        setPackages([
+            // Individual Monthly
+            { 
+              identifier: '$rc_monthly', 
+              packageType: 'MONTHLY', 
+              product: { identifier: 'monthly_pro', priceString: '$9.99', price: 9.99, title: 'Monthly', description: '', currencyCode: 'USD' }, 
+              offeringIdentifier: 'default' 
+            } as any,
+            // Individual Yearly
+            { 
+              identifier: '$rc_annual', 
+              packageType: 'ANNUAL', 
+              product: { identifier: 'yearly_pro', priceString: '$99.99', price: 99.99, title: 'Yearly', description: '', currencyCode: 'USD' }, 
+              offeringIdentifier: 'default' 
+            } as any,
+            // Company Plans (Mocking the ID format logic)
+            ...[5, 10, 20, 50, 100].map(count => ({
+                identifier: `company_${count}_yearly`,
+                packageType: 'CUSTOM',
+                product: { identifier: `company_${count}_yearly`, priceString: `$${count * 100}.00`, price: count * 100, title: `${count} Users`, description: '', currencyCode: 'USD' },
+                offeringIdentifier: 'default'
+            } as any))
+        ]);
+        return; 
+      }
+      // ---------------------
+
       try {
         if (Platform.OS === 'ios') {
           await Purchases.configure({ apiKey: API_KEYS.apple });
@@ -67,7 +100,10 @@ export default function PaywallScreen() {
   const selectedProduct = useMemo(() => {
     if (planType === 'individual') {
       const identifier = billingCycle === 'monthly' ? '$rc_monthly' : '$rc_annual'; 
-      return packages.find(p => p.packageType === identifier || p.identifier.includes(billingCycle));
+      // Updated find logic to match both RC types and our mock types
+      return packages.find(p => p.packageType === 'MONTHLY' && billingCycle === 'monthly' 
+        || p.packageType === 'ANNUAL' && billingCycle === 'yearly'
+        || p.identifier === identifier);
     } else {
       // Company Logic: Map user count to specific Product IDs
       const targetId = `company_${userCount}_yearly`;
@@ -96,7 +132,19 @@ export default function PaywallScreen() {
       Alert.alert(t('common.error'), t('paywall.noProductFound', 'Product not available'));
       return;
     }
+
     setLoading(true);
+
+    // --- DEMO MODE BYPASS ---
+    if (DEMO_MODE) {
+        setTimeout(() => {
+            console.log("DEV: Mock Purchase Successful");
+            finalizeOnboardingAndRedirect();
+        }, 1000);
+        return;
+    }
+    // -----------------------
+
     try {
       const { customerInfo } = await Purchases.purchasePackage(selectedProduct);
       if (customerInfo.entitlements.active['Pro Access']) {
@@ -104,13 +152,24 @@ export default function PaywallScreen() {
       }
     } catch (e: any) {
       if (!e.userCancelled) Alert.alert(t('common.error'), e.message);
-    } finally {
-      setLoading(false);
+      setLoading(false); // Only unset loading here if error, success handles it in finalize
     }
   };
 
   const handleRestore = async () => {
     setLoading(true);
+
+    // --- DEMO MODE BYPASS ---
+    if (DEMO_MODE) {
+        setTimeout(() => {
+            console.log("DEV: Mock Restore Successful");
+            Alert.alert(t('common.success'), "Dev: Restore Successful");
+            finalizeOnboardingAndRedirect();
+        }, 1000);
+        return;
+    }
+    // -----------------------
+
     try {
       const customerInfo = await Purchases.restorePurchases();
       if (customerInfo.entitlements.active['Pro Access']) {
@@ -118,10 +177,10 @@ export default function PaywallScreen() {
         await finalizeOnboardingAndRedirect();
       } else {
         Alert.alert(t('common.info'), t('paywall.noPurchases'));
+        setLoading(false);
       }
     } catch (e: any) {
       Alert.alert(t('common.error'), e.message);
-    } finally {
       setLoading(false);
     }
   };
@@ -327,17 +386,17 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 24, paddingBottom: 100 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
   closeButton: { padding: 8, marginLeft: -8 },
-  
+   
   heroSection: { alignItems: 'center', marginBottom: 30 },
   iconCircle: { width: 70, height: 70, borderRadius: 35, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-  
+   
   section: { marginBottom: 24 },
   sectionTitle: { marginBottom: 8, fontSize: 13, textTransform: 'uppercase', opacity: 0.7 },
-  
+   
   // Toggle
   toggleContainer: { flexDirection: 'row', borderRadius: 12, borderWidth: 1, padding: 4 },
   toggleBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
-  
+   
   // User Count
   userCountBadge: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, borderWidth: 1, marginRight: 8 },
 
@@ -345,7 +404,7 @@ const styles = StyleSheet.create({
   card: { borderRadius: 12, padding: 16, borderWidth: 1 },
   cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   badge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginTop: 4, alignSelf: 'flex-start' },
-  
+   
   // Footer
   footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20, borderTopWidth: 1 },
   ctaButton: { paddingVertical: 16, borderRadius: 12, alignItems: 'center' }
