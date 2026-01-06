@@ -119,9 +119,9 @@ export default function PaywallScreen() {
       setLoading(true);
       await AsyncStorage.setItem('ONBOARDING_COMPLETED', 'true');
       if (completeOnboarding) await completeOnboarding();
-      else router.replace('/(tabs)/home');
+      else router.replace('/(tabs)/index');
     } catch (error) {
-      router.replace('/(tabs)/home');
+      router.replace('/(tabs)/index');
     } finally {
       setLoading(false);
     }
