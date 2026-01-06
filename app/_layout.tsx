@@ -127,8 +127,11 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
     }
 
     // 5. Valid User stuck in restricted screens -> Send to Tabs
-    // If they are in Auth, Setup, Onboarding, OR Paywall (and they have valid access), move them to Tabs.
-    if (inAuthGroup || inSetupGroup || inOnboardingGroup || inPaywall) {
+    // FIX: Remove '|| inPaywall' from this list.
+    // If a user (who has access) manually navigates to the Paywall (to upgrade), 
+    // we should NOT force them back to tabs. We only force them OUT of Auth/Setup/Onboarding.
+    
+    if (inAuthGroup || inSetupGroup || inOnboardingGroup) {
       router.replace('/(tabs)');
     }
 
