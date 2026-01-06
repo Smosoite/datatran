@@ -132,6 +132,7 @@ export default function ScanScreen() {
                   )}
                 </View>
               </View>
+               </View>
             </Pressable>
             
             {/* ACTION BUTTON (Styled like Settings Logout/Danger button) */}
