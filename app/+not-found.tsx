@@ -1,4 +1,4 @@
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, usePathname } from 'expo-router';
 import { StyleSheet, Text, View, Pressable, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +7,7 @@ import { typography } from '../styles/typography';
 export default function NotFoundScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const pathname = usePathname(); // <--- FIXED: Correct Hook Usage
 
   // 1. Force navigation to the Front Page
   const handleForceHome = () => {
@@ -39,7 +40,7 @@ export default function NotFoundScreen() {
           {t('notFound.title', "This screen doesn't exist.")}
         </Text>
         <Text style={[typography.caption, {marginBottom: 30, color: '#666'}]}>
-          Debug Path: {router.usePathname()}
+          Debug Path: {pathname}
         </Text>
 
         {/* Option 1: Try to go to the Dashboard (Tabs) */}
