@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Image, ActivityIndicator, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../providers/ThemeProvider';
@@ -11,7 +11,6 @@ import { showSuccess, showError } from '../lib/toast';
 const { width } = Dimensions.get('window');
 
 // --- DATA: Business Tiers ---
-// Note: Prices and counts are numbers/logic, but the "Save" text needs translation key or format
 const BUSINESS_TIERS = [
     { count: 5, price: 399, savePercent: 20 },
     { count: 10, price: 749, savePercent: 25 },
