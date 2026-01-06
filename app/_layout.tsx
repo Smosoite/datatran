@@ -15,6 +15,7 @@ import { CopilotProvider } from "react-native-copilot";
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { OnboardingProvider, useOnboarding } from '../providers/OnboardingProvider';
 import { useSubscription } from '../hooks/useSubscription';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // Added Import
 
 // --- 1. ThemedStack (Visual Layer) ---
 const ThemedStack = () => {
@@ -61,7 +62,6 @@ const ThemedStack = () => {
         <Stack.Screen name="manage-members" options={{ headerShown: true, presentation: 'push' }} />
         
         {/* Paywall & Onboarding */}
-        {/* Note: 'paywall' screen usually maps to app/paywall.tsx. If it is in onboarding folder, ensure naming is correct */}
         <Stack.Screen name="onboarding" options={{ headerShown: false, presentation: 'modal', gestureEnabled: false }} />
       </Stack>
     </>
@@ -69,20 +69,27 @@ const ThemedStack = () => {
 };
 
 // --- 2. AuthRedirectHandler (Logic Layer) ---
-// Separated to prevent "useAuth" crashes and to handle redirect logic cleanly
 const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
   const { session, profile, loading: authLoading } = useAuth();
   const { hasCompletedOnboarding, isLoading: onboardingLoading } = useOnboarding();
-  const { status: subStatus, hoursLeft } = useSubscription(); // hooks/useSubscription
+  const { status: subStatus } = useSubscription(); 
   const { colors } = useTheme();
    
   const segments = useSegments();
   const router = useRouter();
+  
   const [isMounted, setIsMounted] = useState(false);
+  const [isDemoMode, setIsDemoMode] = useState(false); // New State for Demo Mode
 
+  // Check for Demo Flag on Mount
   useEffect(() => {
-    setIsMounted(true);
-  }, []);
+    const checkDemo = async () => {
+        const demo = await AsyncStorage.getItem('DEMO_SUBSCRIPTION_ACTIVE');
+        setIsDemoMode(demo === 'true');
+        setIsMounted(true);
+    };
+    checkDemo();
+  }, [hasCompletedOnboarding]); // Re-check if onboarding status changes (e.g. after paywall)
 
   const isLoading = authLoading || onboardingLoading || subStatus === 'loading' || !isMounted;
 
@@ -93,8 +100,6 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
     
     const inAuthGroup = ['login', 'sign-up', 'forgot-password'].includes(currentRoute);
     const inSetupGroup = ['workgroup-gate', 'create-workgroup', 'join-workgroup'].includes(currentRoute);
-    
-    // Check if we are ANYWHERE inside the onboarding folder
     const inOnboardingGroup = currentRoute === 'onboarding';
 
     // --- LOGIC FLOW ---
@@ -113,9 +118,6 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
 
     // 3. Not Onboarded
     if (!hasCompletedOnboarding) {
-      // FIX: Your file is at /app/onboarding/paywall.tsx, so we must redirect there.
-      // Do not redirect to /onboarding/welcome if it doesn't exist.
-      // Also check if we are already in the onboarding flow to prevent loops.
       if (!inOnboardingGroup) {
           router.replace('/onboarding/paywall');
       }
@@ -123,9 +125,9 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
     }
 
     // 4. Subscription Check
-    // If Trial Expired OR Not Started (none) -> Force Paywall
-    if (subStatus === 'trial_expired' || subStatus === 'none') {
-      // FIX: Redirect to the specific file /onboarding/paywall
+    // If Trial Expired OR Not Started -> Force Paywall
+    // FIX: We bypass this check if `isDemoMode` is true
+    if (!isDemoMode && (subStatus === 'trial_expired' || subStatus === 'none')) {
       if (!inOnboardingGroup) {
          router.replace('/onboarding/paywall');
       }
@@ -137,7 +139,7 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
       router.replace('/(tabs)');
     }
 
-  }, [session, profile, hasCompletedOnboarding, subStatus, segments, isLoading]);
+  }, [session, profile, hasCompletedOnboarding, subStatus, segments, isLoading, isDemoMode]);
 
   // --- RENDERING ---
   return (
@@ -158,7 +160,6 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
 };
 
 // --- 3. Providers Wrapper ---
-// Ensures Providers exist BEFORE Logic Layer runs
 const AppProviders = ({ children }: { children: React.ReactNode }) => (
   <I18nextProvider i18n={i18n}>
     <ThemeProvider>
