@@ -1,5 +1,5 @@
 import { Stack, useRouter } from 'expo-router';
-import { StyleSheet, Text, View, Pressable } from 'react-native';
+import { StyleSheet, Text, View, Pressable, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import { typography } from '../styles/typography';
@@ -8,22 +8,24 @@ export default function NotFoundScreen() {
   const { t } = useTranslation();
   const router = useRouter();
 
-  // 1. Force navigation to the Dashboard
-  // This bypasses the root redirect logic and sends you straight to the tabs
+  // 1. Force navigation to the Front Page
   const handleForceHome = () => {
     // Navigate explicitly to the tabs container
-    router.replace('/(tabs)/home'); 
+    router.replace('/(tabs)'); 
   };
 
   // 2. Reset Memory and restart
-  // This removes the flag and sends you to the absolute root to re-trigger onboarding
   const handleReset = async () => {
     try {
-      await AsyncStorage.removeItem('ONBOARDING_COMPLETED');
-      console.log('User Reset: ONBOARDING_COMPLETED removed');
+      // Clear Onboarding AND any demo flags we set in paywall
+      await AsyncStorage.multiRemove(['ONBOARDING_COMPLETED', 'DEMO_SUBSCRIPTION_ACTIVE']);
+      console.log('User Reset: Storage keys removed');
       
-      // Use replace instead of reload to avoid crashing
-      router.replace('/'); 
+      Alert.alert(
+          t('common.success'), 
+          t('notFound.resetConfirm', 'App memory wiped. Restarting...'),
+          [{ text: 'OK', onPress: () => router.replace('/') }]
+      );
     } catch (e) {
       console.error("Reset failed", e);
     }
@@ -43,14 +45,14 @@ export default function NotFoundScreen() {
         {/* Option 1: Try to go to the Dashboard (Tabs) */}
         <Pressable onPress={handleForceHome} style={styles.mainButton}>
            <Text style={[typography.button, { color: '#fff' }]}>
-             {t('notFound.goHome', 'Force Go to Dashboard')}
+             {t('notFound.goHome', 'Go to Front Page')}
            </Text>
         </Pressable>
 
         {/* Option 2: Wipe Memory and Restart */}
         <Pressable onPress={handleReset} style={styles.resetButton}>
           <Text style={[typography.button, { color: '#FF5252' }]}>
-            {t('dev.resetOnboarding', 'DEV: Reset Onboarding')}
+            {t('dev.resetOnboarding', 'Reset Onboarding')}
           </Text>
         </Pressable>
       </View>
