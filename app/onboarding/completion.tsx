@@ -56,6 +56,7 @@ export default function CompletionScreen() {
     
     // 3. Manually navigate to Paywall
     router.replace('/paywall');
+  };
 
   return (
     <LinearGradient
