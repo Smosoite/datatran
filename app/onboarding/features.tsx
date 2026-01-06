@@ -72,7 +72,7 @@ export default function FeaturesScreen() {
       scrollViewRef.current?.scrollTo({ x: nextIndex * width, animated: true });
       setCurrentIndex(nextIndex);
     } else {
-      router.push('/onboarding/demo-warehouse');
+      router.push('/onboarding/completion');
     }
   };
 
