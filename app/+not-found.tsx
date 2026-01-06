@@ -14,7 +14,7 @@ export default function NotFoundScreen() {
       // Clear the specific key causing the loop
       await AsyncStorage.removeItem('ONBOARDING_COMPLETED');
       // Navigate to the absolute root to re-trigger the initial layout check
-      router.replace('/settings'); 
+      router.replace('/(tabs)/settings'); 
     } catch (e) {
       console.error(e);
     }
