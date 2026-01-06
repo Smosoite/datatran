@@ -15,9 +15,10 @@ import {
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { FontAwesome } from '@expo/vector-icons';
-import { CameraView, useCameraPermissions } from 'expo-camera'; // Requires expo-camera installed
+import { CameraView, useCameraPermissions } from 'expo-camera'; 
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../providers/ThemeProvider';
+import { useAuth } from '../providers/AuthProvider'; // <--- ADDED THIS
 import { showError } from '../lib/toast';
 import { typography } from '../styles/typography';
 
@@ -26,6 +27,7 @@ const SCREEN_HEIGHT = Dimensions.get('window').height;
 export default function ScanScreen() {
   const { t } = useTranslation();
   const { colors } = useTheme(); 
+  const { profile } = useAuth(); // <--- GET PROFILE
   const router = useRouter();
   
   const [permission, requestPermission] = useCameraPermissions();
@@ -42,41 +44,49 @@ export default function ScanScreen() {
   // --- ACTIONS ---
 
   const handleScanOrSubmit = async (code: string) => {
-    if (scanned || loading) return; // Prevent double scans
+    if (scanned || loading) return; 
     if (!code.trim()) {
       showError(t('general.error'), t('scan.enterNum')); 
       return;
     }
 
-    setScanned(true); // Lock camera
+    // Safety check for profile
+    if (!profile?.workgroup_id) {
+        showError(t('general.error'), "No active workgroup found.");
+        return;
+    }
+
+    setScanned(true); 
     setLoading(true);
-    setBarcode(code); // Sync input if it came from camera
+    setBarcode(code); 
     Keyboard.dismiss(); 
 
     try {
-      // 2. Database Lookup
+      // 2. Database Lookup SCOPED to Workgroup
       const { data: item, error } = await supabase
         .from('items')
         .select('id')
         .eq('barcode', code.trim())
-        .single();
+        .eq('workgroup_id', profile.workgroup_id) // <--- CRITICAL FIX
+        .single(); // It is now safe to use .single() because duplicates are impossible within one group
 
+      // Handle actual DB errors (ignoring 'Item not found' code PGRST116)
       if (error && error.code !== 'PGRST116') {
         throw error;
       }
        
       if (item) {
-        // 3a. Item Exists -> Edit
+        // 3a. Item Exists in THIS workgroup -> Edit
         router.push(`/edit-item/${item.id}`);
       } else {
-        // 3b. Item New -> Add (via Location Select)
+        // 3b. Item New (or exists in other groups but not here) -> Add
         router.push({ 
           pathname: '/select-location-modal', 
           params: { barcode: code.trim() } 
         });
       }
       
-      // Delay resetting 'scanned' slightly so the user sees the freeze
+      // Delay resetting 'scanned' slightly
       setTimeout(() => {
          setScanned(false);
          setLoading(false);
@@ -86,20 +96,17 @@ export default function ScanScreen() {
       console.error(error);
       showError(t('general.error'), error.message || t('general.errorOccurred'));
       setLoading(false); 
-      setScanned(false); // Re-enable scanning on error
+      setScanned(false); 
     }
   };
 
-  // Prevent render if theme not ready
   if (!colors) return <View style={{flex:1}} />;
 
   if (!permission) {
-    // Camera permissions are still loading.
     return <View style={{flex:1, backgroundColor: colors.background}} />;
   }
 
   if (!permission.granted) {
-    // Camera permissions are not granted yet.
     return (
       <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
         <Text style={[typography.h3, { textAlign: 'center', color: colors.text, marginBottom: 20 }]}>
@@ -107,10 +114,6 @@ export default function ScanScreen() {
         </Text>
         <Pressable onPress={requestPermission} style={[styles.actionButton, { backgroundColor: colors.primary }]}>
             <Text style={[typography.button, { color: '#fff' }]}>{t('scan.grantPermission', 'Grant Permission')}</Text>
-        </Pressable>
-        {/* Fallback to manual entry only if they deny camera */}
-        <Pressable onPress={() => {}} style={{ marginTop: 20 }}>
-             {/* You could render a manual-only form here if desired */}
         </Pressable>
       </View>
     );
@@ -133,7 +136,7 @@ export default function ScanScreen() {
             </View>
         </CameraView>
 
-        {/* MANUAL INPUT LAYER (Bottom Sheet style) */}
+        {/* MANUAL INPUT LAYER */}
         <KeyboardAvoidingView 
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={styles.manualContainer}
@@ -182,13 +185,12 @@ const styles = StyleSheet.create({
     padding: 24,
     flex: 1,
   },
-  // Camera Overlay
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingBottom: 150, // Move box up slightly
+    paddingBottom: 150, 
   },
   scanBox: {
       width: 250,
@@ -197,8 +199,6 @@ const styles = StyleSheet.create({
       borderRadius: 20,
       backgroundColor: 'transparent'
   },
-
-  // Manual Input Section
   manualContainer: {
       position: 'absolute',
       bottom: 0,
