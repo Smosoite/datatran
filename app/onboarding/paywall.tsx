@@ -2,11 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '../providers/ThemeProvider';
-import { typography } from '../styles/typography';
+import { useTheme } from '../../providers/ThemeProvider';
+import { typography } from '../../styles/typography';
 import { FontAwesome } from '@expo/vector-icons';
-import { useSubscription } from '../hooks/useSubscription';
-import { showSuccess, showError } from '../lib/toast';
+import { useSubscription } from '../../hooks/useSubscription';
+import { showSuccess, showError } from '../../lib/toast';
 
 const { width } = Dimensions.get('window');
 
