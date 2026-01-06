@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   View, 
   Text, 
@@ -6,7 +6,9 @@ import {
   Pressable, 
   ScrollView, 
   ActivityIndicator, 
-  Alert 
+  Alert,
+  Dimensions,
+  Platform
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -15,10 +17,16 @@ import { FontAwesome } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Contexts
-import { useTheme } from '../../providers/ThemeProvider'; // Check your import path
-import { useOnboarding } from '../../providers/OnboardingProvider'; // Check your import path
-import { typography } from '../../styles/typography'; // Check your import path
+// Adjust these imports based on your actual folder structure
+import { useTheme } from '../providers/ThemeProvider'; 
+import { useOnboarding } from '../providers/OnboardingProvider'; 
+import { typography } from '../styles/typography'; 
+
+const { width } = Dimensions.get('window');
+
+type PlanType = 'individual' | 'company';
+type BillingCycle = 'monthly' | 'yearly';
+type UserCount = 5 | 10 | 20 | 50 | 100;
 
 export default function PaywallScreen() {
   const { t } = useTranslation();
@@ -27,39 +35,47 @@ export default function PaywallScreen() {
   const { completeOnboarding } = useOnboarding();
   
   const [loading, setLoading] = useState(false);
-  const [selectedPackage, setSelectedPackage] = useState<'monthly' | 'yearly'>('yearly');
+  
+  // State for toggles
+  const [planType, setPlanType] = useState<PlanType>('individual');
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>('yearly');
+  const [userCount, setUserCount] = useState<UserCount>(5);
 
-  // Placeholder packages - replace with real data (e.g., RevenueCat)
-  const packages = {
-    monthly: { id: 'monthly_id', price: '$9.99', period: t('paywall.month', 'month') },
-    yearly: { id: 'yearly_id', price: '$89.99', period: t('paywall.year', 'year'), savings: '25%' }
-  };
+  // --- Pricing Logic (Mock Data) ---
+  const priceData = useMemo(() => {
+    // Individual Prices
+    if (planType === 'individual') {
+      return {
+        monthly: { price: '$9.99', sub: t('paywall.perMonth', '/mo') },
+        yearly: { price: '$89.99', sub: t('paywall.perYear', '/yr'), savings: '25%' }
+      };
+    } 
+    
+    // Company Prices (Yearly Only)
+    // Mock calculation: $80 per user per year (bulk discount applied)
+    const basePerUser = 80;
+    const total = basePerUser * userCount;
+    return {
+      yearly: { 
+        price: `$${total}.00`, 
+        sub: t('paywall.perYearForUsers', '/yr for {{count}} users', { count: userCount }),
+        savings: '20%' // Bulk discount
+      }
+    };
+  }, [planType, userCount, t]);
 
-  /**
-   * CRITICAL FUNCTION:
-   * This is where we break the loop. We only mark onboarding as complete
-   * (and trigger the home redirect) AFTER the user is done with this screen.
-   */
   const finalizeOnboardingAndRedirect = async () => {
     try {
       setLoading(true);
-      
-      // 1. Mark persistent storage so they don't see onboarding on next app launch
       await AsyncStorage.setItem('ONBOARDING_COMPLETED', 'true');
       
-      // 2. Update Context state
-      // This function updates the provider state to `true`.
-      // The Root Layout listens to this state and will automatically 
-      // redirect the user to /(tabs)/home.
       if (completeOnboarding) {
         await completeOnboarding();
       } else {
-        // Fallback safety net if context is missing
         router.replace('/(tabs)/home');
       }
     } catch (error) {
       console.error('Failed to complete onboarding:', error);
-      // Even if error, force redirect to avoid trapping user
       router.replace('/(tabs)/home');
     } finally {
       setLoading(false);
@@ -68,157 +84,208 @@ export default function PaywallScreen() {
 
   const handlePurchase = async () => {
     setLoading(true);
-    try {
-      // --- IMPLEMENT PURCHASE LOGIC HERE ---
-      // await Purchases.purchasePackage(packageToBuy);
-      
-      // Simulating API call for now
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // On success, finalize
-      await finalizeOnboardingAndRedirect();
-
-    } catch (e: any) {
-      Alert.alert(t('common.error', 'Error'), e.message || t('paywall.purchaseFailed', 'Purchase failed'));
+    // Simulate API delay
+    setTimeout(() => {
       setLoading(false);
-    }
+      finalizeOnboardingAndRedirect();
+    }, 1500);
   };
 
-  const handleRestore = async () => {
-    setLoading(true);
-    try {
-      // --- IMPLEMENT RESTORE LOGIC HERE ---
-      Alert.alert(t('common.success', 'Success'), t('paywall.restoreSuccess', 'Purchases restored'));
-    } catch (e: any) {
-      Alert.alert(t('common.error', 'Error'), e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Logic for the "X" button
   const handleClose = async () => {
-    // If your app allows free usage, this lets them into the app.
     await finalizeOnboardingAndRedirect();
   };
 
   return (
     <LinearGradient
-      colors={[colors.background, colors.surface]}
+      // Using the same gradient colors as CompletionScreen
+      colors={[colors.primary, colors.selector]} 
       style={styles.container}
     >
       <SafeAreaView style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           
-          {/* Header / Close Button */}
+          {/* Header */}
           <View style={styles.header}>
-            <Pressable onPress={handleClose} style={styles.closeButton}>
-              <FontAwesome name="times" size={24} color={colors.textSecondary} />
+            <Pressable onPress={handleClose} style={styles.iconButton}>
+              <FontAwesome name="times" size={20} color="rgba(255,255,255,0.8)" />
             </Pressable>
-            <Pressable onPress={handleRestore}>
-              <Text style={[typography.caption, { color: colors.textSecondary }]}>
+            <Pressable onPress={() => {}}>
+              <Text style={[typography.caption, { color: 'rgba(255,255,255,0.8)' }]}>
                 {t('paywall.restore', 'Restore')}
               </Text>
             </Pressable>
           </View>
 
-          {/* Hero Image / Icon */}
+          {/* Hero Section */}
           <View style={styles.heroContainer}>
-            <FontAwesome name="diamond" size={64} color={colors.primary} />
-            <Text style={[typography.h1, styles.title, { color: colors.text }]}>
+            <View style={styles.iconCircle}>
+              <FontAwesome name="diamond" size={50} color="white" />
+            </View>
+            <Text style={[typography.h1, styles.title]}>
               {t('paywall.unlockPro', 'Unlock Pro Access')}
             </Text>
-            <Text style={[typography.body, styles.subtitle, { color: colors.textSecondary }]}>
-              {t('paywall.subtitle', 'Unlimited items, team collaboration, and advanced analytics.')}
+            <Text style={[typography.body, styles.subtitle]}>
+              {planType === 'individual' 
+                ? t('paywall.subtitleInd', 'Manage your inventory without limits.')
+                : t('paywall.subtitleComp', 'Empower your entire team with collaborative tools.')
+              }
             </Text>
+          </View>
+
+          {/* Type Toggle (Individual vs Company) */}
+          <View style={styles.toggleContainer}>
+            <Pressable 
+              style={[styles.toggleButton, planType === 'individual' && styles.toggleActive]}
+              onPress={() => setPlanType('individual')}
+            >
+              <Text style={[styles.toggleText, planType === 'individual' && styles.toggleTextActive]}>
+                {t('paywall.individual', 'Individual')}
+              </Text>
+            </Pressable>
+            <Pressable 
+              style={[styles.toggleButton, planType === 'company' && styles.toggleActive]}
+              onPress={() => setPlanType('company')}
+            >
+              <Text style={[styles.toggleText, planType === 'company' && styles.toggleTextActive]}>
+                {t('paywall.company', 'Company')}
+              </Text>
+            </Pressable>
+          </View>
+
+          {/* --- COMPANY: User Count Selector --- */}
+          {planType === 'company' && (
+            <View style={styles.userSelectorContainer}>
+              <Text style={styles.sectionLabel}>{t('paywall.selectSeats', 'Select Team Size:')}</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.userList}>
+                {[5, 10, 20, 50, 100].map((count) => (
+                  <Pressable
+                    key={count}
+                    style={[styles.userOption, userCount === count && styles.userOptionActive]}
+                    onPress={() => setUserCount(count as UserCount)}
+                  >
+                    <Text style={[styles.userOptionText, userCount === count && styles.userOptionTextActive]}>
+                      {count}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* Pricing Cards */}
+          <View style={styles.plansContainer}>
+            {/* If Individual: Show Monthly Option */}
+            {planType === 'individual' && (
+              <PlanCard 
+                title={t('paywall.monthly', 'Monthly')}
+                price={priceData.monthly!.price}
+                subtitle={priceData.monthly!.sub}
+                isSelected={billingCycle === 'monthly'}
+                onPress={() => setBillingCycle('monthly')}
+              />
+            )}
+
+            {/* Show Yearly Option (Always visible for both, enforced for Company) */}
+            <PlanCard 
+              title={t('paywall.yearly', 'Yearly')}
+              price={priceData.yearly.price}
+              subtitle={priceData.yearly.sub}
+              badge={t('paywall.bestValue', 'BEST VALUE')}
+              isSelected={billingCycle === 'yearly'}
+              onPress={() => setBillingCycle('yearly')}
+              isCompany={planType === 'company'} // Visual hint that it's the only option
+            />
           </View>
 
           {/* Features List */}
           <View style={styles.featuresContainer}>
-            <FeatureItem text={t('paywall.feature1', 'Unlimited Warehouses')} colors={colors} />
-            <FeatureItem text={t('paywall.feature2', 'Barcode Scanning')} colors={colors} />
-            <FeatureItem text={t('paywall.feature3', 'Team Roles & Permissions')} colors={colors} />
-            <FeatureItem text={t('paywall.feature4', 'Export Reports (CSV/PDF)')} colors={colors} />
+            <FeatureItem text={t('paywall.feat1', 'Unlimited Warehouses & Items')} />
+            <FeatureItem text={t('paywall.feat2', 'Advanced Barcode Scanning')} />
+            {planType === 'company' && (
+              <>
+                 <FeatureItem text={t('paywall.featTeam1', 'Admin & Staff Roles')} />
+                 <FeatureItem text={t('paywall.featTeam2', 'Activity Logs & Audits')} />
+              </>
+            )}
+            <FeatureItem text={t('paywall.feat3', 'Priority Support')} />
           </View>
 
-          {/* Pricing Options */}
-          <View style={styles.plansContainer}>
-            {/* Yearly Plan */}
-            <Pressable 
-              style={[
-                styles.planCard, 
-                selectedPackage === 'yearly' && { borderColor: colors.primary, borderWidth: 2, backgroundColor: colors.surfaceHighlight || '#f0f0f0' }
-              ]}
-              onPress={() => setSelectedPackage('yearly')}
-            >
-              <View style={styles.planHeader}>
-                <Text style={[typography.h3, { color: colors.text }]}>{t('paywall.yearly', 'Yearly')}</Text>
-                <View style={[styles.badge, { backgroundColor: colors.success || 'green' }]}>
-                  <Text style={styles.badgeText}>{t('paywall.savePercent', 'SAVE 25%')}</Text>
-                </View>
-              </View>
-              <Text style={[typography.h2, { color: colors.primary }]}>{packages.yearly.price}</Text>
-              <Text style={[typography.caption, { color: colors.textSecondary }]}>
-                {packages.yearly.price} / {t('paywall.year', 'year')}
-              </Text>
-            </Pressable>
-
-            {/* Monthly Plan */}
-            <Pressable 
-              style={[
-                styles.planCard, 
-                selectedPackage === 'monthly' && { borderColor: colors.primary, borderWidth: 2, backgroundColor: colors.surfaceHighlight || '#f0f0f0' }
-              ]}
-              onPress={() => setSelectedPackage('monthly')}
-            >
-              <View style={styles.planHeader}>
-                <Text style={[typography.h3, { color: colors.text }]}>{t('paywall.monthly', 'Monthly')}</Text>
-              </View>
-              <Text style={[typography.h2, { color: colors.primary }]}>{packages.monthly.price}</Text>
-              <Text style={[typography.caption, { color: colors.textSecondary }]}>
-                {packages.monthly.price} / {t('paywall.month', 'month')}
-              </Text>
-            </Pressable>
-          </View>
-
-          {/* Terms */}
-          <Text style={[typography.caption, styles.termsText, { color: colors.textTertiary }]}>
-            {t('paywall.terms', 'Subscription automatically renews unless auto-renew is turned off at least 24-hours before the end of the current period.')}
+          <Text style={styles.termsText}>
+            {t('paywall.terms', 'Recurring billing. Cancel anytime.')}
           </Text>
 
         </ScrollView>
 
-        {/* Footer Action Button */}
-        <View style={[styles.footer, { borderTopColor: colors.border }]}>
+        {/* Footer */}
+        <View style={styles.footer}>
           <Pressable 
-            style={[styles.subscribeButton, { backgroundColor: colors.primary }]}
+            style={styles.subscribeButton}
             onPress={handlePurchase}
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color="white" />
+              <ActivityIndicator color={colors.primary} />
             ) : (
-              <Text style={[typography.button, { color: 'white' }]}>
-                {selectedPackage === 'yearly' 
-                  ? t('paywall.startTrialYearly', 'Start 7-Day Free Trial') 
-                  : t('paywall.subscribeMonthly', 'Subscribe Monthly')}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={[typography.button, styles.subscribeText, { color: colors.primary }]}>
+                  {planType === 'individual' && billingCycle === 'monthly'
+                    ? t('paywall.subMonthly', 'Subscribe Monthly')
+                    : t('paywall.startTrial', 'Start 7-Day Free Trial')
+                  }
+                </Text>
+                <FontAwesome name="arrow-right" size={16} color={colors.primary} style={{ marginLeft: 8 }} />
+              </View>
             )}
           </Pressable>
+          <Text style={styles.footerNote}>
+            {t('paywall.noCommitment', 'No commitment. Cancel in settings.')}
+          </Text>
         </View>
       </SafeAreaView>
     </LinearGradient>
   );
 }
 
-// Helper Component for Features
-function FeatureItem({ text, colors }: { text: string, colors: any }) {
+// --- Subcomponents ---
+
+function PlanCard({ title, price, subtitle, badge, isSelected, onPress, isCompany }: any) {
+  return (
+    <Pressable 
+      style={[
+        styles.planCard, 
+        isSelected && styles.planCardSelected,
+        isCompany && { opacity: 1 } // Ensure company card looks active
+      ]}
+      onPress={onPress}
+    >
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <View>
+          <Text style={styles.planTitle}>{title}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+            <Text style={styles.planPrice}>{price}</Text>
+            <Text style={styles.planSubtitle}>{subtitle}</Text>
+          </View>
+        </View>
+        {isSelected ? (
+           <FontAwesome name="check-circle" size={24} color="white" />
+        ) : (
+           <View style={styles.radioCircle} />
+        )}
+      </View>
+      {badge && (
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{badge}</Text>
+        </View>
+      )}
+    </Pressable>
+  );
+}
+
+function FeatureItem({ text }: { text: string }) {
   return (
     <View style={styles.featureItem}>
-      <View style={[styles.checkCircle, { backgroundColor: colors.primaryLight || '#e0e0e0' }]}>
-        <FontAwesome name="check" size={12} color={colors.primary} />
-      </View>
-      <Text style={[typography.body, { color: colors.text }]}>{text}</Text>
+      <FontAwesome name="check" size={14} color="rgba(255,255,255,0.9)" />
+      <Text style={styles.featureText}>{text}</Text>
     </View>
   );
 }
@@ -226,7 +293,7 @@ function FeatureItem({ text, colors }: { text: string, colors: any }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1 },
-  scrollContent: { padding: 20, paddingBottom: 100 },
+  scrollContent: { padding: 24, paddingBottom: 120 },
   
   header: {
     flexDirection: 'row',
@@ -234,93 +301,158 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
-  closeButton: {
+  iconButton: {
     padding: 8,
     marginLeft: -8,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 20,
   },
   
   heroContainer: {
     alignItems: 'center',
     marginBottom: 32,
   },
+  iconCircle: {
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center', alignItems: 'center',
+    marginBottom: 16,
+  },
   title: {
-    marginTop: 16,
-    marginBottom: 8,
+    color: 'white',
     textAlign: 'center',
+    fontWeight: 'bold',
+    marginBottom: 8,
   },
   subtitle: {
+    color: 'rgba(255,255,255,0.8)',
     textAlign: 'center',
-    paddingHorizontal: 20,
+    lineHeight: 22,
   },
-  
-  featuresContainer: {
-    marginBottom: 32,
-    gap: 16,
-  },
-  featureItem: {
+
+  // Toggle Styles
+  toggleContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  checkCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  
-  plansContainer: {
-    gap: 16,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    borderRadius: 30,
+    padding: 4,
     marginBottom: 24,
   },
-  planCard: {
-    padding: 16,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.5)', 
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  planHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 25,
     alignItems: 'center',
-    marginBottom: 8,
   },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+  toggleActive: {
+    backgroundColor: 'white',
   },
-  badgeText: {
+  toggleText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontWeight: '600',
+  },
+  toggleTextActive: {
+    color: '#333', // Dark text on white toggle
+    fontWeight: 'bold',
+  },
+
+  // User Selector
+  userSelectorContainer: {
+    marginBottom: 24,
+  },
+  sectionLabel: {
+    color: 'rgba(255,255,255,0.8)',
+    marginBottom: 12,
+    fontWeight: '600',
+  },
+  userList: {
+    gap: 12,
+  },
+  userOption: {
+    width: 50, height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)'
+  },
+  userOptionActive: {
+    backgroundColor: 'white',
+    borderColor: 'white',
+  },
+  userOptionText: {
     color: 'white',
     fontWeight: 'bold',
-    fontSize: 10,
   },
+  userOptionTextActive: {
+    color: '#333',
+  },
+
+  // Plans
+  plansContainer: { gap: 16, marginBottom: 32 },
+  planCard: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  planCardSelected: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderColor: 'white',
+    borderWidth: 2,
+  },
+  planTitle: {
+    color: 'white', fontWeight: 'bold', fontSize: 16, marginBottom: 4
+  },
+  planPrice: {
+    color: 'white', fontWeight: 'bold', fontSize: 24, marginRight: 8
+  },
+  planSubtitle: {
+    color: 'rgba(255,255,255,0.7)', fontSize: 14
+  },
+  radioCircle: {
+    width: 24, height: 24, borderRadius: 12,
+    borderWidth: 2, borderColor: 'rgba(255,255,255,0.5)'
+  },
+  badge: {
+    position: 'absolute', top: -10, right: 16,
+    backgroundColor: '#FFD700', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4
+  },
+  badgeText: {
+    color: 'black', fontSize: 10, fontWeight: 'bold'
+  },
+
+  // Features
+  featuresContainer: { gap: 12, marginBottom: 24, paddingHorizontal: 8 },
+  featureItem: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  featureText: { color: 'rgba(255,255,255,0.9)', fontSize: 15 },
   
   termsText: {
-    textAlign: 'center',
-    marginBottom: 20,
+    color: 'rgba(255,255,255,0.5)', textAlign: 'center', fontSize: 12, marginBottom: 20
   },
-  
+
+  // Footer
   footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 20,
-    backgroundColor: 'transparent', 
-    borderTopWidth: 0,
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    padding: 24, alignItems: 'center',
   },
   subscribeButton: {
+    backgroundColor: 'white',
+    width: '100%',
     paddingVertical: 16,
     borderRadius: 30,
     alignItems: 'center',
-    justifyContent: 'center',
+    marginBottom: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 6,
+  },
+  subscribeText: {
+    fontWeight: 'bold', fontSize: 16
+  },
+  footerNote: {
+    color: 'rgba(255,255,255,0.6)', fontSize: 12
   },
 });
