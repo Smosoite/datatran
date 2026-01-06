@@ -265,7 +265,7 @@ export default function DemoScanningScreen() {
 
         <Pressable
           style={[styles.navButton, { backgroundColor: colors.primary }]}
-          onPress={() => router.push('app/onboarding/completion')}
+          onPress={() => router.push('/onboarding/completion')}
         >
           <Text style={[typography.button, { color: colors.primaryText, marginRight: 8 }]}>
             {t('onboarding.almostDone', 'Almost Done!')}
