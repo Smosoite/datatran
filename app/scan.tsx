@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -8,36 +8,49 @@ import {
   ActivityIndicator, 
   KeyboardAvoidingView, 
   Platform,
-  ScrollView,
   Keyboard,
-  TouchableWithoutFeedback
+  TouchableWithoutFeedback,
+  Dimensions
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { FontAwesome } from '@expo/vector-icons';
+import { CameraView, useCameraPermissions } from 'expo-camera'; // Requires expo-camera installed
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../providers/ThemeProvider';
 import { showError } from '../lib/toast';
 import { typography } from '../styles/typography';
 
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+
 export default function ScanScreen() {
   const { t } = useTranslation();
   const { colors } = useTheme(); 
   const router = useRouter();
-
+  
+  const [permission, requestPermission] = useCameraPermissions();
+  const [scanned, setScanned] = useState(false);
   const [barcode, setBarcode] = useState('');
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (!permission) {
+        requestPermission();
+    }
+  }, [permission]);
+
   // --- ACTIONS ---
 
-  const handleManualScan = async () => {
-    // 1. Validation
-    if (!barcode.trim()) {
+  const handleScanOrSubmit = async (code: string) => {
+    if (scanned || loading) return; // Prevent double scans
+    if (!code.trim()) {
       showError(t('general.error'), t('scan.enterNum')); 
       return;
     }
 
+    setScanned(true); // Lock camera
     setLoading(true);
+    setBarcode(code); // Sync input if it came from camera
     Keyboard.dismiss(); 
 
     try {
@@ -45,14 +58,13 @@ export default function ScanScreen() {
       const { data: item, error } = await supabase
         .from('items')
         .select('id')
-        .eq('barcode', barcode.trim())
+        .eq('barcode', code.trim())
         .single();
 
-      // Handle actual DB errors (ignoring 'Item not found' code PGRST116)
       if (error && error.code !== 'PGRST116') {
         throw error;
       }
-      
+       
       if (item) {
         // 3a. Item Exists -> Edit
         router.push(`/edit-item/${item.id}`);
@@ -60,104 +72,105 @@ export default function ScanScreen() {
         // 3b. Item New -> Add (via Location Select)
         router.push({ 
           pathname: '/select-location-modal', 
-          params: { barcode: barcode.trim() } 
+          params: { barcode: code.trim() } 
         });
       }
+      
+      // Delay resetting 'scanned' slightly so the user sees the freeze
+      setTimeout(() => {
+         setScanned(false);
+         setLoading(false);
+      }, 1000);
 
     } catch (error: any) {
       console.error(error);
       showError(t('general.error'), error.message || t('general.errorOccurred'));
       setLoading(false); 
+      setScanned(false); // Re-enable scanning on error
     }
-    // Note: If success, we don't set loading(false) to prevent UI flicker during navigation
   };
 
   // Prevent render if theme not ready
   if (!colors) return <View style={{flex:1}} />;
 
+  if (!permission) {
+    // Camera permissions are still loading.
+    return <View style={{flex:1, backgroundColor: colors.background}} />;
+  }
+
+  if (!permission.granted) {
+    // Camera permissions are not granted yet.
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={[typography.h3, { textAlign: 'center', color: colors.text, marginBottom: 20 }]}>
+            {t('scan.permissionNeeded', 'Camera permission is required to scan barcodes.')}
+        </Text>
+        <Pressable onPress={requestPermission} style={[styles.actionButton, { backgroundColor: colors.primary }]}>
+            <Text style={[typography.button, { color: '#fff' }]}>{t('scan.grantPermission', 'Grant Permission')}</Text>
+        </Pressable>
+        {/* Fallback to manual entry only if they deny camera */}
+        <Pressable onPress={() => {}} style={{ marginTop: 20 }}>
+             {/* You could render a manual-only form here if desired */}
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-      >
+    <View style={{ flex: 1, backgroundColor: '#000' }}>
+        
+        {/* CAMERA LAYER */}
+        <CameraView
+            style={StyleSheet.absoluteFill}
+            facing="back"
+            onBarcodeScanned={scanned ? undefined : ({ data }) => handleScanOrSubmit(data)}
+        >
+            <View style={styles.overlay}>
+                <View style={[styles.scanBox, { borderColor: scanned ? colors.success : '#fff' }]} />
+                <Text style={{ color: '#fff', marginTop: 10, textAlign: 'center', ...typography.caption }}>
+                    {loading ? t('scan.processing', 'Processing...') : t('scan.align', 'Align barcode within frame')}
+                </Text>
+            </View>
+        </CameraView>
+
+        {/* MANUAL INPUT LAYER (Bottom Sheet style) */}
+        <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.manualContainer}
+        >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <ScrollView 
-            contentContainerStyle={styles.container}
-            keyboardShouldPersistTaps="handled"
-          >
+          <View style={[styles.manualContent, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
             
-            {/* HERO / ICON SECTION */}
-            <View style={styles.heroSection}>
-              <View style={[styles.iconCircle, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <FontAwesome name="barcode" size={40} color={colors.primary} />
-              </View>
-              <Text style={[typography.h1, styles.title, { color: colors.text }]}>
-                {t('scan.manualEntryTitle', 'Scan Item')}
-              </Text>
-              <Text style={[typography.body, styles.subtitle, { color: colors.subtext || colors.text }]}>
-                {t('scan.manualEntrySub', 'Enter a barcode number to search or add an item.')}
-              </Text>
-            </View>
+             <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>
+                {t('scan.orManual', 'Or enter manually')}
+             </Text>
+             
+             <View style={styles.inputRow}>
+                <TextInput
+                  style={[
+                    typography.body, 
+                    styles.input, 
+                    { color: colors.text, backgroundColor: colors.background, borderColor: colors.border }
+                  ]}
+                  placeholder={t('scan.enterNum', 'e.g. 123456789')}
+                  placeholderTextColor={colors.subtext || '#888'}
+                  value={barcode}
+                  onChangeText={setBarcode}
+                  keyboardType="numeric"
+                  returnKeyType="done"
+                  onSubmitEditing={() => handleScanOrSubmit(barcode)}
+                  editable={!loading}
+                />
+                <Pressable 
+                    style={[styles.goButton, { backgroundColor: colors.primary }]}
+                    onPress={() => handleScanOrSubmit(barcode)}
+                    disabled={loading}
+                >
+                    {loading ? <ActivityIndicator size="small" color="#fff" /> : <FontAwesome name="arrow-right" size={16} color="#fff" />}
+                </Pressable>
+             </View>
 
-            {/* INPUT SECTION (Styled like Settings Card) */}
-            <View style={styles.section}>
-              <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>
-                {t('scan.inputLabel', 'Manual Entry')}
-              </Text>
-              
-              <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={styles.inputRow}>
-                   <TextInput
-                    style={[
-                      typography.body, 
-                      styles.input, 
-                      { color: colors.text }
-                    ]}
-                    placeholder={t('scan.enterNum', 'e.g. 123456789')}
-                    placeholderTextColor={colors.subtext || '#888'}
-                    value={barcode}
-                    onChangeText={setBarcode}
-                    keyboardType="numeric"
-                    returnKeyType="done"
-                    onSubmitEditing={handleManualScan}
-                    editable={!loading}
-                    autoFocus={false}
-                  />
-                  {/* Clear Button */}
-                  {barcode.length > 0 && (
-                    <Pressable onPress={() => setBarcode('')} style={{ padding: 8 }}>
-                      <FontAwesome name="times-circle" size={16} color={colors.subtext || '#888'} />
-                    </Pressable>
-                  )}
-                </View>
-              </View>
-            </View>
-            
-            {/* ACTION BUTTON (Styled like Settings Logout/Danger button) */}
-            <View style={styles.section}>
-              <Pressable 
-                style={[
-                  styles.actionButton, 
-                  { backgroundColor: colors.primary, opacity: loading ? 0.7 : 1 }
-                ]} 
-                onPress={handleManualScan} 
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Text style={[typography.button, { color: '#fff' }]}>
-                      {t('scan.submitBarcode', 'Search Item')}
-                    </Text>
-                    <FontAwesome name="arrow-right" size={14} color="#fff" />
-                  </View>
-                )}
-              </Pressable>
-            </View>
-
-          </ScrollView>
+          </View>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
     </View>
@@ -167,74 +180,71 @@ export default function ScanScreen() {
 const styles = StyleSheet.create({
   container: {
     padding: 24,
-    flexGrow: 1,
-    justifyContent: 'center', // Centers content vertically like a prompt screen
+    flex: 1,
   },
-  
-  // Hero
-  heroSection: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 1,
+  // Camera Overlay
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    paddingBottom: 150, // Move box up slightly
   },
-  title: {
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    textAlign: 'center',
-    maxWidth: '80%',
-    opacity: 0.7,
+  scanBox: {
+      width: 250,
+      height: 250,
+      borderWidth: 2,
+      borderRadius: 20,
+      backgroundColor: 'transparent'
   },
 
-  // Sections (Matches Settings)
-  section: {
-    marginBottom: 24,
-    width: '100%',
+  // Manual Input Section
+  manualContainer: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+  },
+  manualContent: {
+      padding: 20,
+      paddingBottom: 40,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      borderTopWidth: 1,
+      elevation: 5,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: -2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 5,
   },
   sectionTitle: { 
-    marginBottom: 8, 
-    fontSize: 13, 
-    textTransform: 'uppercase', 
-    opacity: 0.7 
-  },
-  
-  // Card / Input (Matches Settings)
-  card: {
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 4, // Input has its own padding
+    marginBottom: 12, 
+    fontSize: 14, 
+    opacity: 0.8,
+    textAlign: 'center'
   },
   inputRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 10,
   },
   input: {
     flex: 1,
-    paddingVertical: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
     fontSize: 16,
   },
-
-  // Buttons
+  goButton: {
+      width: 50,
+      borderRadius: 12,
+      justifyContent: 'center',
+      alignItems: 'center',
+  },
   actionButton: {
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
+  }
 });
