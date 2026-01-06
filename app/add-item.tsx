@@ -1,12 +1,11 @@
 import { useTranslation } from 'react-i18next';
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../providers/AuthProvider';
 import { useTheme } from '../providers/ThemeProvider';
 import { DropdownPicker } from '../components/dropdownPicker';
-import { FontAwesome, MaterialCommunityIcons } from '@expo/vector-icons';
 import { showError, showSuccess } from '../lib/toast';
 import { typography } from '../styles/typography';
 
@@ -59,14 +58,12 @@ export default function AddItemScreen() {
 
   // --- FIXED TOUR LOGIC ---
   useEffect(() => {
-    // Wait for both layout ready AND data loaded
     if (loading || !isLayoutReady || warehouses.length === 0) return;
     
     const checkFirstTime = async () => {
         try {
             const hasSeen = await AsyncStorage.getItem('HAS_SEEN_ADD_ITEM_TOUR');
             if (!hasSeen) {
-                // Longer delay to ensure all components are mounted and positioned
                 setTimeout(() => {
                   console.log('Starting tour...');
                   startTour();
@@ -80,7 +77,7 @@ export default function AddItemScreen() {
     checkFirstTime();
   }, [loading, isLayoutReady, warehouses]);
 
-  // Fetch data (Warehouses, Storages, Locations)
+  // Fetch data
   useEffect(() => {
     const fetchWarehouses = async () => {
       const { data } = await supabase.from('warehouses').select('id, name');
@@ -148,13 +145,6 @@ export default function AddItemScreen() {
       setSelectedLocationIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
-  const selectAllOnShelf = () => {
-      const availableIds = shelfLocations.filter(l => !l.items || l.items.length === 0).map(l => l.id);
-      setSelectedLocationIds(availableIds);
-  };
-
-  const clearSelection = () => setSelectedLocationIds([]);
-   
   const handleAddItem = async () => {
     if (!name.trim() || !quantity || !restockThreshold || !selectedWarehouse || !selectedStorage) {
       showError(t('general.error'), t('general.fillFields'));
@@ -165,6 +155,7 @@ export default function AddItemScreen() {
         return;
     }
     setLoading(true);
+    
     try {
       const promises = selectedLocationIds.map(locId => {
           return supabase.rpc('add_new_item', {
@@ -178,14 +169,30 @@ export default function AddItemScreen() {
             p_barcode: itemBarcode,
           });
       });
+
       const results = await Promise.all(promises);
-      if (results.some(r => r.error)) throw new Error("Failed to add items.");
-      showSuccess(t('general.success'), `Added item to ${selectedLocationIds.length} location(s).`);
-      router.back();
+
+      // --- FIX: Better Error Handling ---
+      const failures = results.filter(r => r.error);
+      const successes = results.filter(r => !r.error);
+
+      if (successes.length === 0 && failures.length > 0) {
+          // COMPLETE FAILURE
+          throw new Error(failures[0].error?.message || "Failed to add items.");
+      } else if (successes.length > 0) {
+          // PARTIAL OR COMPLETE SUCCESS
+          const msg = successes.length === results.length 
+            ? `Added item to ${successes.length} location(s).`
+            : `Added to ${successes.length} locations. ${failures.length} failed.`;
+          
+          showSuccess(t('general.success'), msg);
+          
+          // IMPORTANT: If we go back, do NOT set loading false (component unmounts)
+          router.back();
+      }
     } catch (error: any) {
       showError(t('general.error'), error.message);
-    } finally {
-      setLoading(false);
+      setLoading(false); // Only stop loading if we stay on page
     }
   };
 
@@ -194,10 +201,7 @@ export default function AddItemScreen() {
         style={{ flex: 1, backgroundColor: colors.background }} 
         contentContainerStyle={styles.contentContainer}
         keyboardShouldPersistTaps="handled"
-        onLayout={() => {
-          // Add small delay before marking as ready
-          setTimeout(() => setIsLayoutReady(true), 100);
-        }}
+        onLayout={() => setTimeout(() => setIsLayoutReady(true), 100)}
     >
       <View style={styles.header}>
         <Text style={[typography.h1, { color: colors.text }]}>{t('item.addHeader')}</Text>
@@ -231,7 +235,7 @@ export default function AddItemScreen() {
 
       <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('item.name')}</Text>
       <CopilotStep 
-        text="Enter a unique name for your item here. This helps you identify it later." 
+        text="Enter a unique name for your item here." 
         order={1} 
         name="Item Name"
       >
@@ -240,11 +244,7 @@ export default function AddItemScreen() {
             style={[
               typography.body, 
               styles.input, 
-              { 
-                backgroundColor: colors.card, 
-                color: colors.text, 
-                borderColor: colors.border 
-              }
+              { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }
             ]} 
             value={name} 
             onChangeText={setName} 
@@ -255,7 +255,7 @@ export default function AddItemScreen() {
 
       <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('item.quantity')}</Text>
       <CopilotStep 
-        text="Set the initial quantity of items you're adding." 
+        text="Set the initial quantity." 
         order={2} 
         name="Item Quantity"
       >
@@ -264,11 +264,7 @@ export default function AddItemScreen() {
           style={[
             typography.body, 
             styles.input, 
-            { 
-              backgroundColor: colors.card, 
-              color: colors.text, 
-              borderColor: colors.border 
-            }
+            { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }
           ]} 
           value={quantity} 
           onChangeText={setQuantity} 
@@ -280,7 +276,7 @@ export default function AddItemScreen() {
 
       <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('item.restockThreshold')}</Text>
       <CopilotStep 
-        text="Set a threshold - you'll be notified when stock falls below this number." 
+        text="Set a threshold for low stock alerts." 
         order={3} 
         name="Restock Alert"
       >
@@ -289,11 +285,7 @@ export default function AddItemScreen() {
           style={[
             typography.body, 
             styles.input, 
-            { 
-              backgroundColor: colors.card, 
-              color: colors.text, 
-              borderColor: colors.border 
-            }
+            { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }
           ]} 
           value={restockThreshold} 
           onChangeText={setRestockThreshold} 
@@ -321,7 +313,7 @@ export default function AddItemScreen() {
 
           {selectedShelf && (
             <CopilotStep 
-              text="Tap available slots to assign storage locations. Gray slots are occupied. You can select multiple locations!" 
+              text="Tap available slots to assign storage locations." 
               order={4} 
               name="Location Grid"
             >
@@ -370,7 +362,7 @@ export default function AddItemScreen() {
       )}
       
       <CopilotStep 
-        text="Once you've filled in all details and selected locations, tap here to save your item!" 
+        text="Save your item!" 
         order={5} 
         name="Save Item"
       >
@@ -386,9 +378,13 @@ export default function AddItemScreen() {
           onPress={handleAddItem} 
           disabled={loading || selectedLocationIds.length === 0}
         >
-          <Text style={[typography.button, styles.buttonText, { color: '#fff' }]}>
-            {t('item.addButton')}
-          </Text>
+          {loading ? (
+             <ActivityIndicator color="#fff" />
+          ) : (
+             <Text style={[typography.button, styles.buttonText, { color: '#fff' }]}>
+                {t('item.addButton')}
+             </Text>
+          )}
         </WalkablePressable>
       </CopilotStep>
     </ScrollView>
