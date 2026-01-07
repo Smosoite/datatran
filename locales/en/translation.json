@@ -322,6 +322,8 @@
     "companyTier": "{{count}} User License",
     "cancelAnytime": "Cancel anytime. No commitment.",
     "trialNote": "First 7 days free, then {{price}}",
+    "mo": "Month",
+    "yr": "Year",
   },
   "onboarding": {
     "welcome": "Welcome to StoreTool",
