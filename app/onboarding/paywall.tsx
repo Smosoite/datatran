@@ -151,8 +151,8 @@ export default function PaywallScreen() {
     // --- DEMO MODE BYPASS ---
     if (DEMO_MODE) {
         setTimeout(async () => {
-            console.log("DEV: Mock Purchase Successful");
-            await finalizeOnboardingAndRedirect();
+            console.log("DEV: Mock Purchase Successful - Redirecting to account creation");
+            router.push('/sign-up');
         }, 1000);
         return;
     }
@@ -161,11 +161,11 @@ export default function PaywallScreen() {
     try {
       const { customerInfo } = await Purchases.purchasePackage(selectedProduct);
       if (customerInfo.entitlements.active['Pro Access']) {
-         await finalizeOnboardingAndRedirect();
+         router.push('/sign-up');
       }
     } catch (e: any) {
       if (!e.userCancelled) Alert.alert(t('common.error'), e.message);
-      setLoading(false); 
+      setLoading(false);
     }
   };
 
@@ -210,9 +210,8 @@ export default function PaywallScreen() {
         
         {/* HEADER */}
         <View style={styles.headerRow}>
-          {/* Close button acts as a bypass in this logic if you want 'X' to mean 'Skip/Demo' */}
-          <Pressable onPress={() => finalizeOnboardingAndRedirect()} style={styles.closeButton}>
-            <FontAwesome name="times" size={20} color={colors.subtext} />
+          <Pressable onPress={() => router.back()} style={styles.closeButton}>
+            <FontAwesome name="arrow-left" size={20} color={colors.subtext} />
           </Pressable>
           <Pressable onPress={handleRestore}>
             <Text style={[typography.caption, { color: colors.primary }]}>{t('paywall.restore', 'Restore')}</Text>
@@ -225,12 +224,10 @@ export default function PaywallScreen() {
             <FontAwesome name="diamond" size={40} color={colors.primary} />
           </View>
           <Text style={[typography.h1, { color: colors.text, textAlign: 'center', marginBottom: 8 }]}>
-            {t('paywall.unlockPro', 'Unlock Pro Access')}
+            {t('paywall.startFreeTrial', 'Start Your 7-Day Free Trial')}
           </Text>
           <Text style={[typography.body, { color: colors.subtext, textAlign: 'center' }]}>
-            {planType === 'individual' 
-              ? t('paywall.subtitleInd', 'Unlimited items and advanced analytics.')
-              : t('paywall.subtitleComp', 'Collaborate with your entire team.')}
+            {t('paywall.trialSubtitle', 'Full access to all features. Cancel anytime.')}
           </Text>
         </View>
 
@@ -370,15 +367,20 @@ export default function PaywallScreen() {
 
       {/* FOOTER ACTION */}
       <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
-        <Pressable 
-          style={[styles.ctaButton, { backgroundColor: colors.primary }]} 
+        <Pressable
+          style={[styles.ctaButton, { backgroundColor: colors.primary }]}
           onPress={handlePurchase}
           disabled={loading}
         >
            {loading ? <ActivityIndicator color="#fff" /> : (
-             <Text style={[typography.button, { color: '#fff' }]}>
-               {billingCycle === 'monthly' ? t('paywall.subNow') : t('paywall.startTrial')}
-             </Text>
+             <>
+               <Text style={[typography.button, { color: '#fff', fontSize: 18 }]}>
+                 {t('paywall.startTrialAndCreateAccount', 'Start Trial & Create Account')}
+               </Text>
+               <Text style={[typography.caption, { color: '#fff', marginTop: 4, opacity: 0.9 }]}>
+                 {t('paywall.freeFor7Days', 'Free for 7 days, then {{price}}', { price: displayPrice })}
+               </Text>
+             </>
            )}
         </Pressable>
       </View>

@@ -1,16 +1,25 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, Animated, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Animated, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../providers/ThemeProvider';
 import { typography } from '../../styles/typography';
 import { FontAwesome } from '@expo/vector-icons';
 
+const capabilities = [
+  { icon: 'warehouse', titleKey: 'onboarding.warehouseManagement', descKey: 'onboarding.warehouseDesc' },
+  { icon: 'barcode', titleKey: 'onboarding.barcodeScanning', descKey: 'onboarding.barcodeScanningDesc' },
+  { icon: 'users', titleKey: 'onboarding.teamCollaboration', descKey: 'onboarding.teamCollaborationDesc' },
+  { icon: 'refresh', titleKey: 'onboarding.restockAlerts', descKey: 'onboarding.restockAlertsDesc' },
+  { icon: 'search', titleKey: 'onboarding.smartSearch', descKey: 'onboarding.smartSearchDesc' },
+  { icon: 'chart-line', titleKey: 'onboarding.analytics', descKey: 'onboarding.analyticsDesc' },
+];
+
 export default function WelcomeScreen() {
   const { t } = useTranslation();
   const { colors } = useTheme();
   const router = useRouter();
-   
+
   const fadeAnim = new Animated.Value(0);
   const slideAnim = new Animated.Value(50);
 
@@ -31,59 +40,73 @@ export default function WelcomeScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Animated.View 
-        style={[
-          styles.content,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }],
-          }
-        ]}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
-        {/* App Icon */}
-        <View style={styles.iconContainer}>
-           <View style={[styles.iconCircle, { backgroundColor: colors.card, borderColor: colors.border }]}>
-             <FontAwesome name="cubes" size={60} color={colors.primary} />
-           </View>
-        </View>
+        <Animated.View
+          style={[
+            styles.content,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            }
+          ]}
+        >
+          <View style={styles.iconContainer}>
+             <View style={[styles.iconCircle, { backgroundColor: colors.card, borderColor: colors.border }]}>
+               <FontAwesome name="cubes" size={60} color={colors.primary} />
+             </View>
+          </View>
 
-        {/* Welcome Text */}
-        <Text style={[typography.h1, styles.title, { color: colors.text }]}>
-          {t('onboarding.welcome', 'Welcome to StoreTool')}
-        </Text>
-        
-        <Text style={[typography.body, styles.subtitle, { color: colors.subtext }]}>
-          {t('onboarding.welcomeSubtitle', 'Your complete inventory management solution')}
-        </Text>
+          <Text style={[typography.h1, styles.title, { color: colors.text }]}>
+            {t('onboarding.welcome', 'Welcome to StoreTool')}
+          </Text>
 
-        {/* Feature Highlights */}
-        <View style={styles.featuresContainer}>
-          <FeatureItem 
-            icon="warehouse" 
-            text={t('onboarding.organizeInventory', 'Organize Your Inventory')}
-            colors={colors}
-          />
-          <FeatureItem 
-            icon="barcode" 
-            text={t('onboarding.scanItems', 'Scan & Track Items')}
-            colors={colors} 
-          />
-          <FeatureItem 
-            icon="users" 
-            text={t('onboarding.teamCollaboration', 'Team Collaboration')}
-            colors={colors} 
-          />
-        </View>
-      </Animated.View>
+          <Text style={[typography.body, styles.subtitle, { color: colors.subtext }]}>
+            {t('onboarding.welcomeSubtitle', 'Your complete inventory management solution')}
+          </Text>
 
-      {/* Footer Actions */}
-      <View style={styles.footer}>
-        <Pressable 
+          <View style={styles.capabilitiesContainer}>
+            {capabilities.map((capability, index) => (
+              <View
+                key={index}
+                style={[styles.capabilityItem, { backgroundColor: colors.card, borderColor: colors.border }]}
+              >
+                <View style={[styles.capabilityIconBox, { backgroundColor: colors.primaryMuted }]}>
+                  <FontAwesome name={capability.icon as any} size={24} color={colors.primary} />
+                </View>
+                <View style={styles.capabilityText}>
+                  <Text style={[typography.body, styles.capabilityTitle, { color: colors.text }]}>
+                    {t(capability.titleKey)}
+                  </Text>
+                  <Text style={[typography.caption, styles.capabilityDesc, { color: colors.subtext }]}>
+                    {t(capability.descKey)}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+
+          <View style={[styles.whyContainer, { backgroundColor: colors.primaryMuted, borderColor: colors.primary }]}>
+            <Text style={[typography.h3, styles.whyTitle, { color: colors.primary }]}>
+              {t('onboarding.whyYouNeedIt', 'Why You Need StoreTool')}
+            </Text>
+            <Text style={[typography.body, styles.whyText, { color: colors.text }]}>
+              {t('onboarding.whyDescription', 'Stop losing track of inventory, wasting time searching for items, and dealing with stockouts. StoreTool gives you complete visibility and control over your entire inventory operation.')}
+            </Text>
+          </View>
+        </Animated.View>
+      </ScrollView>
+
+      <View style={[styles.footer, { backgroundColor: colors.background }]}>
+        <Pressable
           style={[styles.continueButton, { backgroundColor: colors.primary }]}
-          onPress={() => router.push('/onboarding/features')}
+          onPress={() => router.push('/onboarding/demo')}
         >
           <Text style={[typography.button, styles.continueText, { color: '#fff' }]}>
-            {t('onboarding.getStarted', 'Get Started')}
+            {t('onboarding.seeHowItWorks', 'See How It Works')}
           </Text>
           <FontAwesome name="arrow-right" size={16} color="#fff" style={{ marginLeft: 8 }} />
         </Pressable>
@@ -92,77 +115,91 @@ export default function WelcomeScreen() {
   );
 }
 
-// Helper Component for consistency
-function FeatureItem({ icon, text, colors }: { icon: any, text: string, colors: any }) {
-    return (
-        <View style={[styles.featureItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={[styles.featureIconBox, { backgroundColor: colors.background }]}>
-                <FontAwesome name={icon} size={20} color={colors.primary} />
-            </View>
-            <Text style={[styles.featureText, { color: colors.text }]}>{text}</Text>
-        </View>
-    );
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
-  
-  iconContainer: { marginBottom: 40 },
-  iconCircle: { width: 120, height: 120, borderRadius: 60, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+  scrollView: { flex: 1 },
+  scrollContent: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 120 },
+  content: { alignItems: 'center' },
 
-  title: { 
-    textAlign: 'center', 
-    marginBottom: 16,
-    fontSize: 28, 
+  iconContainer: { marginBottom: 24 },
+  iconCircle: { width: 100, height: 100, borderRadius: 50, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+
+  title: {
+    textAlign: 'center',
+    marginBottom: 12,
+    fontSize: 32,
+    fontWeight: 'bold',
   },
-  subtitle: { 
-    textAlign: 'center', 
-    marginBottom: 48,
+  subtitle: {
+    textAlign: 'center',
+    marginBottom: 40,
     fontSize: 16,
     lineHeight: 24,
   },
-  
-  featuresContainer: { 
-    width: '100%', 
-    gap: 16,
+
+  capabilitiesContainer: {
+    width: '100%',
+    gap: 12,
+    marginBottom: 32,
   },
-  featureItem: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
+  capabilityItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     padding: 16,
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
   },
-  featureIconBox: {
-      width: 40, 
-      height: 40,
-      borderRadius: 20,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: 16,
+  capabilityIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
-  featureText: { 
-    fontWeight: '600',
-    fontSize: 15,
+  capabilityText: {
     flex: 1,
   },
-  
-  footer: { 
-    paddingHorizontal: 32, 
-    paddingBottom: 50,
-    alignItems: 'center',
+  capabilityTitle: {
+    fontWeight: '600',
+    fontSize: 15,
+    marginBottom: 4,
   },
-  continueButton: { 
+  capabilityDesc: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+
+  whyContainer: {
+    width: '100%',
+    padding: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  whyTitle: {
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  whyText: {
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+    paddingTop: 20,
+  },
+  continueButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 18, 
-    paddingHorizontal: 32, 
+    paddingVertical: 18,
+    paddingHorizontal: 32,
     borderRadius: 16,
     width: '100%',
     justifyContent: 'center',

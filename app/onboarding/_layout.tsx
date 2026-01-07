@@ -15,18 +15,8 @@ export default function OnboardingLayout() {
       }}
     >
       <Stack.Screen name="welcome" />
-      <Stack.Screen name="features" />
-      <Stack.Screen name="demo-warehouse" />
-      
-      {/* NEW SCREENS */}
-      <Stack.Screen name="setup-grid" />
-      <Stack.Screen name="add-first-item" />
-
-      {/* Optional: Keep these if you want, or remove if replaced by the real steps above */}
-      {/* <Stack.Screen name="demo-inventory" />
-      <Stack.Screen name="demo-scanning" />*/}
-      
-      <Stack.Screen name="completion" />
+      <Stack.Screen name="demo" />
+      <Stack.Screen name="paywall" />
     </Stack>
   );
 }
