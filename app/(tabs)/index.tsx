@@ -91,11 +91,16 @@ export default function HomeScreen() {
     </Text>
   </Pressable>
 </View>
-      </View>
-      
-      <Text style={[typography.h3, styles.listHeader, { color: colors.text }]}>{t('dashboard.needsRestock')}</Text>
-      
-      <View style={styles.listContainer}>
+</View>
+      
+      {/* Only show header if not loading AND there are items */}
+      {!loading && restockItems.length > 0 && (
+        <Text style={[typography.h3, styles.listHeader, { color: colors.text }]}>
+          {t('dashboard.needsRestock')}
+        </Text>
+      )}
+      
+      <View style={styles.listContainer}>
         {loading ? (
           <ActivityIndicator size="large" color={colors.primary} style={{ paddingTop: 20 }}/>
         ) : (
