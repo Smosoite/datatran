@@ -82,7 +82,7 @@
     "findItem": "Etsi tuote",
     "scanItem": "Skannaa",
     "needsRestock": "Vaatii täydennystä",
-    "wellStocked": "🎉 Kaikki tuotteet ovat hyvin varastossa!"
+    "wellStocked": "Kaikkia tuotteita saatavilla."
   },
   "warehouse": {
     "title": "Varastot",
