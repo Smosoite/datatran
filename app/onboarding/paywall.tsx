@@ -115,11 +115,7 @@ export default function PaywallScreen() {
   const finalizeOnboardingAndRedirect = async () => {
     try {
       setLoading(true);
-      // Mark onboarding as complete
-      await AsyncStorage.setItem('ONBOARDING_COMPLETED', 'true');
-      
-      // If we are in demo mode, we might need to set a "Demo Subscription" flag
-      // so your useSubscription hook knows we are valid.
+
       if (DEMO_MODE) {
         await AsyncStorage.setItem('DEMO_SUBSCRIPTION_ACTIVE', 'true');
       }
@@ -127,13 +123,11 @@ export default function PaywallScreen() {
       if (completeOnboarding) {
         await completeOnboarding();
       }
-      
-      // Force navigation to the Front Page (Tabs)
+
       router.replace('/(tabs)');
-      
+
     } catch (error) {
       console.error("Redirection error:", error);
-      // Fallback
       router.replace('/(tabs)');
     } finally {
       setLoading(false);

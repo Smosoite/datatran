@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAuth } from './AuthProvider'; // Import Auth to access the User ID
 
 type OnboardingContextType = {
   hasCompletedOnboarding: boolean;
@@ -19,31 +18,17 @@ const OnboardingContext = createContext<OnboardingContextType>({
 export const useOnboarding = () => useContext(OnboardingContext);
 
 export const OnboardingProvider = ({ children }: { children: React.ReactNode }) => {
-  const { session } = useAuth(); // Access the current session
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Get a unique ID for the user (or null if not logged in)
-  // Adjust 'session?.user?.id' if your auth object structure is different
-  const userId = session?.user?.id || null;
-
   useEffect(() => {
-    if (userId) {
-      // If we have a user, check THEIR specific status
-      checkOnboardingStatus(userId);
-    } else {
-      // If no user (logout), reset state and stop loading
-      setHasCompletedOnboarding(false);
-      setIsLoading(false);
-    }
-  }, [userId]); // Re-run whenever the user changes (Login/Logout)
+    checkOnboardingStatus();
+  }, []);
 
-  const checkOnboardingStatus = async (uid: string) => {
+  const checkOnboardingStatus = async () => {
     try {
       setIsLoading(true);
-      // UNIQUE KEY PER USER: 'ONBOARDING_COMPLETED_user123'
-      const key = `ONBOARDING_COMPLETED_${uid}`;
-      const value = await AsyncStorage.getItem(key);
+      const value = await AsyncStorage.getItem('ONBOARDING_COMPLETED');
       setHasCompletedOnboarding(value === 'true');
     } catch (e) {
       console.error('Failed to load onboarding status');
@@ -53,23 +38,17 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
   };
 
   const completeOnboarding = async () => {
-    if (!userId) return; // Guard clause
-
     try {
-      const key = `ONBOARDING_COMPLETED_${userId}`;
-      await AsyncStorage.setItem(key, 'true');
-      setHasCompletedOnboarding(true); 
+      await AsyncStorage.setItem('ONBOARDING_COMPLETED', 'true');
+      setHasCompletedOnboarding(true);
     } catch (e) {
       console.error('Failed to save onboarding status');
     }
   };
-  
-  const resetOnboarding = async () => {
-    if (!userId) return;
 
+  const resetOnboarding = async () => {
     try {
-      const key = `ONBOARDING_COMPLETED_${userId}`;
-      await AsyncStorage.removeItem(key);
+      await AsyncStorage.removeItem('ONBOARDING_COMPLETED');
       setHasCompletedOnboarding(false);
     } catch (e) {
       console.error('Failed to reset onboarding');

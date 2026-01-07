@@ -72,13 +72,13 @@ const ThemedStack = () => {
 const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
   const { session, profile, loading: authLoading } = useAuth();
   const { hasCompletedOnboarding, isLoading: onboardingLoading } = useOnboarding();
-  const { status: subStatus } = useSubscription(); 
+  const { status: subStatus } = useSubscription();
   const { colors } = useTheme();
-   
+
   const segments = useSegments();
   const router = useRouter();
   const pathname = usePathname();
-  
+
   const [isMounted, setIsMounted] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
 
@@ -91,13 +91,13 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
     checkDemo();
   }, [hasCompletedOnboarding]);
 
-  const isLoading = authLoading || onboardingLoading || subStatus === 'loading' || !isMounted;
+  const isLoading = onboardingLoading || authLoading || subStatus === 'loading' || !isMounted;
 
   useEffect(() => {
     if (isLoading) return;
 
     const currentRoute = segments[0] || '';
-    
+
     // Group definitions
     const inAuthGroup = ['login', 'sign-up', 'forgot-password'].includes(currentRoute);
     const inSetupGroup = ['workgroup-gate', 'create-workgroup', 'join-workgroup'].includes(currentRoute);
@@ -105,35 +105,28 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
 
     // --- LOGIC FLOW (Strict Order) ---
 
-    // 1. Not Logged In? -> Login
+    // 1. Not Onboarded? -> Onboarding Flow (Before Login)
+    if (!hasCompletedOnboarding) {
+      if (!inOnboardingGroup) {
+          router.replace('/onboarding/welcome');
+      }
+      return;
+    }
+
+    // 2. Not Logged In? -> Login
     if (!session) {
       if (!inAuthGroup) router.replace('/login');
       return;
     }
 
-    // 2. No Workgroup? -> Setup
+    // 3. No Workgroup? -> Setup
     if (!profile?.workgroup_id) {
       if (!inSetupGroup) router.replace('/workgroup-gate');
       return;
     }
 
-    // 3. Not Onboarded? -> Onboarding Flow (Tutorial)
-    // IMPORTANT: This MUST come before the subscription check.
-    if (!hasCompletedOnboarding) {
-      // NOTE: Ensure you have an 'index.tsx' or 'welcome.tsx' inside /app/onboarding/ 
-      // If you ONLY have paywall, then this logic was technically correct before, 
-      // but if you want a "Welcome" screen, change the path below to '/onboarding/welcome'
-      // Assuming you have an 'onboarding' folder with an index or welcome file:
-      if (!inOnboardingGroup) {
-          router.replace('/onboarding/welcome'); // <--- Point to your actual first onboarding screen
-      }
-      return;
-    }
-
     // 4. Subscription Check (Paywall)
-    // Only happens if Onboarding is marked COMPLETE
     if (!isDemoMode && (subStatus === 'trial_expired' || subStatus === 'none')) {
-      // Redirect to Paywall specifically
       if (currentRoute !== 'paywall' && !pathname.includes('paywall')) {
           router.replace('/onboarding/paywall');
       }
@@ -141,7 +134,6 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
     }
 
     // 5. All Good -> Main App (Tabs)
-    // If we are stuck in Auth/Setup/Onboarding pages but are fully valid, kick us to home.
     if (inAuthGroup || inSetupGroup || inOnboardingGroup) {
       router.replace('/(tabs)');
     }
@@ -152,12 +144,12 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
   return (
     <View style={{ flex: 1 }}>
       {children}
-       
+
       {isLoading && (
-        <View style={{ 
-            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, 
-            backgroundColor: colors.background, 
-            justifyContent: 'center', alignItems: 'center', zIndex: 999 
+        <View style={{
+            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: colors.background,
+            justifyContent: 'center', alignItems: 'center', zIndex: 999
         }}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
