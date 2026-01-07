@@ -320,6 +320,8 @@
     "companyTier": "{{count}} User License",
     "cancelAnytime": "Cancel anytime. No commitment.",
     "trialNote": "First 7 days free, then {{price}}",
+    "mo": "Kuukausi",
+    "yr": "Vuosi",
   },
   "onboarding": {
     "welcome": "Tervetuloa StoreTool:iin",
