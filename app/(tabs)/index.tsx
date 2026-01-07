@@ -139,40 +139,35 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     padding: 16,
-    paddingTop: 40, 
+    paddingTop: 40,
     borderBottomWidth: 1,
   },
   title: {
     textAlign: 'center',
     marginBottom: 16,
   },
-  // --- UPDATED SECTION START ---
   buttonContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',       // Allows buttons to drop to next line if text is long
-    justifyContent: 'center', // Keeps them centered on screen
-    gap: 12,                // Uniform spacing between buttons (horizontal & vertical)
-    width: '100%',
+    justifyContent: 'space-between', // Spacing is handled by the flex buttons and gaps
+    gap: 8, // Adds a small consistent gap between the buttons
   },
   actionButton: {
+    flex: 1, // Crucial: Each button takes up equal width (33%)
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center', // Ensures content inside button is centered
-    paddingVertical: 10,      // Slightly increased touch target
-    paddingHorizontal: 16,
+    justifyContent: 'center',
+    paddingVertical: 12, // Fixed height padding
+    paddingHorizontal: 4, // Reduce horizontal padding to give text more room
     borderRadius: 24,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 1,
-    // Optional: ensures a single very long button doesn't break the screen
-    maxWidth: '100%', 
   },
-  // --- UPDATED SECTION END ---
   buttonText: {
-    marginLeft: 8,
-    flexShrink: 1, // Allows text to shrink if absolutely necessary
+    marginLeft: 6,
+    flexShrink: 1, // Crucial: Allows text to shrink so it doesn't push the icon
   },
   listHeader: {
     paddingHorizontal: 16,
