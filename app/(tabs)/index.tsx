@@ -52,22 +52,45 @@ export default function HomeScreen() {
       <View style={[styles.headerContainer, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <Text style={[styles.title, { color: colors.text }]}></Text>
         <View style={styles.buttonContainer}>
-          <Pressable style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/add-item')}>
-            <FontAwesome name="plus-circle" size={20} color={colors.text} style={[
-    typography.shadow, { textShadowColor: colors.textShadow }]} />
-            <Text style={[typography.button, typography.shadow, styles.buttonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('dashboard.addItem')}</Text>
-          </Pressable>
-          <Pressable style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/find')}>
-            <FontAwesome name="search" size={20} color={colors.text} style={[
-    typography.shadow, { textShadowColor: colors.textShadow }]} />
-            <Text style={[typography.button, typography.shadow, styles.buttonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('dashboard.findItem')}</Text>
-          </Pressable>
-          <Pressable style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/scan')}>
-            <FontAwesome name="barcode" size={20} color={colors.text} style={[
-    typography.shadow, { textShadowColor: colors.textShadow }]}/>
-            <Text style={[typography.button, typography.shadow, styles.buttonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('dashboard.scanItem')}</Text>
-          </Pressable>
-        </View>
+  {/* Button 1: Add */}
+  <Pressable style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/add-item')}>
+    <FontAwesome name="plus-circle" size={20} color={colors.text} style={[typography.shadow, { textShadowColor: colors.textShadow }]} />
+    <Text 
+      numberOfLines={1} 
+      adjustsFontSizeToFit 
+      minimumFontScale={0.5} // Won't shrink below 50% of original size
+      style={[typography.button, typography.shadow, styles.buttonText, { color: colors.text, textShadowColor: colors.textShadow }]}
+    >
+      {t('dashboard.addItem')}
+    </Text>
+  </Pressable>
+
+  {/* Button 2: Find */}
+  <Pressable style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/find')}>
+    <FontAwesome name="search" size={20} color={colors.text} style={[typography.shadow, { textShadowColor: colors.textShadow }]} />
+    <Text 
+      numberOfLines={1} 
+      adjustsFontSizeToFit 
+      minimumFontScale={0.5} 
+      style={[typography.button, typography.shadow, styles.buttonText, { color: colors.text, textShadowColor: colors.textShadow }]}
+    >
+      {t('dashboard.findItem')}
+    </Text>
+  </Pressable>
+
+  {/* Button 3: Scan */}
+  <Pressable style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/scan')}>
+    <FontAwesome name="barcode" size={20} color={colors.text} style={[typography.shadow, { textShadowColor: colors.textShadow }]}/>
+    <Text 
+      numberOfLines={1} 
+      adjustsFontSizeToFit 
+      minimumFontScale={0.5} 
+      style={[typography.button, typography.shadow, styles.buttonText, { color: colors.text, textShadowColor: colors.textShadow }]}
+    >
+      {t('dashboard.scanItem')}
+    </Text>
+  </Pressable>
+</View>
       </View>
       
       <Text style={[typography.h3, styles.listHeader, { color: colors.text }]}>{t('dashboard.needsRestock')}</Text>
