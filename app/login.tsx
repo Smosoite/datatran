@@ -7,7 +7,6 @@ import { useTheme } from '../providers/ThemeProvider';
 import { typography } from '../styles/typography';
 import { showError } from '../lib/toast';
 import { Feather } from '@expo/vector-icons';
-// 👇 IMPORT THIS
 import { useOnboarding } from '../providers/OnboardingProvider';
 
 export default function LoginScreen() {
@@ -15,13 +14,16 @@ export default function LoginScreen() {
   const { colors } = useTheme();
   const router = useRouter();
 
-  // 👇 USE THE HOOK
   const { completeOnboarding } = useOnboarding();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
   
+  // 👇 NEW: State to toggle password visibility
+  const [showPassword, setShowPassword] = useState(false);
+  
+  const [loading, setLoading] = useState(false);
+   
   // Dropdown state
   const [langOpen, setLangOpen] = useState(false);
 
@@ -33,14 +35,8 @@ export default function LoginScreen() {
       showError(t('general.error'), error.message);
       setLoading(false);
     } else {
-      // 👇 CRITICAL FIX: 
-      // Mark onboarding as complete immediately upon success.
-      // This prevents the app from redirecting existing users to the tutorial.
       await completeOnboarding();
-      
-      // We don't strictly need to router.replace() here because 
-      // MainNavigator in _layout.tsx will detect the session change 
-      // and redirect to (tabs) automatically.
+      // MainNavigator in _layout.tsx will detect session change
     } 
   };
 
@@ -54,7 +50,7 @@ export default function LoginScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      
+       
       {/* --- LANGUAGE DROPDOWN (Top Right) --- */}
       <View style={styles.languageContainer}>
         <TouchableOpacity 
@@ -100,14 +96,31 @@ export default function LoginScreen() {
         />
 
         <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('login.password', 'Password')}</Text>
-        <TextInput
-          style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
-          placeholder="********"
-          placeholderTextColor={colors.subtext}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
+        
+        {/* 👇 NEW: Password Container with Eye Icon */}
+        <View style={[styles.passwordContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <TextInput
+            style={[styles.passwordInput, { color: colors.text }]}
+            placeholder="********"
+            placeholderTextColor={colors.subtext}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword} // Toggles visibility based on state
+            />
+            
+            <TouchableOpacity 
+                style={styles.eyeIcon} 
+                onPress={() => setShowPassword(!showPassword)}
+                // Accessibility label added for screen readers (Translatable)
+                accessibilityLabel={showPassword ? t('login.hidePassword', 'Hide password') : t('login.showPassword', 'Show password')}
+            >
+                <Feather 
+                    name={showPassword ? "eye" : "eye-off"} 
+                    size={20} 
+                    color={colors.subtext} 
+                />
+            </TouchableOpacity>
+        </View>
 
         <Pressable 
           style={[styles.button, { backgroundColor: colors.primary }]} 
@@ -134,10 +147,30 @@ const styles = StyleSheet.create({
   header: { marginBottom: 40 },
   form: { width: '100%' },
   label: { marginBottom: 8, fontWeight: '600' },
+  
+  // Standard input style (used for Email)
   input: { borderWidth: 1, borderRadius: 8, padding: 16, marginBottom: 20 },
+
+  // 👇 NEW: Styles for the password field structure
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  passwordInput: {
+    flex: 1,
+    padding: 16,
+    // Note: No border here because the container handles it
+  },
+  eyeIcon: {
+    padding: 16, // Adds hit slop so it's easier to tap
+  },
+
   button: { padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 10 },
   linkButton: { marginTop: 20, alignItems: 'center' },
-  
+   
   // Language Styles
   languageContainer: {
       position: 'absolute',
