@@ -78,6 +78,18 @@
     "passwordNoMatch": "Passwords do not match!",
     "creating": "Creating account..."
   },
+  "login": {
+    "subtitle": "Sign in to manage your inventory",
+    "email": "Email",
+    "password": "Password",
+    "hidePassword": "Hide password",
+    "showPassword": "Show password",
+    "forgotPassword": "Forgot Password?",
+    "emailRequired": "Please enter your email address",
+    "resetEmailSent": "Password reset link has been sent to your email",
+    "signIn": "Sign In",
+    "noAccount": "Don't have an account? Sign Up"
+  },
   "dashboard": {
     "title": "Dashboard",
     "addItem": "Add Item",

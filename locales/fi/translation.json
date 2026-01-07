@@ -76,6 +76,18 @@
     "passwordNoMatch": "Salasanat eivät täsmää!",
     "creating": "Luodaan tiliä..."
   },
+  "login": {
+    "subtitle": "Kirjaudu sisään hallitaksesi varastoasi",
+    "email": "Sähköposti",
+    "password": "Salasana",
+    "hidePassword": "Piilota salasana",
+    "showPassword": "Näytä salasana",
+    "forgotPassword": "Unohditko salasanan?",
+    "emailRequired": "Syötä sähköpostiosoitteesi",
+    "resetEmailSent": "Salasanan palautuslinkki on lähetetty sähköpostiisi",
+    "signIn": "Kirjaudu sisään",
+    "noAccount": "Eikö sinulla ole tiliä? Rekisteröidy"
+  },
   "dashboard": {
     "title": "Ohjauspaneeli",
     "addItem": "Lisää tuote",

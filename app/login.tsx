@@ -37,7 +37,24 @@ export default function LoginScreen() {
     } else {
       await completeOnboarding();
       // MainNavigator in _layout.tsx will detect session change
-    } 
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      showError(t('general.error'), t('login.emailRequired'));
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+
+    if (error) {
+      showError(t('general.error'), error.message);
+    } else {
+      showError(t('general.success'), t('login.resetEmailSent'));
+    }
+    setLoading(false);
   };
 
   const changeLanguage = (lang: string) => {
@@ -122,9 +139,13 @@ export default function LoginScreen() {
             </TouchableOpacity>
         </View>
 
-        <Pressable 
-          style={[styles.button, { backgroundColor: colors.primary }]} 
-          onPress={handleLogin} 
+        <Pressable onPress={handleForgotPassword} style={styles.forgotPassword} disabled={loading}>
+          <Text style={[typography.caption, { color: colors.primary }]}>{t('login.forgotPassword', 'Forgot Password?')}</Text>
+        </Pressable>
+
+        <Pressable
+          style={[styles.button, { backgroundColor: colors.primary }]}
+          onPress={handleLogin}
           disabled={loading}
         >
           {loading ? (
@@ -168,6 +189,7 @@ const styles = StyleSheet.create({
     padding: 16, // Adds hit slop so it's easier to tap
   },
 
+  forgotPassword: { marginTop: 10, alignItems: 'flex-end' },
   button: { padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 10 },
   linkButton: { marginTop: 20, alignItems: 'center' },
    
