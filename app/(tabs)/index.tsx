@@ -111,76 +111,84 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  // --- FIX: Container style no longer centers everything, allowing for top-down layout ---
-  container: {
-    flex: 1,
-  },
-  headerContainer: {
-    padding: 16,
-    paddingTop: 40, // Adjust for status bar if needed
-    borderBottomWidth: 1,
-  },
-  title: {
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 24,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1,
-  },
-  buttonText: {
-    marginLeft: 8,
-  },
-  listHeader: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-  },
-  listContainer: { flex: 1 },
-  itemContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    marginHorizontal: 16,
-    marginVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  itemName: {
-  },
-  itemLocation: {
-    marginTop: 8,
-  },
-  itemQuantity: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    marginTop: 40,
-  },
-  emptyText: {
-  },
-  restockButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    margin: 16,
-    borderRadius: 16,
-    elevation: 3,
-  },
-  restockButtonText: { marginLeft: 16 },
+  container: {
+    flex: 1,
+  },
+  headerContainer: {
+    padding: 16,
+    paddingTop: 40, 
+    borderBottomWidth: 1,
+  },
+  title: {
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  // --- UPDATED SECTION START ---
+  buttonContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',       // Allows buttons to drop to next line if text is long
+    justifyContent: 'center', // Keeps them centered on screen
+    gap: 12,                // Uniform spacing between buttons (horizontal & vertical)
+    width: '100%',
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center', // Ensures content inside button is centered
+    paddingVertical: 10,      // Slightly increased touch target
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1,
+    // Optional: ensures a single very long button doesn't break the screen
+    maxWidth: '100%', 
+  },
+  // --- UPDATED SECTION END ---
+  buttonText: {
+    marginLeft: 8,
+    flexShrink: 1, // Allows text to shrink if absolutely necessary
+  },
+  listHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  listContainer: { flex: 1 },
+  itemContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  itemName: {
+  },
+  itemLocation: {
+    marginTop: 8,
+  },
+  itemQuantity: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    marginTop: 40,
+  },
+  emptyText: {
+  },
+  restockButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    margin: 16,
+    borderRadius: 16,
+    elevation: 3,
+  },
+  restockButtonText: { marginLeft: 16 },
 });
