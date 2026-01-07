@@ -2,7 +2,7 @@ import '../i18n';
 import i18n from '../i18n';
 import { I18nextProvider } from 'react-i18next';
 import React, { useEffect, useState } from 'react';
-import { useRouter, useSegments, Stack } from 'expo-router';
+import { useRouter, useSegments, Stack, usePathname } from 'expo-router';
 import { AuthProvider, useAuth } from '../providers/AuthProvider';
 import { View, ActivityIndicator } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
