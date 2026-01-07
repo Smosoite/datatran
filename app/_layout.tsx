@@ -146,7 +146,7 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
       router.replace('/(tabs)');
     }
 
-  }, [session, profile, hasCompletedOnboarding, subStatus, segments, isLoading, isDemoMode]);
+  }, [session, profile, hasCompletedOnboarding, subStatus, segments, isLoading, isDemoMode, pathname]);
 
   // --- RENDERING ---
   return (
