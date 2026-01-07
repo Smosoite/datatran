@@ -77,6 +77,7 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
    
   const segments = useSegments();
   const router = useRouter();
+  const pathname = usePathname();
   
   const [isMounted, setIsMounted] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
