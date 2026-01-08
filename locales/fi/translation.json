@@ -1,4 +1,9 @@
 {
+  "common": {
+    "error": "Virhe",
+    "success": "Onnistui",
+    "info": "Tiedoksi"
+  },
   "general": {
     "error": "Virhe",
     "success": "Onnistui",
@@ -318,6 +323,10 @@
     "subtitle": "Streamline your inventory with quick and easy management!",
     "startFreeTrial": "Aloita 7 Päivän Ilmainen Kokeilu",
     "trialSubtitle": "Täysi pääsy kaikkiin ominaisuuksiin. Peruuta milloin tahansa.",
+    "trialEnded": "Kokeilusi on Päättynyt",
+    "subscribeNow": "Tilaa nyt jatkaaksesi kaikkien ominaisuuksien käyttöä",
+    "buySubscription": "Osta Tilaus",
+    "startTrialAndLogin": "Aloita Kokeilu & Kirjaudu",
     "startTrialAndCreateAccount": "Aloita Kokeilu & Luo Tili",
     "freeFor7Days": "Ilmainen 7 päivää, sitten {{price}}",
     "benefit1": "Suits all types of storage solutions!",
@@ -332,7 +341,7 @@
     "startTrial": "Aloita 7 Päivän Ilmainen Kokeilu",
     "subscribe": "Tilaa Nyt",
     "subNow": "Tilaa Nyt",
-    "restore": "Palauta Ostot",
+    "restore": "Palauta",
     "terms": "Ehdot",
     "privacy": "Yksityisyys",
     "companyTier": "{{count}} Käyttäjän Lisenssi",
@@ -340,6 +349,20 @@
     "trialNote": "Ensimmäiset 7 päivää ilmaiseksi, sitten {{price}}",
     "mo": "Kuukausi",
     "yr": "Vuosi",
+    "included": "Mitä sisältyy",
+    "f0": "Käytä millä tahansa mobiililaitteella",
+    "f1": "Rajattomat Varastot",
+    "f2": "Viivakoodin Skannaus",
+    "f3": "Vie CSV/PDF",
+    "f4": "Tiimin Roolit & Ylläpito",
+    "f5": "Osta lisää käyttäjiä milloin tahansa",
+    "selectPlan": "Valitse Paketti",
+    "users": "Käyttäjät",
+    "teamSize": "Tiimin Koko",
+    "purchaseSuccess": "Tilaus aktivoitu onnistuneesti!",
+    "purchaseCancelled": "Osto peruutettu",
+    "restoreSuccess": "Ostot palautettu onnistuneesti!",
+    "noPurchases": "Palautettavia ostoja ei löytynyt"
   },
   "onboarding": {
     "welcome": "Tervetuloa StoreTool:iin",

@@ -128,7 +128,8 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
     // 4. Subscription Check (Paywall)
     if (!isDemoMode && (subStatus === 'trial_expired' || subStatus === 'none')) {
       if (currentRoute !== 'paywall' && !pathname.includes('paywall')) {
-          router.replace('/onboarding/paywall');
+          const isExpired = subStatus === 'trial_expired';
+          router.replace(`/onboarding/paywall?expired=${isExpired}`);
       }
       return;
     }

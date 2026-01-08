@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator, TouchableOpacity } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router'; // Added useLocalSearchParams
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../providers/ThemeProvider';
@@ -8,13 +8,15 @@ import { typography } from '../styles/typography';
 import { showError } from '../lib/toast';
 import { Feather } from '@expo/vector-icons';
 import { useOnboarding } from '../providers/OnboardingProvider';
+import { useSubscription } from '../hooks/useSubscription';
 
 export default function LoginScreen() {
   const { t, i18n } = useTranslation();
   const { colors } = useTheme();
   const router = useRouter();
-  const params = useLocalSearchParams(); // Get params from Paywall
+  const params = useLocalSearchParams();
   const { completeOnboarding } = useOnboarding();
+  const { startTrial } = useSubscription();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,33 +34,12 @@ export default function LoginScreen() {
       return;
     }
 
-    // --- FIX START: Logic to set the trial timer ---
     if (data.user && params.start_trial === 'true') {
-        try {
-            // Calculate 7 days from now
-            const trialEndDate = new Date();
-            trialEndDate.setDate(trialEndDate.getDate() + 7);
-
-            // Update user profile in Supabase
-            // Note: This requires the 'trial_ends_at' column to exist in your 'profiles' table
-            const { error: updateError } = await supabase
-                .from('profiles')
-                .update({ trial_ends_at: trialEndDate.toISOString() })
-                .eq('id', data.user.id);
-
-            if (updateError) console.error("Error setting trial:", updateError);
-            else console.log("Trial activated until:", trialEndDate);
-
-        } catch (err) {
-            console.error("Trial setup failed", err);
-        }
+      await startTrial();
     }
-    // --- FIX END ---
 
     await completeOnboarding();
-    // No explicit navigate needed if _layout listens to auth state, 
-    // but just in case:
-    router.replace('/(tabs)'); 
+    router.replace('/(tabs)');
   };
 
   const handleForgotPassword = async () => {

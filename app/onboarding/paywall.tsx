@@ -10,7 +10,7 @@ import {
   Platform,
   Modal
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { FontAwesome } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,6 +22,7 @@ import { ChevronDown } from 'lucide-react-native';
 import { useTheme } from '../../providers/ThemeProvider';
 import { useOnboarding } from '../../providers/OnboardingProvider';
 import { typography } from '../../styles/typography';
+import { useSubscription } from '../../hooks/useSubscription';
 
 // --- CONFIGURATION ---
 const API_KEYS = {
@@ -39,8 +40,12 @@ export default function PaywallScreen() {
   const { t } = useTranslation();
   const { colors } = useTheme();
   const router = useRouter();
+  const params = useLocalSearchParams();
   const { completeOnboarding } = useOnboarding();
-  
+  const { buySubscription } = useSubscription();
+
+  const isTrialExpired = params.expired === 'true';
+
   const [loading, setLoading] = useState(false);
   const [planType, setPlanType] = useState<PlanType>('individual');
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('yearly');
@@ -100,19 +105,55 @@ export default function PaywallScreen() {
   const handleStartTrial = async () => {
     setLoading(true);
     await completeOnboarding();
+    setLoading(false);
+    router.push('/login?start_trial=true');
+  };
 
-    setTimeout(() => {
+  const handleBuySubscription = async () => {
+    setLoading(true);
+
+    if (DEMO_MODE) {
+      setTimeout(async () => {
+        await buySubscription();
+        Alert.alert(t('common.success'), "Subscription activated!");
+        router.replace('/(tabs)');
         setLoading(false);
-        router.push('/login');
-    }, 500);
+      }, 1000);
+      return;
+    }
+
+    try {
+      if (!selectedProduct) {
+        Alert.alert(t('common.error'), 'Please select a plan');
+        setLoading(false);
+        return;
+      }
+
+      const { customerInfo } = await Purchases.purchasePackage(selectedProduct);
+
+      if (customerInfo.entitlements.active['Pro Access']) {
+        await buySubscription();
+        Alert.alert(t('common.success'), t('paywall.purchaseSuccess'));
+        router.replace('/(tabs)');
+      }
+    } catch (e: any) {
+      if (e.userCancelled) {
+        Alert.alert(t('common.info'), t('paywall.purchaseCancelled'));
+      } else {
+        Alert.alert(t('common.error'), e.message);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleRestore = async () => {
     setLoading(true);
     if (DEMO_MODE) {
-        setTimeout(() => {
+        setTimeout(async () => {
+            await buySubscription();
             Alert.alert(t('common.success'), "Dev: Restore Successful");
-            router.push('/login'); // Go to login on restore too
+            router.replace('/(tabs)');
             setLoading(false);
         }, 1000);
         return;
@@ -121,8 +162,9 @@ export default function PaywallScreen() {
     try {
       const customerInfo = await Purchases.restorePurchases();
       if (customerInfo.entitlements.active['Pro Access']) {
+        await buySubscription();
         Alert.alert(t('common.success'), t('paywall.restoreSuccess'));
-        router.push('/login');
+        router.replace('/(tabs)');
       } else {
         Alert.alert(t('common.info'), t('paywall.noPurchases'));
       }
@@ -143,9 +185,12 @@ export default function PaywallScreen() {
       >
         {/* HEADER */}
         <View style={styles.headerRow}>
-          <Pressable onPress={() => router.back()} style={styles.closeButton}>
-            <FontAwesome name="arrow-left" size={20} color={colors.subtext} />
-          </Pressable>
+          {!isTrialExpired && (
+            <Pressable onPress={() => router.back()} style={styles.closeButton}>
+              <FontAwesome name="arrow-left" size={20} color={colors.subtext} />
+            </Pressable>
+          )}
+          {isTrialExpired && <View style={styles.closeButton} />}
           <Pressable onPress={handleRestore}>
             <Text style={[typography.caption, { color: colors.primary }]}>{t('paywall.restore', 'Restore')}</Text>
           </Pressable>
@@ -154,10 +199,16 @@ export default function PaywallScreen() {
         {/* HERO */}
         <View style={styles.heroSection}>
           <Text style={[typography.h1, { color: colors.text, textAlign: 'center', marginBottom: 8 }]}>
-            {t('paywall.startFreeTrial', 'Start Your 7-Day Free Trial')}
+            {isTrialExpired
+              ? t('paywall.trialEnded', 'Your Trial Has Ended')
+              : t('paywall.startFreeTrial', 'Start Your 7-Day Free Trial')
+            }
           </Text>
           <Text style={[typography.body, { color: colors.subtext, textAlign: 'center' }]}>
-            {t('paywall.trialSubtitle', 'Full access to all features. Cancel anytime.')}
+            {isTrialExpired
+              ? t('paywall.subscribeNow', 'Subscribe now to continue using all features')
+              : t('paywall.trialSubtitle', 'Full access to all features. Cancel anytime.')
+            }
           </Text>
         </View>
 
@@ -333,17 +384,22 @@ export default function PaywallScreen() {
       <View style={styles.footer}>
         <Pressable
           style={[styles.ctaButton, { backgroundColor: colors.primary }]}
-          onPress={handleStartTrial} // Changed to new handler
+          onPress={isTrialExpired ? handleBuySubscription : handleStartTrial}
           disabled={loading}
         >
            {loading ? <ActivityIndicator color="#fff" /> : (
              <>
                <Text style={[typography.button, { color: '#fff', fontSize: 18 }]}>
-                 {t('paywall.startTrialAndLogin', 'Start Trial & Login')}
+                 {isTrialExpired
+                   ? t('paywall.buySubscription', 'Buy Subscription')
+                   : t('paywall.startTrialAndLogin', 'Start Trial & Login')
+                 }
                </Text>
-               <Text style={[typography.caption, { color: '#fff', marginTop: 4, opacity: 0.9 }]}>
-                 {t('paywall.freeFor7Days', 'Free for 7 days, then {{price}}', { price: displayPrice })}
-               </Text>
+               {!isTrialExpired && (
+                 <Text style={[typography.caption, { color: '#fff', marginTop: 4, opacity: 0.9 }]}>
+                   {t('paywall.freeFor7Days', 'Free for 7 days, then {{price}}', { price: displayPrice })}
+                 </Text>
+               )}
              </>
            )}
         </Pressable>

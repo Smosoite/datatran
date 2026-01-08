@@ -1,4 +1,9 @@
 {
+  "common": {
+    "error": "Error",
+    "success": "Success",
+    "info": "Info"
+  },
   "general": {
     "error": "Error",
     "success": "Success",
@@ -320,6 +325,10 @@
     "subtitle": "Streamline your inventory with quick and easy management!",
     "startFreeTrial": "Start Your 7-Day Free Trial",
     "trialSubtitle": "Full access to all features. Cancel anytime.",
+    "trialEnded": "Your Trial Has Ended",
+    "subscribeNow": "Subscribe now to continue using all features",
+    "buySubscription": "Buy Subscription",
+    "startTrialAndLogin": "Start Trial & Login",
     "startTrialAndCreateAccount": "Start Trial & Create Account",
     "freeFor7Days": "Free for 7 days, then {{price}}",
     "benefit1": "Suits all types of storage solutions!",
@@ -334,7 +343,7 @@
     "startTrial": "Start 7-Day Free Trial",
     "subscribe": "Subscribe Now",
     "subNow": "Subscribe Now",
-    "restore": "Restore Purchases",
+    "restore": "Restore",
     "terms": "Terms",
     "privacy": "Privacy",
     "companyTier": "{{count}} User License",
@@ -342,6 +351,20 @@
     "trialNote": "First 7 days free, then {{price}}",
     "mo": "Month",
     "yr": "Year",
+    "included": "What is included",
+    "f0": "Use on any mobile device",
+    "f1": "Unlimited Warehouses",
+    "f2": "Barcode Scanning",
+    "f3": "Export to CSV/PDF",
+    "f4": "Team Roles & Admin Controls",
+    "f5": "Purchase additional users at any time",
+    "selectPlan": "Select Plan",
+    "users": "Users",
+    "teamSize": "Team Size",
+    "purchaseSuccess": "Subscription activated successfully!",
+    "purchaseCancelled": "Purchase was cancelled",
+    "restoreSuccess": "Purchases restored successfully!",
+    "noPurchases": "No purchases found to restore"
   },
   "onboarding": {
     "welcome": "Welcome to StoreTool",
