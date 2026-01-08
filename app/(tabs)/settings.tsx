@@ -6,9 +6,9 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../providers/AuthProvider';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import * as Print from 'expo-print'; // <--- NEW IMPORT
+import * as Print from 'expo-print';
 import Papa from 'papaparse';
-import { FontAwesome } from '@expo/vector-icons';
+import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../providers/ThemeProvider';
 import { showError, showSuccess } from '../../lib/toast';
 import { useModal } from '../../providers/ModalProvider';
@@ -31,7 +31,9 @@ export default function SettingsScreen() {
   const { showConfirmation, showPasscodeModal } = useModal();
   const router = useRouter();
   const { profile, workgroup, refreshProfile } = useAuth();
+  
   const [isExporting, setIsExporting] = useState(false);
+  const [taxRate, setTaxRate] = useState(0.255); // Default to 25.5% (Standard FI VAT)
 
   // --- ACTIONS ---
 
@@ -126,12 +128,28 @@ export default function SettingsScreen() {
     setMode(prev => (prev === 'dark' ? 'light' : 'dark'));
   }, [setMode]);
 
+  // --- TAX SELECTOR ---
+
+  const handleSelectTaxRate = useCallback(() => {
+    Alert.alert(
+      t('settings.selectTax', 'Select Tax Rate'),
+      t('settings.selectTaxMsg', 'Choose the VAT rate to apply to the export calculation.'),
+      [
+        { text: '0%', onPress: () => setTaxRate(0) },
+        { text: '10%', onPress: () => setTaxRate(0.10) },
+        { text: '14%', onPress: () => setTaxRate(0.14) },
+        { text: '24%', onPress: () => setTaxRate(0.24) },
+        { text: '25.5%', onPress: () => setTaxRate(0.255) },
+        { text: t('general.cancel', 'Cancel'), style: 'cancel' }
+      ]
+    );
+  }, [t]);
+
   // --- EXPORT LOGIC ---
 
   const handleExportData = useCallback(async () => {
     setIsExporting(true);
     try {
-      // 1. Select data including the new cost_per_unit field
       const { data: items, error } = await supabase
         .from('items')
         .select(`
@@ -152,10 +170,6 @@ export default function SettingsScreen() {
         return;
       }
 
-      // 2. Calculations
-      // Placeholder for tax rate - you said you will add a button for this later
-      const TAX_RATE = 0.24; // Example: 24%
-      
       let subtotal = 0;
 
       const formattedData = items.map(item => {
@@ -169,7 +183,7 @@ export default function SettingsScreen() {
           name: item.name,
           quantity: qty,
           costPerUnit: cost,
-          totalCost: totalItemCost, // Line item total
+          totalCost: totalItemCost,
           barcode: item.barcode,
           restock: item.restock_threshold,
           warehouse: item.warehouses?.name || '',
@@ -178,21 +192,20 @@ export default function SettingsScreen() {
         };
       });
 
-      const taxAmount = subtotal * TAX_RATE;
+      const taxAmount = subtotal * taxRate;
       const totalWithTax = subtotal + taxAmount;
 
-      // 3. Ask User for Format
       Alert.alert(
         t('settings.exportFormatTitle', 'Choose Export Format'),
         t('settings.exportFormatMessage', 'Select how you want to view the inventory report.'),
         [
           {
             text: 'CSV',
-            onPress: () => generateCSV(formattedData, subtotal, taxAmount, totalWithTax, TAX_RATE)
+            onPress: () => generateCSV(formattedData, subtotal, taxAmount, totalWithTax, taxRate)
           },
           {
             text: 'PDF',
-            onPress: () => generatePDF(formattedData, subtotal, taxAmount, totalWithTax, TAX_RATE)
+            onPress: () => generatePDF(formattedData, subtotal, taxAmount, totalWithTax, taxRate)
           },
           {
             text: t('general.cancel', 'Cancel'),
@@ -206,12 +219,10 @@ export default function SettingsScreen() {
       showError(t('general.error'), t('general.exportError', { message: error.message }));
       setIsExporting(false);
     }
-  }, [t]);
+  }, [t, taxRate]); // Added taxRate dependency
 
-  // --- CSV GENERATOR ---
-  const generateCSV = async (data: any[], subtotal: number, taxAmount: number, totalWithTax: number, taxRate: number) => {
+  const generateCSV = async (data: any[], subtotal: number, taxAmount: number, totalWithTax: number, rate: number) => {
     try {
-      // Format rows for CSV
       const csvRows = data.map(item => ({
         [t('export.itemName', 'Item Name')]: item.name,
         [t('export.quantity', 'Quantity')]: item.quantity,
@@ -221,16 +232,14 @@ export default function SettingsScreen() {
         [t('export.location', 'Location')]: item.location,
       }));
 
-      // Append Summary Rows at the bottom
-      // We add empty strings for other columns to keep CSV structure valid-ish
-      csvRows.push({}); // Empty row
+      csvRows.push({});
       csvRows.push({ [t('export.itemName')]: '--- SUMMARY ---' });
       csvRows.push({ 
         [t('export.itemName')]: t('export.subtotal', 'Total (Excl. Tax)'), 
         [t('export.quantity')]: subtotal.toFixed(2) 
       });
       csvRows.push({ 
-        [t('export.itemName')]: t('export.taxAmount', 'Tax Amount ({{rate}}%)', { rate: taxRate * 100 }), 
+        [t('export.itemName')]: t('export.taxAmount', 'Tax Amount ({{rate}}%)', { rate: rate * 100 }), 
         [t('export.quantity')]: taxAmount.toFixed(2) 
       });
       csvRows.push({ 
@@ -251,8 +260,7 @@ export default function SettingsScreen() {
     }
   };
 
-  // --- PDF GENERATOR ---
-  const generatePDF = async (data: any[], subtotal: number, taxAmount: number, totalWithTax: number, taxRate: number) => {
+  const generatePDF = async (data: any[], subtotal: number, taxAmount: number, totalWithTax: number, rate: number) => {
     try {
       const rowsHtml = data.map(item => `
         <tr>
@@ -304,7 +312,7 @@ export default function SettingsScreen() {
                 <span>${subtotal.toFixed(2)}</span>
               </div>
               <div class="summary-row">
-                ${t('export.taxAmount', 'Tax ({{rate}}%)', { rate: taxRate * 100 })}: 
+                ${t('export.taxAmount', 'Tax ({{rate}}%)', { rate: rate * 100 })}: 
                 <span>${taxAmount.toFixed(2)}</span>
               </div>
               <div class="summary-row total">
@@ -467,18 +475,38 @@ export default function SettingsScreen() {
       {/* DATA EXPORT */}
       <View style={styles.section}>
         <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>{t('settings.data')}</Text>
-        <Pressable 
-          style={[styles.card, styles.menuButton, { backgroundColor: colors.card, borderColor: colors.border }, isExporting && { opacity: 0.6 }]} 
-          onPress={handleExportData} 
-          disabled={isExporting}
-        >
-          <View style={{flexDirection:'row', alignItems:'center'}}>
-            {isExporting ? <ActivityIndicator color={colors.primary} /> : <FontAwesome name="download" size={18} color={colors.primary} /> }
-            <Text style={[typography.button, styles.menuButtonText, { color: colors.primary }]}>
-              {isExporting ? t('settings.expo') : t('settings.expoAll')}
-            </Text>
-          </View>
-        </Pressable>
+        
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, padding: 0 }]}>
+          
+          {/* TAX RATE SELECTOR */}
+          <Pressable 
+            style={[styles.row, { paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: colors.border }]} 
+            onPress={handleSelectTaxRate}
+          >
+             <View style={{flexDirection:'row', alignItems:'center'}}>
+              <Ionicons name="pricetag-outline" size={18} color={colors.primary} />
+              <Text style={[typography.button, styles.menuButtonText, { color: colors.text }]}>{t('settings.taxRate')}</Text>
+            </View>
+            <View style={{ flexDirection:'row', alignItems:'center'}}>
+              <Text style={[typography.button, { color: colors.primary, marginRight: 8 }]}>{(taxRate * 100).toFixed(1)}%</Text>
+              <FontAwesome name="chevron-down" size={12} color={colors.subtext} />
+            </View>
+          </Pressable>
+
+          {/* EXPORT BUTTON */}
+          <Pressable 
+            style={[styles.menuButton, { paddingHorizontal: 16, borderBottomWidth: 0 }, isExporting && { opacity: 0.6 }]} 
+            onPress={handleExportData} 
+            disabled={isExporting}
+          >
+            <View style={{flexDirection:'row', alignItems:'center'}}>
+              {isExporting ? <ActivityIndicator color={colors.primary} /> : <FontAwesome name="download" size={18} color={colors.primary} /> }
+              <Text style={[typography.button, styles.menuButtonText, { color: colors.primary }]}>
+                {isExporting ? t('settings.expo') : t('settings.expoAll')}
+              </Text>
+            </View>
+          </Pressable>
+        </View>
       </View>
       
       {/* DELETE & LOGOUT */}
