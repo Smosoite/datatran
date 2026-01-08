@@ -270,7 +270,7 @@ export default function PaywallScreen() {
                 ]}
                 onPress={() => setBillingCycle('monthly')}
               >
-                <Text style={[typography.h3, { color: colors.text, fontSize: 15 }]}>{t('paywall.monthly')}</Text>
+                <Text style={[typography.h3, { color: colors.text, fontSize: 13, fontWeight: '600' }]}>MONTH</Text>
                 <Text style={[typography.h3, { color: colors.primary, marginTop: 2 }]}>
                   {billingCycle === 'monthly' ? displayPrice : '...'}
                 </Text>
@@ -290,7 +290,7 @@ export default function PaywallScreen() {
                 onPress={() => setBillingCycle('yearly')}
               >
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <Text style={[typography.h3, { color: colors.text, fontSize: 15 }]}>{t('paywall.yearly')}</Text>
+                  <Text style={[typography.h3, { color: colors.text, fontSize: 13, fontWeight: '600' }]}>YEAR</Text>
                   <View style={[styles.badge, { backgroundColor: colors.success || '#4CAF50' }]}>
                     <Text style={{ color: '#fff', fontSize: 9, fontWeight: 'bold' }}>BEST</Text>
                   </View>
@@ -305,19 +305,26 @@ export default function PaywallScreen() {
             <View style={styles.planRow}>
               {/* Team Size Dropdown */}
               <Pressable
-                style={[styles.dropdownCard, { backgroundColor: `${colors.card}CC`, borderColor: colors.border }]}
+                style={[styles.dropdownCard, { backgroundColor: `${colors.card}CC`, borderColor: colors.border, flex: 0.75 }]}
                 onPress={() => setShowDropdown(true)}
               >
-                <Text style={[typography.caption, { color: colors.subtext, marginBottom: 4, fontSize: 11 }]}>
-                  {t('paywall.teamSize', 'Team Size')}
-                </Text>
                 <View style={styles.dropdownDisplay}>
-                  <Text style={[typography.h3, { color: colors.text, fontSize: 18 }]}>
+                  <Text style={[typography.h3, { color: colors.text, fontSize: 32, fontWeight: '700' }]}>
                     {userCount}
                   </Text>
-                  <ChevronDown size={18} color={colors.subtext} />
+                  <View
+                    style={[
+                      styles.arrowGlow,
+                      {
+                        shadowColor: colors.primary,
+                        backgroundColor: 'transparent'
+                      }
+                    ]}
+                  >
+                    <ChevronDown size={20} color={colors.primary} />
+                  </View>
                 </View>
-                <Text style={[typography.caption, { color: colors.subtext, fontSize: 10 }]}>
+                <Text style={[typography.caption, { color: colors.subtext, fontSize: 10, marginTop: 4 }]}>
                   {t('paywall.users', 'Users')}
                 </Text>
               </Pressable>
@@ -329,11 +336,12 @@ export default function PaywallScreen() {
                   {
                     backgroundColor: colors.card,
                     borderColor: colors.primary,
-                    borderWidth: 2
+                    borderWidth: 2,
+                    flex: 1.25
                   }
                 ]}
               >
-                <Text style={[typography.h3, { color: colors.text, fontSize: 15 }]}>{t('paywall.yearly')}</Text>
+                <Text style={[typography.h3, { color: colors.text, fontSize: 13, fontWeight: '600' }]}>YEAR</Text>
                 <Text style={[typography.h3, { color: colors.primary, marginTop: 2 }]}>
                   {displayPrice}
                 </Text>
@@ -458,11 +466,17 @@ const styles = StyleSheet.create({
 
   // Plan Cards
   planRow: { flexDirection: 'row', gap: 10 },
-  planCard: { flex: 1, borderRadius: 12, padding: 8, borderWidth: 1 },
+  planCard: { flex: 1, borderRadius: 12, padding: 10, paddingVertical: 12, borderWidth: 1 },
 
   // Dropdown for Company Team Size
-  dropdownCard: { flex: 1, borderRadius: 12, padding: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  dropdownDisplay: { flexDirection: 'row', alignItems: 'center', gap: 6, marginVertical: 2 },
+  dropdownCard: { flex: 1, borderRadius: 12, padding: 10, paddingVertical: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  dropdownDisplay: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  arrowGlow: {
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 6,
+    elevation: 6
+  },
 
   // Dropdown Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
