@@ -109,14 +109,10 @@ export default function FeaturesScreen() {
         {features.map((feature, index) => (
           <View key={index} style={[styles.featureCard, { width }]}>
             <View style={styles.cardContent}>
-              <View style={[styles.iconContainer, { backgroundColor: colors.primaryMuted }]}>
-                <FontAwesome name={feature.icon as any} size={48} color={colors.primary} />
-              </View>
-              
               <Text style={[typography.h2, styles.featureTitle, { color: colors.text }]}>
                 {t(feature.titleKey, feature.title)}
               </Text>
-              
+
               <Text style={[typography.body, styles.featureDescription, { color: colors.subtext }]}>
                 {t(feature.descriptionKey, feature.description)}
               </Text>
@@ -186,17 +182,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     justifyContent: 'center',
   },
-  cardContent: { 
+  cardContent: {
     alignItems: 'center',
     paddingVertical: 40,
-  },
-  iconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 32,
   },
   featureTitle: {
     textAlign: 'center',

@@ -80,10 +80,6 @@ export default function DemoScreen() {
         </View>
 
         <View style={styles.demoContent}>
-          <View style={[styles.iconContainer, { backgroundColor: colors.primaryMuted }]}>
-            <FontAwesome name={step.icon as any} size={64} color={colors.primary} />
-          </View>
-
           <Text style={[typography.h1, styles.stepTitle, { color: colors.text }]}>
             {t(step.titleKey, `Step ${step.id}`)}
           </Text>
@@ -164,14 +160,6 @@ const styles = StyleSheet.create({
   },
   demoContent: {
     alignItems: 'center',
-  },
-  iconContainer: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 32,
   },
   stepTitle: {
     textAlign: 'center',
