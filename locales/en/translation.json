@@ -324,6 +324,19 @@
     "details": "Modify item details, quantity, or alerts here.",
     "save": "Tap here to save changes."
   },
+  "export": {
+    "inventoryReport": "Inventory Report",
+    "preparedBy": "Prepared by",
+    "generatedOn": "Generated on",
+    "colName": "NAME",
+    "colQty": "QUANTITY",
+    "colUnitCost": "UNIT COST",
+    "colTax": "TAX %",
+    "colTotalNet": "COST (NET)",
+    "colTotalGross": "COST (GROSS)",
+    "costOfStock": "COST OF STOCK",
+    "withTax": "WITH TAX",
+  },
   "paywall": {
     "title": "Unlock StoreTool",
     "subtitle": "Streamline your inventory with quick and easy management!",
