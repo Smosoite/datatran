@@ -410,7 +410,7 @@ export default function PaywallScreen() {
       </Modal>
 
       {/* FOOTER ACTION */}
-      <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+      <View style={styles.footer}>
         <Pressable
           style={[styles.ctaButton, { backgroundColor: colors.primary }]}
           onPress={handlePurchase}
@@ -475,6 +475,15 @@ const styles = StyleSheet.create({
   badge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, alignSelf: 'flex-start' },
 
   // Footer
-  footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20, borderTopWidth: 1 },
-  ctaButton: { paddingVertical: 16, borderRadius: 12, alignItems: 'center' }
+  footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20 },
+  ctaButton: {
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8
+  }
 });
