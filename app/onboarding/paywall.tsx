@@ -214,9 +214,6 @@ export default function PaywallScreen() {
 
         {/* HERO */}
         <View style={styles.heroSection}>
-          <View style={[styles.iconCircle, { backgroundColor: colors.selector }]}>
-            <FontAwesome name="diamond" size={40} color={colors.primary} />
-          </View>
           <Text style={[typography.h1, { color: colors.text, textAlign: 'center', marginBottom: 8 }]}>
             {t('paywall.startFreeTrial', 'Start Your 7-Day Free Trial')}
           </Text>
@@ -249,93 +246,108 @@ export default function PaywallScreen() {
           </View>
         </View>
 
-        {/* COMPANY: USER COUNT SLIDER */}
-        {planType === 'company' && (
-          <View style={styles.section}>
-            <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>
-              {t('paywall.teamSize', 'Team Size')}
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-              {[5, 10, 20, 50, 100].map((count) => (
-                <Pressable
-                  key={count}
-                  onPress={() => setUserCount(count as UserCount)}
-                  style={[
-                    styles.userCountBadge,
-                    { 
-                      backgroundColor: userCount === count ? colors.primary : colors.card,
-                      borderColor: colors.border 
-                    }
-                  ]}
-                >
-                  <Text style={[
-                    typography.button, 
-                    { color: userCount === count ? '#fff' : colors.text }
-                  ]}>
-                    {count} {t('paywall.users', 'Users')}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </View>
-        )}
 
         {/* PLAN CARDS */}
         <View style={styles.section}>
           <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>
             {t('paywall.selectPlan', 'Select Plan')}
           </Text>
-          
-          {/* Monthly (Individual Only) */}
-          {planType === 'individual' && (
-            <Pressable 
-              style={[
-                styles.card, 
-                { backgroundColor: colors.card, borderColor: billingCycle === 'monthly' ? colors.primary : colors.border },
-                billingCycle === 'monthly' && { borderWidth: 2 }
-              ]}
-              onPress={() => setBillingCycle('monthly')}
-            >
-              <View style={styles.cardRow}>
-                <View>
-                  <Text style={[typography.h3, { color: colors.text }]}>{t('paywall.monthly')}</Text>
-                  <Text style={[typography.caption, { color: colors.subtext }]}>{t('paywall.flexible', 'Flexible billing')}</Text>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={[typography.h3, { color: colors.primary }]}>
-                    {billingCycle === 'monthly' ? displayPrice : '...'}
-                  </Text>
-                  <Text style={[typography.caption, { color: colors.subtext }]}>/ {t('paywall.mo')}</Text>
-                </View>
-              </View>
-            </Pressable>
-          )}
 
-          {/* Yearly (Best Value) */}
-          <Pressable 
-            style={[
-              styles.card, 
-              { backgroundColor: colors.card, borderColor: billingCycle === 'yearly' ? colors.primary : colors.border },
-              billingCycle === 'yearly' && { borderWidth: 2 },
-              { marginTop: 10 }
-            ]}
-            onPress={() => setBillingCycle('yearly')}
-          >
-            <View style={styles.cardRow}>
-              <View>
-                <Text style={[typography.h3, { color: colors.text }]}>{t('paywall.yearly')}</Text>
-                <View style={[styles.badge, { backgroundColor: colors.success || '#4CAF50' }]}>
-                  <Text style={{ color: '#fff', fontSize: 10, fontWeight: 'bold' }}>{t('paywall.savePct', 'BEST VALUE')}</Text>
+          {planType === 'individual' ? (
+            <View style={styles.planRow}>
+              {/* Monthly */}
+              <Pressable
+                style={[
+                  styles.planCard,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: billingCycle === 'monthly' ? colors.primary : colors.border
+                  },
+                  billingCycle === 'monthly' && { borderWidth: 2 }
+                ]}
+                onPress={() => setBillingCycle('monthly')}
+              >
+                <Text style={[typography.h3, { color: colors.text, fontSize: 16 }]}>{t('paywall.monthly')}</Text>
+                <Text style={[typography.h3, { color: colors.primary, marginTop: 8 }]}>
+                  {billingCycle === 'monthly' ? displayPrice : '...'}
+                </Text>
+                <Text style={[typography.caption, { color: colors.subtext }]}>/ {t('paywall.mo')}</Text>
+              </Pressable>
+
+              {/* Yearly */}
+              <Pressable
+                style={[
+                  styles.planCard,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: billingCycle === 'yearly' ? colors.primary : colors.border
+                  },
+                  billingCycle === 'yearly' && { borderWidth: 2 }
+                ]}
+                onPress={() => setBillingCycle('yearly')}
+              >
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <Text style={[typography.h3, { color: colors.text, fontSize: 16 }]}>{t('paywall.yearly')}</Text>
+                  <View style={[styles.badge, { backgroundColor: colors.success || '#4CAF50' }]}>
+                    <Text style={{ color: '#fff', fontSize: 9, fontWeight: 'bold' }}>BEST</Text>
+                  </View>
                 </View>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={[typography.h3, { color: colors.primary }]}>
+                <Text style={[typography.h3, { color: colors.primary, marginTop: 8 }]}>
                   {billingCycle === 'yearly' ? displayPrice : '...'}
                 </Text>
                 <Text style={[typography.caption, { color: colors.subtext }]}>/ {t('paywall.yr')}</Text>
-              </View>
+              </Pressable>
             </View>
-          </Pressable>
+          ) : (
+            <View style={styles.planRow}>
+              {/* Team Size Dropdown */}
+              <View style={[styles.dropdownCard, { backgroundColor: `${colors.card}CC`, borderColor: colors.border }]}>
+                <Text style={[typography.caption, { color: colors.subtext, marginBottom: 4 }]}>
+                  {t('paywall.teamSize', 'Team Size')}
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                  {[5, 10, 20, 50, 100].map((count) => (
+                    <Pressable
+                      key={count}
+                      onPress={() => setUserCount(count as UserCount)}
+                      style={[
+                        styles.dropdownOption,
+                        {
+                          backgroundColor: userCount === count ? colors.primary : `${colors.selector}80`,
+                          borderColor: userCount === count ? colors.primary : colors.border
+                        }
+                      ]}
+                    >
+                      <Text style={[
+                        typography.caption,
+                        { color: userCount === count ? '#fff' : colors.text, fontWeight: '600' }
+                      ]}>
+                        {count}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* Yearly Plan */}
+              <Pressable
+                style={[
+                  styles.planCard,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.primary,
+                    borderWidth: 2
+                  }
+                ]}
+              >
+                <Text style={[typography.h3, { color: colors.text, fontSize: 16 }]}>{t('paywall.yearly')}</Text>
+                <Text style={[typography.h3, { color: colors.primary, marginTop: 8 }]}>
+                  {displayPrice}
+                </Text>
+                <Text style={[typography.caption, { color: colors.subtext }]}>/ {t('paywall.yr')}</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
 
         {/* FEATURES LIST */}
@@ -396,25 +408,29 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 24, paddingBottom: 100 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
   closeButton: { padding: 8, marginLeft: -8 },
-   
-  heroSection: { alignItems: 'center', marginBottom: 30 },
-  iconCircle: { width: 70, height: 70, borderRadius: 35, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-   
+
+  heroSection: { alignItems: 'center', marginBottom: 20 },
+
   section: { marginBottom: 24 },
   sectionTitle: { marginBottom: 8, fontSize: 13, textTransform: 'uppercase', opacity: 0.7 },
-   
+
   // Toggle
   toggleContainer: { flexDirection: 'row', borderRadius: 12, borderWidth: 1, padding: 4 },
   toggleBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
-   
-  // User Count
-  userCountBadge: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, borderWidth: 1, marginRight: 8 },
+
+  // Plan Cards
+  planRow: { flexDirection: 'row', gap: 10 },
+  planCard: { flex: 1, borderRadius: 12, padding: 16, borderWidth: 1 },
+
+  // Dropdown for Company Team Size
+  dropdownCard: { flex: 1, borderRadius: 12, padding: 12, borderWidth: 1 },
+  dropdownOption: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1 },
 
   // Cards
   card: { borderRadius: 12, padding: 16, borderWidth: 1 },
   cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  badge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginTop: 4, alignSelf: 'flex-start' },
-   
+  badge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, alignSelf: 'flex-start' },
+
   // Footer
   footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20, borderTopWidth: 1 },
   ctaButton: { paddingVertical: 16, borderRadius: 12, alignItems: 'center' }
