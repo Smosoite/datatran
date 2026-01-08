@@ -362,12 +362,12 @@
     "noPurchases": "Palautettavia ostoja ei löytynyt"
   },
   "export": {
-    "inventoryReport": "Varastoraportti",
+  "inventoryReport": "Varastoraportti",
   "preparedBy": "Laatinut",
   "generatedOn": "Luotu",
   "colName": "NIMI",
   "colQty": "MÄÄRÄ",
-  "colUnitCost": "YKSIKKÖHINTA",
+  "colUnitCost": "KAPPALEHINTA",
   "colTax": "VERO %",
   "colTotalNet": "ARVO (ALV 0)",
   "colTotalGross": "ARVO (SIS. ALV)",
