@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, Animated, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Animated, ScrollView, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../providers/ThemeProvider';
@@ -56,9 +56,13 @@ export default function WelcomeScreen() {
         >
           <View style={styles.iconContainer}>
              <View style={[styles.iconCircle, { backgroundColor: colors.card, borderColor: colors.border }]}>
-               <FontAwesome name="cubes" size={60} color={colors.primary} />
-             </View>
-          </View>
+    <Image 
+      source={require('./assets/images/icon.png')} /* Adjust path based on your file structure */
+      style={{ width: 60, height: 60, resizeMode: 'contain' }}
+      accessibilityLabel="App Icon" /* Remember to localize this string */
+    />
+  </View>
+</View>
 
           <Text style={[typography.h1, styles.title, { color: colors.text }]}>
             {t('onboarding.welcome', 'Welcome to StoreTool')}
