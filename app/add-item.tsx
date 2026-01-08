@@ -20,6 +20,7 @@ export default function AddItemScreen() {
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState('0');
   const [restockThreshold, setRestockThreshold] = useState('10');
+  const [cost, setCost] = useState(''); // New state for Cost
   const [barcodeValue, setBarcodeValue] = useState(barcode || '');
   const [saving, setSaving] = useState(false);
 
@@ -52,6 +53,8 @@ export default function AddItemScreen() {
         name: name.trim(),
         quantity: parseInt(quantity, 10),
         restock_threshold: parseInt(restockThreshold, 10),
+        // Parse cost to float if exists, otherwise null
+        cost_per_unit: cost.trim() ? parseFloat(cost.replace(',', '.')) : null,
         barcode: barcodeValue.trim() || null,
         storage_id: storageId,
         workgroup_id: profile.workgroup_id,
@@ -128,6 +131,20 @@ export default function AddItemScreen() {
           placeholder="10"
           placeholderTextColor={colors.subtext}
         />
+
+        {/* --- New Cost Field --- */}
+        <Text style={[typography.h3, styles.label, { color: colors.text }]}>
+            {t('item.costPerUnit', 'Cost per unit')}
+        </Text>
+        <TextInput
+          style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+          value={cost}
+          onChangeText={setCost}
+          keyboardType="decimal-pad"
+          placeholder={t('cost.example', '0.00')} 
+          placeholderTextColor={colors.subtext}
+        />
+        {/* ---------------------- */}
 
         <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.barcode', 'Barcode (Optional)')}</Text>
         <TextInput
