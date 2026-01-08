@@ -53,7 +53,7 @@ export default function AddItemScreen() {
         name: name.trim(),
         quantity: parseInt(quantity, 10),
         restock_threshold: parseInt(restockThreshold, 10),
-        // Parse cost to float if exists, otherwise null
+        // Parse cost to float if exists, othesrwise null
         cost_per_unit: cost.trim() ? parseFloat(cost.replace(',', '.')) : null,
         barcode: barcodeValue.trim() || null,
         storage_id: storageId,
