@@ -28,6 +28,7 @@
     "expo-linear-gradient": "^15.0.8",
     "expo-linking": "~7.1.3",
     "expo-localization": "^16.1.6",
+    "expo-print": "^15.0.8",
     "expo-router": "~5.0.2",
     "expo-sharing": "^13.1.5",
     "expo-splash-screen": "~0.30.6",
