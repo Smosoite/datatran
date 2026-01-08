@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router'; // Added useLocalSearchParams
 import { supabase } from '../lib/supabase';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../providers/ThemeProvider';
@@ -13,31 +13,52 @@ export default function LoginScreen() {
   const { t, i18n } = useTranslation();
   const { colors } = useTheme();
   const router = useRouter();
-
+  const params = useLocalSearchParams(); // Get params from Paywall
   const { completeOnboarding } = useOnboarding();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  
-  // 👇 NEW: State to toggle password visibility
   const [showPassword, setShowPassword] = useState(false);
-  
   const [loading, setLoading] = useState(false);
-   
-  // Dropdown state
   const [langOpen, setLangOpen] = useState(false);
 
   const handleLogin = async () => {
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       showError(t('general.error'), error.message);
       setLoading(false);
-    } else {
-      await completeOnboarding();
-      // MainNavigator in _layout.tsx will detect session change
+      return;
     }
+
+    // --- FIX START: Logic to set the trial timer ---
+    if (data.user && params.start_trial === 'true') {
+        try {
+            // Calculate 7 days from now
+            const trialEndDate = new Date();
+            trialEndDate.setDate(trialEndDate.getDate() + 7);
+
+            // Update user profile in Supabase
+            // Note: This requires the 'trial_ends_at' column to exist in your 'profiles' table
+            const { error: updateError } = await supabase
+                .from('profiles')
+                .update({ trial_ends_at: trialEndDate.toISOString() })
+                .eq('id', data.user.id);
+
+            if (updateError) console.error("Error setting trial:", updateError);
+            else console.log("Trial activated until:", trialEndDate);
+
+        } catch (err) {
+            console.error("Trial setup failed", err);
+        }
+    }
+    // --- FIX END ---
+
+    await completeOnboarding();
+    // No explicit navigate needed if _layout listens to auth state, 
+    // but just in case:
+    router.replace('/(tabs)'); 
   };
 
   const handleForgotPassword = async () => {
@@ -45,15 +66,10 @@ export default function LoginScreen() {
       showError(t('general.error'), t('login.emailRequired'));
       return;
     }
-
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email);
-
-    if (error) {
-      showError(t('general.error'), error.message);
-    } else {
-      showError(t('general.success'), t('login.resetEmailSent'));
-    }
+    if (error) showError(t('general.error'), error.message);
+    else showError(t('general.success'), t('login.resetEmailSent'));
     setLoading(false);
   };
 
@@ -62,13 +78,11 @@ export default function LoginScreen() {
     setLangOpen(false);
   };
 
-  // Helper to get current flag
   const getCurrentFlag = () => i18n.language === 'fi' ? '🇫🇮' : '🇺🇸';
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-       
-      {/* --- LANGUAGE DROPDOWN (Top Right) --- */}
+      {/* LANGUAGE DROPDOWN (Top Right) */}
       <View style={styles.languageContainer}>
         <TouchableOpacity 
             style={[styles.langTrigger, { backgroundColor: colors.card, borderColor: colors.border }]} 
@@ -98,6 +112,12 @@ export default function LoginScreen() {
         <Text style={[typography.body, { color: colors.subtext, textAlign: 'center', marginTop: 8 }]}>
           {t('login.subtitle', 'Sign in to manage your inventory')}
         </Text>
+        {/* Visual feedback if trial flow active */}
+        {params.start_trial === 'true' && (
+             <Text style={[typography.caption, { color: colors.success || 'green', textAlign: 'center', marginTop: 8 }]}>
+                {t('login.activatingTrial', 'Activating your 7-Day Free Trial')}
+             </Text>
+        )}
       </View>
 
       <View style={styles.form}>
@@ -114,7 +134,6 @@ export default function LoginScreen() {
 
         <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('login.password', 'Password')}</Text>
         
-        {/* 👇 NEW: Password Container with Eye Icon */}
         <View style={[styles.passwordContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <TextInput
             style={[styles.passwordInput, { color: colors.text }]}
@@ -122,13 +141,12 @@ export default function LoginScreen() {
             placeholderTextColor={colors.subtext}
             value={password}
             onChangeText={setPassword}
-            secureTextEntry={!showPassword} // Toggles visibility based on state
+            secureTextEntry={!showPassword}
             />
             
             <TouchableOpacity 
                 style={styles.eyeIcon} 
                 onPress={() => setShowPassword(!showPassword)}
-                // Accessibility label added for screen readers (Translatable)
                 accessibilityLabel={showPassword ? t('login.hidePassword', 'Hide password') : t('login.showPassword', 'Show password')}
             >
                 <Feather 
@@ -168,69 +186,16 @@ const styles = StyleSheet.create({
   header: { marginBottom: 40 },
   form: { width: '100%' },
   label: { marginBottom: 8, fontWeight: '600' },
-  
-  // Standard input style (used for Email)
   input: { borderWidth: 1, borderRadius: 8, padding: 16, marginBottom: 20 },
-
-  // 👇 NEW: Styles for the password field structure
-  passwordContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 8,
-    marginBottom: 20,
-  },
-  passwordInput: {
-    flex: 1,
-    padding: 16,
-    // Note: No border here because the container handles it
-  },
-  eyeIcon: {
-    padding: 16, // Adds hit slop so it's easier to tap
-  },
-
+  passwordContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 8, marginBottom: 20 },
+  passwordInput: { flex: 1, padding: 16 },
+  eyeIcon: { padding: 16 },
   forgotPassword: { marginTop: 10, alignItems: 'flex-end' },
   button: { padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 10 },
   linkButton: { marginTop: 20, alignItems: 'center' },
-   
-  // Language Styles
-  languageContainer: {
-      position: 'absolute',
-      top: 50,
-      right: 24,
-      zIndex: 10,
-  },
-  langTrigger: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      paddingVertical: 8,
-      paddingHorizontal: 12,
-      borderRadius: 20,
-      borderWidth: 1,
-  },
-  langDropdown: {
-      position: 'absolute',
-      top: 45,
-      right: 0,
-      borderRadius: 12,
-      borderWidth: 1,
-      padding: 4,
-      minWidth: 120,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 5,
-  },
-  langOption: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      padding: 10,
-  },
-  divider: {
-      height: 1,
-      width: '100%',
-      opacity: 0.5,
-  }
+  languageContainer: { position: 'absolute', top: 50, right: 24, zIndex: 10 },
+  langTrigger: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20, borderWidth: 1 },
+  langDropdown: { position: 'absolute', top: 45, right: 0, borderRadius: 12, borderWidth: 1, padding: 4, minWidth: 120, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 5 },
+  langOption: { flexDirection: 'row', alignItems: 'center', padding: 10 },
+  divider: { height: 1, width: '100%', opacity: 0.5 }
 });
