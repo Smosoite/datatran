@@ -170,10 +170,7 @@ export default function WelcomeScreen() {
         ]}
         pointerEvents={isScrolledToBottom ? 'auto' : 'none'}
       >
-        <LinearGradient
-          colors={['transparent', colors.background]}
-          style={styles.footerGradient}
-        >
+        <View style={[styles.footerGradient, { backgroundColor: colors.background }]}>
           <Pressable
             style={[styles.continueButton, { backgroundColor: colors.primary }]}
             onPress={() => router.push('/onboarding/demo')}
@@ -183,7 +180,7 @@ export default function WelcomeScreen() {
             </Text>
             <FontAwesome name="arrow-right" size={16} color="#fff" style={{ marginLeft: 8 }} />
           </Pressable>
-        </LinearGradient>
+        </View>
       </Animated.View>
     </View>
   );
@@ -192,7 +189,7 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollView: { flex: 1 },
-  scrollContent: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 220 },
+  scrollContent: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 160 },
   content: { alignItems: 'center' },
 
   iconContainer: { marginBottom: 24 },
@@ -287,7 +284,7 @@ const styles = StyleSheet.create({
   footerGradient: {
     paddingHorizontal: 24,
     paddingBottom: 40,
-    paddingTop: 40,
+    paddingTop: 16,
   },
   continueButton: {
     flexDirection: 'row',
