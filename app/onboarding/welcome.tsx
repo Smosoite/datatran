@@ -141,7 +141,8 @@ export default function WelcomeScreen() {
         pointerEvents="none"
       >
         <LinearGradient
-          colors={[colors.background + '00', colors.background]}
+          colors={['transparent', colors.background + 'E6', colors.background]}
+          locations={[0, 0.3, 1]}
           style={styles.gradient}
         >
           <View style={styles.scrollHint}>
@@ -158,7 +159,6 @@ export default function WelcomeScreen() {
         style={[
           styles.footer,
           {
-            backgroundColor: colors.background,
             opacity: buttonOpacity,
             transform: [{
               translateY: buttonOpacity.interpolate({
@@ -170,15 +170,20 @@ export default function WelcomeScreen() {
         ]}
         pointerEvents={isScrolledToBottom ? 'auto' : 'none'}
       >
-        <Pressable
-          style={[styles.continueButton, { backgroundColor: colors.primary }]}
-          onPress={() => router.push('/onboarding/demo')}
+        <LinearGradient
+          colors={['transparent', colors.background]}
+          style={styles.footerGradient}
         >
-          <Text style={[typography.button, styles.continueText, { color: '#fff' }]}>
-            {t('onboarding.seeHowItWorks', 'See How It Works')}
-          </Text>
-          <FontAwesome name="arrow-right" size={16} color="#fff" style={{ marginLeft: 8 }} />
-        </Pressable>
+          <Pressable
+            style={[styles.continueButton, { backgroundColor: colors.primary }]}
+            onPress={() => router.push('/onboarding/demo')}
+          >
+            <Text style={[typography.button, styles.continueText, { color: '#fff' }]}>
+              {t('onboarding.seeHowItWorks', 'See How It Works')}
+            </Text>
+            <FontAwesome name="arrow-right" size={16} color="#fff" style={{ marginLeft: 8 }} />
+          </Pressable>
+        </LinearGradient>
       </Animated.View>
     </View>
   );
@@ -187,7 +192,7 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollView: { flex: 1 },
-  scrollContent: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 120 },
+  scrollContent: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 180 },
   content: { alignItems: 'center' },
 
   iconContainer: { marginBottom: 24 },
@@ -278,9 +283,11 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+  },
+  footerGradient: {
     paddingHorizontal: 24,
     paddingBottom: 40,
-    paddingTop: 20,
+    paddingTop: 80,
   },
   continueButton: {
     flexDirection: 'row',
