@@ -98,19 +98,11 @@ export default function PaywallScreen() {
 
   // 3. Actions
   const handleStartTrial = async () => {
-    // This function now specifically handles the "Start Trial" flow
-    // It redirects to Login and tells Login to start the timer.
-    
     setLoading(true);
-    
-    // Simulate a short delay for UX
+
     setTimeout(() => {
         setLoading(false);
-        // FIX: Route to Login, passing the start_trial param
-        router.push({
-            pathname: '/app/login',
-            params: { start_trial: 'true' }
-        });
+        router.push('/login');
     }, 500);
   };
 
