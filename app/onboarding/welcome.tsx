@@ -55,8 +55,8 @@ export default function WelcomeScreen() {
           ]}
         >
           <View style={styles.iconContainer}>
-             <View style={[styles.iconCircle, { backgroundColor: colors.card, borderColor: colors.border }]}>
-    <Image 
+             <View style={[styles.iconCircle, { backgroundColor: '#FFFFFF', borderColor: colors.card }]}>
+    <Image
       source={require('../../assets/images/icon.png')} /* Adjust path based on your file structure */
       style={{ width: 60, height: 60, resizeMode: 'contain' }}
       accessibilityLabel="App Icon" /* Remember to localize this string */
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
   content: { alignItems: 'center' },
 
   iconContainer: { marginBottom: 24 },
-  iconCircle: { width: 100, height: 100, borderRadius: 50, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+  iconCircle: { width: 100, height: 100, borderRadius: 50, justifyContent: 'center', alignItems: 'center', borderWidth: 8 },
 
   title: {
     textAlign: 'center',
