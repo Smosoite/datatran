@@ -19,9 +19,9 @@ import Purchases, { PurchasesPackage } from 'react-native-purchases';
 import { ChevronDown } from 'lucide-react-native';
 
 // Contexts & Styles
-import { useTheme } from '../../providers/ThemeProvider'; 
-import { useOnboarding } from '../../providers/OnboardingProvider'; 
-import { typography } from '../../styles/typography'; 
+import { useTheme } from '../../providers/ThemeProvider';
+import { useOnboarding } from '../../providers/OnboardingProvider';
+import { typography } from '../../styles/typography';
 
 // --- CONFIGURATION ---
 const API_KEYS = {
@@ -29,7 +29,6 @@ const API_KEYS = {
   google: "goog_your_api_key_here"
 };
 
-// ⚡️ DEV SWITCH: Set to true to enable "Demo" mode (Bypasses Store)
 const DEMO_MODE = true;
 
 type PlanType = 'individual' | 'company';
@@ -38,10 +37,10 @@ type UserCount = 5 | 10 | 20 | 50 | 100;
 
 export default function PaywallScreen() {
   const { t } = useTranslation();
-  const { colors } = useTheme(); 
+  const { colors } = useTheme();
   const router = useRouter();
-  const { completeOnboarding } = useOnboarding();
-   
+  // We removed completeOnboarding here. We only do that after Login now.
+  
   const [loading, setLoading] = useState(false);
   const [planType, setPlanType] = useState<PlanType>('individual');
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('yearly');
@@ -52,25 +51,11 @@ export default function PaywallScreen() {
   // 1. Initialize RevenueCat (or Mock Data)
   useEffect(() => {
     const setupPurchases = async () => {
-      // --- DEMO MODE LOGIC ---
       if (DEMO_MODE) {
         console.log("DEV: Loading Mock Packages");
         setPackages([
-            // Individual Monthly
-            { 
-              identifier: '$rc_monthly', 
-              packageType: 'MONTHLY', 
-              product: { identifier: 'monthly_pro', priceString: '$9.99', price: 9.99, title: 'Monthly', description: '', currencyCode: 'USD' }, 
-              offeringIdentifier: 'default' 
-            } as any,
-            // Individual Yearly
-            { 
-              identifier: '$rc_annual', 
-              packageType: 'ANNUAL', 
-              product: { identifier: 'yearly_pro', priceString: '$99.99', price: 99.99, title: 'Yearly', description: '', currencyCode: 'USD' }, 
-              offeringIdentifier: 'default' 
-            } as any,
-            // Company Plans
+            { identifier: '$rc_monthly', packageType: 'MONTHLY', product: { identifier: 'monthly_pro', priceString: '$9.99', price: 9.99, title: 'Monthly', description: '', currencyCode: 'USD' }, offeringIdentifier: 'default' } as any,
+            { identifier: '$rc_annual', packageType: 'ANNUAL', product: { identifier: 'yearly_pro', priceString: '$99.99', price: 99.99, title: 'Yearly', description: '', currencyCode: 'USD' }, offeringIdentifier: 'default' } as any,
             ...[5, 10, 20, 50, 100].map(count => ({
                 identifier: `company_${count}_yearly`,
                 packageType: 'CUSTOM',
@@ -78,16 +63,13 @@ export default function PaywallScreen() {
                 offeringIdentifier: 'default'
             } as any))
         ]);
-        return; 
+        return;
       }
-      // ---------------------
 
       try {
-        if (Platform.OS === 'ios') {
-          await Purchases.configure({ apiKey: API_KEYS.apple });
-        } else if (Platform.OS === 'android') {
-          await Purchases.configure({ apiKey: API_KEYS.google });
-        }
+        if (Platform.OS === 'ios') await Purchases.configure({ apiKey: API_KEYS.apple });
+        else if (Platform.OS === 'android') await Purchases.configure({ apiKey: API_KEYS.google });
+        
         const offerings = await Purchases.getOfferings();
         if (offerings.current?.availablePackages) {
           setPackages(offerings.current.availablePackages);
@@ -102,8 +84,8 @@ export default function PaywallScreen() {
   // 2. Select Product Logic
   const selectedProduct = useMemo(() => {
     if (planType === 'individual') {
-      const identifier = billingCycle === 'monthly' ? '$rc_monthly' : '$rc_annual'; 
-      return packages.find(p => p.packageType === 'MONTHLY' && billingCycle === 'monthly' 
+      const identifier = billingCycle === 'monthly' ? '$rc_monthly' : '$rc_annual';
+      return packages.find(p => p.packageType === 'MONTHLY' && billingCycle === 'monthly'
         || p.packageType === 'ANNUAL' && billingCycle === 'yearly'
         || p.identifier === identifier);
     } else {
@@ -115,96 +97,57 @@ export default function PaywallScreen() {
   const displayPrice = selectedProduct ? selectedProduct.product.priceString : '...';
 
   // 3. Actions
-  const finalizeOnboardingAndRedirect = async () => {
-    try {
-      setLoading(true);
-
-      if (DEMO_MODE) {
-        await AsyncStorage.setItem('DEMO_SUBSCRIPTION_ACTIVE', 'true');
-      }
-
-      if (completeOnboarding) {
-        await completeOnboarding();
-      }
-
-      router.replace('/(tabs)');
-
-    } catch (error) {
-      console.error("Redirection error:", error);
-      router.replace('/(tabs)');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePurchase = async () => {
-    if (!selectedProduct) {
-      Alert.alert(t('common.error'), t('paywall.noProductFound', 'Product not available'));
-      return;
-    }
-
+  const handleStartTrial = async () => {
+    // This function now specifically handles the "Start Trial" flow
+    // It redirects to Login and tells Login to start the timer.
+    
     setLoading(true);
-
-    // --- DEMO MODE BYPASS ---
-    if (DEMO_MODE) {
-        setTimeout(async () => {
-            console.log("DEV: Mock Purchase Successful - Redirecting to account creation");
-            router.push('/sign-up');
-        }, 1000);
-        return;
-    }
-    // -----------------------
-
-    try {
-      const { customerInfo } = await Purchases.purchasePackage(selectedProduct);
-      if (customerInfo.entitlements.active['Pro Access']) {
-         router.push('/sign-up');
-      }
-    } catch (e: any) {
-      if (!e.userCancelled) Alert.alert(t('common.error'), e.message);
-      setLoading(false);
-    }
+    
+    // Simulate a short delay for UX
+    setTimeout(() => {
+        setLoading(false);
+        // FIX: Route to Login, passing the start_trial param
+        router.push({
+            pathname: '/login',
+            params: { start_trial: 'true' }
+        });
+    }, 500);
   };
 
   const handleRestore = async () => {
     setLoading(true);
-
-    // --- DEMO MODE BYPASS ---
     if (DEMO_MODE) {
-        setTimeout(async () => {
-            console.log("DEV: Mock Restore Successful");
+        setTimeout(() => {
             Alert.alert(t('common.success'), "Dev: Restore Successful");
-            await finalizeOnboardingAndRedirect();
+            router.push('/login'); // Go to login on restore too
+            setLoading(false);
         }, 1000);
         return;
     }
-    // -----------------------
 
     try {
       const customerInfo = await Purchases.restorePurchases();
       if (customerInfo.entitlements.active['Pro Access']) {
         Alert.alert(t('common.success'), t('paywall.restoreSuccess'));
-        await finalizeOnboardingAndRedirect();
+        router.push('/login');
       } else {
         Alert.alert(t('common.info'), t('paywall.noPurchases'));
-        setLoading(false);
       }
     } catch (e: any) {
       Alert.alert(t('common.error'), e.message);
-      setLoading(false);
+    } finally {
+        setLoading(false);
     }
   };
 
-  // 4. Render
   if (!colors) return <View style={{flex:1}} />;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent} 
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        
         {/* HEADER */}
         <View style={styles.headerRow}>
           <Pressable onPress={() => router.back()} style={styles.closeButton}>
@@ -228,18 +171,18 @@ export default function PaywallScreen() {
         {/* TOGGLE (Individual vs Company) */}
         <View style={styles.section}>
           <View style={[styles.toggleContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Pressable 
+            <Pressable
               style={[
-                styles.toggleBtn, 
+                styles.toggleBtn,
                 planType === 'individual' && { backgroundColor: colors.selector }
               ]}
               onPress={() => setPlanType('individual')}
             >
               <Text style={[typography.button, { color: colors.text }]}>{t('paywall.individual')}</Text>
             </Pressable>
-            <Pressable 
+            <Pressable
               style={[
-                styles.toggleBtn, 
+                styles.toggleBtn,
                 planType === 'company' && { backgroundColor: colors.selector }
               ]}
               onPress={() => setPlanType('company')}
@@ -249,8 +192,7 @@ export default function PaywallScreen() {
           </View>
         </View>
 
-
-        {/* PLAN CARDS */}
+        {/* PLAN CARDS - (Kept your existing structure) */}
         <View style={styles.section}>
           <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>
             {t('paywall.selectPlan', 'Select Plan')}
@@ -262,19 +204,14 @@ export default function PaywallScreen() {
               <Pressable
                 style={[
                   styles.planCard,
-                  {
-                    backgroundColor: colors.card,
-                    borderColor: billingCycle === 'monthly' ? colors.primary : colors.border
-                  },
+                  { backgroundColor: colors.card, borderColor: billingCycle === 'monthly' ? colors.primary : colors.border },
                   billingCycle === 'monthly' && { borderWidth: 2 }
                 ]}
                 onPress={() => setBillingCycle('monthly')}
               >
                 <Text style={[typography.h3, { color: colors.text, fontSize: 13, fontWeight: '600' }]}>MONTH</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 2 }}>
-                  <Text style={[typography.h3, { color: colors.primary }]}>
-                    {billingCycle === 'monthly' ? displayPrice : '...'}
-                  </Text>
+                  <Text style={[typography.h3, { color: colors.primary }]}>{billingCycle === 'monthly' ? displayPrice : '...'}</Text>
                   <Text style={[typography.caption, { color: colors.subtext, fontSize: 11 }]}>/ {t('paywall.mo')}</Text>
                 </View>
               </Pressable>
@@ -283,10 +220,7 @@ export default function PaywallScreen() {
               <Pressable
                 style={[
                   styles.planCard,
-                  {
-                    backgroundColor: colors.card,
-                    borderColor: billingCycle === 'yearly' ? colors.primary : colors.border
-                  },
+                  { backgroundColor: colors.card, borderColor: billingCycle === 'yearly' ? colors.primary : colors.border },
                   billingCycle === 'yearly' && { borderWidth: 2 }
                 ]}
                 onPress={() => setBillingCycle('yearly')}
@@ -298,58 +232,33 @@ export default function PaywallScreen() {
                   </View>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 2 }}>
-                  <Text style={[typography.h3, { color: colors.primary }]}>
-                    {billingCycle === 'yearly' ? displayPrice : '...'}
-                  </Text>
+                  <Text style={[typography.h3, { color: colors.primary }]}>{billingCycle === 'yearly' ? displayPrice : '...'}</Text>
                   <Text style={[typography.caption, { color: colors.subtext, fontSize: 11 }]}>/ {t('paywall.yr')}</Text>
                 </View>
               </Pressable>
             </View>
           ) : (
             <View style={styles.planRow}>
-              {/* Team Size Dropdown */}
-              <Pressable
+               <Pressable
                 style={[styles.dropdownCard, { backgroundColor: `${colors.card}CC`, borderColor: colors.border, flex: 0.75 }]}
                 onPress={() => setShowDropdown(true)}
               >
                 <View style={styles.dropdownDisplay}>
-                  <Text style={[typography.h3, { color: colors.text, fontSize: 32, fontWeight: '700' }]}>
-                    {userCount}
-                  </Text>
-                  <View
-                    style={[
-                      styles.arrowGlow,
-                      {
-                        shadowColor: colors.primary,
-                        backgroundColor: 'transparent'
-                      }
-                    ]}
-                  >
-                    <ChevronDown size={20} color={colors.primary} />
-                  </View>
+                  <Text style={[typography.h3, { color: colors.text, fontSize: 32, fontWeight: '700' }]}>{userCount}</Text>
+                  <ChevronDown size={20} color={colors.primary} />
                 </View>
-                <Text style={[typography.caption, { color: colors.subtext, fontSize: 10, marginTop: 4 }]}>
-                  {t('paywall.users', 'Users')}
-                </Text>
+                <Text style={[typography.caption, { color: colors.subtext, fontSize: 10, marginTop: 4 }]}>{t('paywall.users', 'Users')}</Text>
               </Pressable>
 
-              {/* Yearly Plan */}
               <Pressable
                 style={[
                   styles.planCard,
-                  {
-                    backgroundColor: colors.card,
-                    borderColor: colors.primary,
-                    borderWidth: 2,
-                    flex: 1.25
-                  }
+                  { backgroundColor: colors.card, borderColor: colors.primary, borderWidth: 2, flex: 1.25 }
                 ]}
               >
                 <Text style={[typography.h3, { color: colors.text, fontSize: 13, fontWeight: '600' }]}>YEAR</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 2 }}>
-                  <Text style={[typography.h3, { color: colors.primary }]}>
-                    {displayPrice}
-                  </Text>
+                  <Text style={[typography.h3, { color: colors.primary }]}>{displayPrice}</Text>
                   <Text style={[typography.caption, { color: colors.subtext, fontSize: 11 }]}>/ {t('paywall.yr')}</Text>
                 </View>
               </Pressable>
@@ -431,13 +340,13 @@ export default function PaywallScreen() {
       <View style={styles.footer}>
         <Pressable
           style={[styles.ctaButton, { backgroundColor: colors.primary }]}
-          onPress={handlePurchase}
+          onPress={handleStartTrial} // Changed to new handler
           disabled={loading}
         >
            {loading ? <ActivityIndicator color="#fff" /> : (
              <>
                <Text style={[typography.button, { color: '#fff', fontSize: 18 }]}>
-                 {t('paywall.startTrialAndCreateAccount', 'Start Trial & Create Account')}
+                 {t('paywall.startTrialAndLogin', 'Start Trial & Login')}
                </Text>
                <Text style={[typography.caption, { color: '#fff', marginTop: 4, opacity: 0.9 }]}>
                  {t('paywall.freeFor7Days', 'Free for 7 days, then {{price}}', { price: displayPrice })}
@@ -464,50 +373,20 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 24, paddingBottom: 100 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
   closeButton: { padding: 8, marginLeft: -8 },
-
   heroSection: { alignItems: 'center', marginBottom: 12 },
-
   section: { marginBottom: 16 },
   sectionTitle: { marginBottom: 6, fontSize: 13, textTransform: 'uppercase', opacity: 0.7 },
-
-  // Toggle
   toggleContainer: { flexDirection: 'row', borderRadius: 12, borderWidth: 1, padding: 4 },
   toggleBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
-
-  // Plan Cards
   planRow: { flexDirection: 'row', gap: 10 },
   planCard: { flex: 1, borderRadius: 12, padding: 8, paddingVertical: 8, borderWidth: 1 },
-
-  // Dropdown for Company Team Size
   dropdownCard: { flex: 1, borderRadius: 12, padding: 8, paddingVertical: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   dropdownDisplay: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  arrowGlow: {
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 6,
-    elevation: 6
-  },
-
-  // Dropdown Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   dropdownModal: { width: '80%', borderRadius: 12, padding: 20, borderWidth: 1 },
   dropdownModalItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1 },
-
-  // Cards
   card: { borderRadius: 12, padding: 12, borderWidth: 1 },
-  cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   badge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, alignSelf: 'flex-start' },
-
-  // Footer
   footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20 },
-  ctaButton: {
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8
-  }
+  ctaButton: { paddingVertical: 16, borderRadius: 12, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 }
 });
