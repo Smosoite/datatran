@@ -59,7 +59,7 @@ export default function ManageWarehouseScreen() {
   // --- NEW HANDLER FUNCTION ---
   const handleOpenGrid = (storageId: string) => {
     // 1. Check if admin passcode is set
-    if (!workgroup?.admin_passcode) {
+    if (!workgroup?.passcode) {
       showError(t('general.error'), "No admin passcode is set for this workgroup."); // You can add a translation for this
       return;
     }
@@ -70,7 +70,7 @@ export default function ManageWarehouseScreen() {
       message: 'stockGrid.passcodeMessage',
       onSubmit: (passcode) => {
         // 3. Check the passcode
-        if (passcode === workgroup.admin_passcode) {
+        if (passcode === workgroup.passcode) {
           // 4. On success, lock the app and navigate
           setStockGridLocked(true);
           router.push(`/stock-grid/${storageId}`);

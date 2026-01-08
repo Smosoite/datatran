@@ -185,7 +185,7 @@ export default function StockGridScreen() {
               title: t('stockGrid.adminAccess'),
               message: t('stockGrid.enterPasscode'),
               onSubmit: (passcode) => {
-                  if (passcode === workgroup?.admin_passcode) {
+                  if (passcode === workgroup?.passcode) {
                       setOriginalSnapshot(JSON.parse(JSON.stringify(locations)));
                       setIsEditMode(true);
                       showSuccess(t('stockGrid.editModeEnabled'));

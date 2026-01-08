@@ -23,10 +23,10 @@ export default function CreateWorkgroupScreen() {
     setLoading(true);
 
     try {
-      const joinCode = generateJoinCode();
+      const passcode = generateJoinCode();
       const { data: workgroupData, error: workgroupError } = await supabase
         .from('workgroups')
-        .insert({ name: name.trim(), owner_id: session.user.id, join_code: joinCode })
+        .insert({ name: name.trim(), created_by: session.user.id, passcode: passcode })
         .select('id')
         .single();
 

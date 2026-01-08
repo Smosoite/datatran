@@ -18,9 +18,9 @@ type Profile = {
 type Workgroup = {
   id: string;
   name: string;
-  join_code: string;
-  admin_passcode: string | null;
-  created_at: string; 
+  passcode: string;
+  created_at: string;
+  created_by: string | null;
 };
 
 type AuthContextType = {
@@ -101,7 +101,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       if (profileData?.workgroup_id) {
         const { data: workgroupData, error: workgroupError } = await supabase
           .from('workgroups')
-          .select('id, name, join_code, admin_passcode, created_at') 
+          .select('id, name, passcode, created_at, created_by')
           .eq('id', profileData.workgroup_id)
           .single();
 
