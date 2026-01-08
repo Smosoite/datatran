@@ -97,30 +97,30 @@ export default function DemoWarehouseScreen() {
               onPress={() => handleWarehouseSelect(warehouse.id)}
             >
               <View style={styles.warehouseHeader}>
-                <Feather name={warehouse.icon as any} size={32} color={colors.text} />
+                <Feather name={warehouse.icon as any} size={28} color={colors.text} />
                 <View style={styles.warehouseInfo}>
-                  <Text style={[typography.h3, styles.warehouseName, { color: colors.text }]}>
+                  <Text style={[styles.warehouseName, { color: colors.text }]}>
                     {warehouse.name}
                   </Text>
-                  <Text style={[typography.caption, styles.warehouseDesc, { color: colors.subtext }]}>
+                  <Text style={[styles.warehouseDesc, { color: colors.subtext }]}>
                     {warehouse.description}
                   </Text>
                 </View>
                 {selectedWarehouse === warehouse.id && (
-                  <FontAwesome name="check-circle" size={24} color={colors.primary} />
+                  <FontAwesome name="check-circle" size={20} color={colors.primary} />
                 )}
               </View>
 
               {/* Storage Units */}
               {selectedWarehouse === warehouse.id && showStorages && (
                 <Animated.View style={styles.storagesContainer}>
-                  <Text style={[typography.body, styles.storagesTitle, { color: colors.text }]}>
+                  <Text style={[styles.storagesTitle, { color: colors.text }]}>
                     {t('onboarding.storageUnits', 'Storage Units:')}
                   </Text>
                   {warehouse.storages.map((storage, index) => (
                     <View key={index} style={[styles.storageItem, { backgroundColor: colors.background }]}>
-                      <FontAwesome name="inbox" size={16} color={colors.primary} />
-                      <Text style={[typography.caption, styles.storageName, { color: colors.text }]}>
+                      <FontAwesome name="inbox" size={14} color={colors.primary} />
+                      <Text style={[styles.storageName, { color: colors.text }]}>
                         {storage}
                       </Text>
                     </View>
@@ -133,18 +133,18 @@ export default function DemoWarehouseScreen() {
 
         {/* Interactive Tips */}
         {selectedWarehouse && (
-          <Animated.View 
+          <Animated.View
             style={[
               styles.tipsContainer,
               { backgroundColor: colors.primaryMuted, borderColor: colors.primary }
             ]}
           >
-            <FontAwesome name="lightbulb-o" size={20} color={colors.primary} />
+            <FontAwesome name="lightbulb-o" size={18} color={colors.primary} />
             <View style={styles.tipContent}>
-              <Text style={[typography.body, styles.tipTitle, { color: colors.primary }]}>
+              <Text style={[styles.tipTitle, { color: colors.primary }]}>
                 {t('onboarding.proTip', 'Pro Tip')}
               </Text>
-              <Text style={[typography.caption, styles.tipText, { color: colors.text }]}>
+              <Text style={[styles.tipText, { color: colors.text }]}>
                 {t('onboarding.warehouseTip', 'You can create unlimited warehouses and customize storage units for any type of inventory organization.')}
               </Text>
             </View>
@@ -187,61 +187,61 @@ export default function DemoWarehouseScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingTop: 60, paddingHorizontal: 24, paddingBottom: 20 },
-  title: { textAlign: 'center', marginBottom: 8, fontWeight: 'bold' },
-  subtitle: { textAlign: 'center', lineHeight: 22 },
-  content: { flex: 1, paddingHorizontal: 24 },
-  warehousesContainer: { gap: 16, marginBottom: 20 },
+  header: { paddingTop: 50, paddingHorizontal: 24, paddingBottom: 8 },
+  title: { textAlign: 'center', marginBottom: 4, fontWeight: 'bold', fontSize: 22 },
+  subtitle: { textAlign: 'center', lineHeight: 20, fontSize: 14 },
+  content: { flex: 1, paddingHorizontal: 24, paddingBottom: 100 },
+  warehousesContainer: { gap: 12, marginBottom: 12, marginTop: 12 },
   warehouseCard: {
-    borderRadius: 12,
-    padding: 20,
+    borderRadius: 10,
+    padding: 16,
     borderWidth: 1,
   },
   warehouseHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 12,
   },
   warehouseInfo: { flex: 1 },
-  warehouseName: { fontWeight: 'bold', marginBottom: 4 },
-  warehouseDesc: {},
+  warehouseName: { fontWeight: 'bold', marginBottom: 2, fontSize: 16 },
+  warehouseDesc: { fontSize: 13 },
   storagesContainer: {
-    marginTop: 16,
-    paddingTop: 16,
-    gap: 8,
+    marginTop: 12,
+    paddingTop: 12,
+    gap: 6,
   },
-  storagesTitle: { fontWeight: '600', marginBottom: 8 },
+  storagesTitle: { fontWeight: '600', marginBottom: 6, fontSize: 14 },
   storageItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    gap: 12,
+    padding: 10,
+    borderRadius: 6,
+    gap: 10,
   },
-  storageName: { fontWeight: '500' },
+  storageName: { fontWeight: '500', fontSize: 13 },
   tipsContainer: {
     flexDirection: 'row',
-    padding: 16,
-    borderRadius: 12,
+    padding: 12,
+    borderRadius: 10,
     borderWidth: 1,
-    gap: 12,
-    marginTop: 20,
+    gap: 10,
+    marginTop: 12,
   },
   tipContent: { flex: 1 },
-  tipTitle: { fontWeight: 'bold', marginBottom: 4 },
-  tipText: { lineHeight: 18 },
+  tipTitle: { fontWeight: 'bold', marginBottom: 2, fontSize: 14 },
+  tipText: { lineHeight: 16, fontSize: 13 },
   navigation: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 24,
-    paddingBottom: 40,
-    gap: 16,
+    paddingBottom: 24,
+    gap: 12,
   },
   navButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: 8,
     borderWidth: 1,
     flex: 1,

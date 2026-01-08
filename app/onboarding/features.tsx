@@ -173,34 +173,34 @@ export default function FeaturesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingTop: 60, paddingHorizontal: 24, paddingBottom: 20 },
-  title: { textAlign: 'center', marginBottom: 8, fontWeight: 'bold' },
-  subtitle: { textAlign: 'center', lineHeight: 22 },
+  header: { paddingTop: 50, paddingHorizontal: 24, paddingBottom: 8 },
+  title: { textAlign: 'center', marginBottom: 4, fontWeight: 'bold', fontSize: 22 },
+  subtitle: { textAlign: 'center', lineHeight: 20, fontSize: 14 },
   scrollView: { flex: 1 },
-  featureCard: { 
-    flex: 1, 
+  featureCard: {
+    flex: 1,
     paddingHorizontal: 24,
     justifyContent: 'center',
   },
   cardContent: {
     alignItems: 'center',
-    paddingVertical: 40,
+    paddingVertical: 20,
   },
   featureTitle: {
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
     fontWeight: 'bold',
   },
   featureDescription: {
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 22,
     paddingHorizontal: 20,
   },
   indicators: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 20,
+    paddingVertical: 12,
     gap: 8,
   },
   indicator: {
@@ -212,14 +212,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 24,
-    paddingBottom: 40,
-    gap: 16,
+    paddingBottom: 24,
+    gap: 12,
   },
   navButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: 8,
     borderWidth: 1,
     flex: 1,
