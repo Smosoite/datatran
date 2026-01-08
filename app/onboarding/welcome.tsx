@@ -192,7 +192,7 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollView: { flex: 1 },
-  scrollContent: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 180 },
+  scrollContent: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 220 },
   content: { alignItems: 'center' },
 
   iconContainer: { marginBottom: 24 },
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
   footerGradient: {
     paddingHorizontal: 24,
     paddingBottom: 40,
-    paddingTop: 80,
+    paddingTop: 40,
   },
   continueButton: {
     flexDirection: 'row',
