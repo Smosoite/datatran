@@ -39,7 +39,7 @@ export default function PaywallScreen() {
   const { t } = useTranslation();
   const { colors } = useTheme();
   const router = useRouter();
-  // We removed completeOnboarding here. We only do that after Login now.
+  const { completeOnboarding } = useOnboarding();
   
   const [loading, setLoading] = useState(false);
   const [planType, setPlanType] = useState<PlanType>('individual');
@@ -99,6 +99,7 @@ export default function PaywallScreen() {
   // 3. Actions
   const handleStartTrial = async () => {
     setLoading(true);
+    await completeOnboarding();
 
     setTimeout(() => {
         setLoading(false);
