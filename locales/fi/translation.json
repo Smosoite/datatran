@@ -101,6 +101,9 @@
     "needsRestock": "Vaatii täydennystä",
     "wellStocked": "Kaikkia tuotteita saatavilla."
   },
+  "cost": {
+    "example": "8,50",
+  },
   "warehouse": {
     "title": "Varastot",
     "createHeader": "Luo uusi varasto",
@@ -170,7 +173,8 @@
     "noResults": "Tuloksia ei löytynyt.",
     "itemName*": "Tuotteen nimi*",
     "quantity*": "Määrä*",
-    "restockThreshold*": "Täydennysraja*"
+    "restockThreshold*": "Täydennysraja*",
+    "costperunit": "Kappale hinta",
   },
   "restock": {
     "title": "Täydennä tuotteita",
