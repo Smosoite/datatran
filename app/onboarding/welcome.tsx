@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react'; // Added useRef
 import { View, Text, StyleSheet, Pressable, Animated, ScrollView, Image, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -21,11 +21,14 @@ export default function WelcomeScreen() {
   const { colors } = useTheme();
   const router = useRouter();
 
-  const fadeAnim = new Animated.Value(0);
-  const slideAnim = new Animated.Value(50);
+  // --- FIX START: Use useRef to persist values across re-renders ---
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const buttonOpacity = useRef(new Animated.Value(0)).current;
+  const scrollIndicatorOpacity = useRef(new Animated.Value(1)).current;
+  // --- FIX END ---
+
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(false);
-  const buttonOpacity = new Animated.Value(0);
-  const scrollIndicatorOpacity = new Animated.Value(1);
 
   useEffect(() => {
     Animated.parallel([
@@ -85,9 +88,9 @@ export default function WelcomeScreen() {
           <View style={styles.iconContainer}>
              <View style={[styles.iconCircle, { backgroundColor: '#FFFFFF', borderColor: colors.card }]}>
     <Image
-      source={require('../../assets/images/icon.png')} /* Adjust path based on your file structure */
+      source={require('../../assets/images/icon.png')}
       style={{ width: 60, height: 60, resizeMode: 'contain' }}
-      accessibilityLabel="App Icon" /* Remember to localize this string */
+      accessibilityLabel="App Icon"
     />
   </View>
 </View>
