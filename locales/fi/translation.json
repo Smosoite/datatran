@@ -16,6 +16,7 @@
     "selectBoth": "Valitse varasto ja varastoyksikkö!",
     "cont": "Jatka",
     "accountCreated": "Tilin luonti onnistui! Ole hyvä ja kirjaudu sisään!",
+    "account": "Luo tili",
     "errorFetch": "Virhe hakiessa täydennystuotetta!",
     "errorQuantity": "Virhe määrien päivityksessä.",
     "workgroupDetails": "Työryhmän tietoja ei voitu hakea.",
@@ -52,7 +53,8 @@
     "delete": "Poista",
     "noData": "Ei dataa",
     "noDataToExport": "Vietävää inventaariodataa ei ole.",
-    "exportError": "Datan vienti epäonnistui: {{message}}"
+    "exportError": "Datan vienti epäonnistui: {{message}}",
+    "layout": ""
   },
   "auth": {
     "loginHeader": "Tervetuloa takaisin",
@@ -102,7 +104,7 @@
     "wellStocked": "Kaikkia tuotteita saatavilla."
   },
   "cost": {
-    "example": "8,50",
+    "example": "8,50"
   },
   "warehouse": {
     "title": "Varastot",
@@ -174,7 +176,7 @@
     "itemName*": "Tuotteen nimi*",
     "quantity*": "Määrä*",
     "restockThreshold*": "Täydennysraja*",
-    "costperunit": "Kappale hinta",
+    "costPerUnit": "Kappale hinta"
   },
   "restock": {
     "title": "Täydennä tuotteita",
@@ -242,7 +244,7 @@
     "removeMemberConfirm": "Haluatko varmasti poistaa käyttäjän {{username}} työryhmästä?",
     "promoteSuccess": "Käyttäjä ylennetty ylläpitäjäksi!",
     "demoteSuccess": "Käyttäjä alennettu jäseneksi.",
-    "removeSuccess": "Käyttäjä poistettu työryhmästä.",
+    "removeSuccess": "Käyttäjä poistettu työryhmästä."
   },
   "profile": {
     "title": "Profiili",
@@ -278,7 +280,7 @@
     "sunflower": "Sunflower",
     "sunset": "Sunset"
   },
- "pilot": {
+  "pilot": {
     "addNew": "Napauta tästä lisätäksesi uusia tuotteita varastoosi manuaalisesti.",
     "search": "Etsi tuotteita nimen tai sijainnin perusteella.",
     "scan": "Käytä kameraa viivakoodien nopeaan skannaukseen hakua tai kirjausta varten.",
@@ -292,15 +294,6 @@
     "addStorage": "Napauta tästä lisätäksesi varastoyksikön tähän varastoon.",
     "viewStorage": "Napauta varastoyksikköä nähdäksesi sen sisältämät tuotteet.",
     "openGrid": "Ylläpitäjät voivat avata ruudukkonäkymän täältä.",
-    "fistWarehouse": "Napauta tästä luodaksesi ensimmäisen varastosi.",
-    "newWarehouse": "Napauta tästä luodaksesi uuden varaston.",
-    "openWarehouse": "Napauta varastoa nähdäksesi sen varastopaikat ja sisällön.",
-    "find": "Etsi tuotteita täältä.",
-    "findlocation": "Katso tuotteen sijainti ja tiedot täältä.",
-    "edit": "Napauta muokataksesi tuotteen tietoja.",
-    "adjust": "Säädä varastomääriä nopeasti.",
-    "addStorage": "Napauta tästä lisätäksesi varastoyksikön tähän varastoon.",
-    "viewStorage": "Napauta varastoyksikköä nähdäksesi sen sisältämät tuotteet.",
     "tap": "Napauta tästä määrittääksesi uuden hyllyn, rivin tai lokeron sijainnin.",
     "see": "Katso sijaintitiedot ja sijoitetut tuotteet täältä.",
     "editloc": "Muokkaa määrityksiä tai poista tämä sijainti.",
@@ -316,11 +309,11 @@
     "timeline": "Tämä aikajana seuraa työryhmäsi tekemiä toimintoja.",
     "ataken": "Tarkastele suoritettuja toimintoja ja muutosten määriä kussakin tapahtumassa.",
     "details": "Muokkaa tuotteen tietoja, määrää tai hälytyksiä täältä.",
-    "save": "Napauta tästä tallentaaksesi muutokset.",
+    "save": "Napauta tästä tallentaaksesi muutokset."
   },
   "workgroup": {
     "namePlaceholder": "Roadhouse Inc.",
-    "createButton": "Create Workgroup",
+    "createButton": "Create Workgroup"
   },
   "paywall": {
     "title": "Aktivoi StoreTool",
