@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
   },
   demoVisual: {
     width: '100%',
-    height: 160,
+    height: 200,
     borderRadius: 12,
     borderWidth: 1,
     justifyContent: 'center',
