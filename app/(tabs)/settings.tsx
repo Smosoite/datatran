@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../providers/AuthProvider';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as Print from 'expo-print'; // <--- NEW IMPORT
 import Papa from 'papaparse';
 import { FontAwesome } from '@expo/vector-icons';
 import { useTheme } from '../../providers/ThemeProvider';
@@ -125,39 +126,204 @@ export default function SettingsScreen() {
     setMode(prev => (prev === 'dark' ? 'light' : 'dark'));
   }, [setMode]);
 
+  // --- EXPORT LOGIC ---
+
   const handleExportData = useCallback(async () => {
     setIsExporting(true);
     try {
+      // 1. Select data including the new cost_per_unit field
       const { data: items, error } = await supabase
         .from('items')
-        .select(`name, quantity, cost, restock_threshold, barcode, warehouses ( name ), storages ( name ), defined_locations ( shelf, row, "column", container )`);
+        .select(`
+          name, 
+          quantity, 
+          cost_per_unit, 
+          barcode, 
+          restock_threshold, 
+          warehouses ( name ), 
+          storages ( name ), 
+          defined_locations ( shelf, row, "column", container )
+        `);
 
       if (error) throw error;
       if (!items || items.length === 0) {
         showError(t('general.noData'), t('general.noDataToExport'));
+        setIsExporting(false);
         return;
       }
+
+      // 2. Calculations
+      // Placeholder for tax rate - you said you will add a button for this later
+      const TAX_RATE = 0.24; // Example: 24%
       
-      const formattedData = items.map(item => ({
-        'Item Name': item.name, 'Quantity': item.quantity, 'Cost': item.cost,
-        'Barcode': item.barcode, 'Restock Threshold': item.restock_threshold,
-        'Warehouse': item.warehouses?.name, 'Storage Unit': item.storages?.name,
-        'Shelf': item.defined_locations?.shelf, 'Row': item.defined_locations?.row,
-        'Column': item.defined_locations?.column, 'Container': item.defined_locations?.container,
+      let subtotal = 0;
+
+      const formattedData = items.map(item => {
+        const qty = item.quantity || 0;
+        const cost = item.cost_per_unit || 0;
+        const totalItemCost = qty * cost;
+        
+        subtotal += totalItemCost;
+
+        return {
+          name: item.name,
+          quantity: qty,
+          costPerUnit: cost,
+          totalCost: totalItemCost, // Line item total
+          barcode: item.barcode,
+          restock: item.restock_threshold,
+          warehouse: item.warehouses?.name || '',
+          storage: item.storages?.name || '',
+          location: `${item.defined_locations?.shelf || ''} ${item.defined_locations?.row || ''}`,
+        };
+      });
+
+      const taxAmount = subtotal * TAX_RATE;
+      const totalWithTax = subtotal + taxAmount;
+
+      // 3. Ask User for Format
+      Alert.alert(
+        t('settings.exportFormatTitle', 'Choose Export Format'),
+        t('settings.exportFormatMessage', 'Select how you want to view the inventory report.'),
+        [
+          {
+            text: 'CSV',
+            onPress: () => generateCSV(formattedData, subtotal, taxAmount, totalWithTax, TAX_RATE)
+          },
+          {
+            text: 'PDF',
+            onPress: () => generatePDF(formattedData, subtotal, taxAmount, totalWithTax, TAX_RATE)
+          },
+          {
+            text: t('general.cancel', 'Cancel'),
+            style: 'cancel',
+            onPress: () => setIsExporting(false)
+          }
+        ]
+      );
+
+    } catch (error: any) {
+      showError(t('general.error'), t('general.exportError', { message: error.message }));
+      setIsExporting(false);
+    }
+  }, [t]);
+
+  // --- CSV GENERATOR ---
+  const generateCSV = async (data: any[], subtotal: number, taxAmount: number, totalWithTax: number, taxRate: number) => {
+    try {
+      // Format rows for CSV
+      const csvRows = data.map(item => ({
+        [t('export.itemName', 'Item Name')]: item.name,
+        [t('export.quantity', 'Quantity')]: item.quantity,
+        [t('export.costPerUnit', 'Cost Per Unit')]: item.costPerUnit.toFixed(2),
+        [t('export.totalCost', 'Total Item Cost')]: item.totalCost.toFixed(2),
+        [t('export.warehouse', 'Warehouse')]: item.warehouse,
+        [t('export.location', 'Location')]: item.location,
       }));
 
-      const csvString = Papa.unparse(formattedData);
+      // Append Summary Rows at the bottom
+      // We add empty strings for other columns to keep CSV structure valid-ish
+      csvRows.push({}); // Empty row
+      csvRows.push({ [t('export.itemName')]: '--- SUMMARY ---' });
+      csvRows.push({ 
+        [t('export.itemName')]: t('export.subtotal', 'Total (Excl. Tax)'), 
+        [t('export.quantity')]: subtotal.toFixed(2) 
+      });
+      csvRows.push({ 
+        [t('export.itemName')]: t('export.taxAmount', 'Tax Amount ({{rate}}%)', { rate: taxRate * 100 }), 
+        [t('export.quantity')]: taxAmount.toFixed(2) 
+      });
+      csvRows.push({ 
+        [t('export.itemName')]: t('export.totalWithTax', 'Total (Incl. Tax)'), 
+        [t('export.quantity')]: totalWithTax.toFixed(2) 
+      });
+
+      const csvString = Papa.unparse(csvRows);
       const filename = `inventory_export_${new Date().getTime()}.csv`;
       const fileUri = FileSystem.documentDirectory + filename;
       
       await FileSystem.writeAsStringAsync(fileUri, csvString, { encoding: FileSystem.EncodingType.UTF8 });
       await Sharing.shareAsync(fileUri);
-    } catch (error: any) {
-      showError(t('general.error'), t('general.exportError', { message: error.message }));
+    } catch (e: any) {
+      showError(t('general.error'), e.message);
     } finally {
       setIsExporting(false);
     }
-  }, [t]);
+  };
+
+  // --- PDF GENERATOR ---
+  const generatePDF = async (data: any[], subtotal: number, taxAmount: number, totalWithTax: number, taxRate: number) => {
+    try {
+      const rowsHtml = data.map(item => `
+        <tr>
+          <td>${item.name}</td>
+          <td style="text-align: center;">${item.quantity}</td>
+          <td style="text-align: right;">${item.costPerUnit.toFixed(2)}</td>
+          <td style="text-align: right;">${item.totalCost.toFixed(2)}</td>
+          <td>${item.warehouse}</td>
+        </tr>
+      `).join('');
+
+      const html = `
+        <html>
+          <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+            <style>
+              body { font-family: 'Helvetica', sans-serif; padding: 20px; }
+              h1 { color: #10567A; }
+              table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+              th, td { border: 1px solid #ddd; padding: 8px; font-size: 12px; }
+              th { background-color: #f2f2f2; text-align: left; }
+              .summary { margin-top: 30px; text-align: right; font-size: 14px; }
+              .summary-row { margin-bottom: 5px; }
+              .total { font-weight: bold; font-size: 16px; margin-top: 10px; }
+            </style>
+          </head>
+          <body>
+            <h1>${t('export.inventoryReport', 'Inventory Report')}</h1>
+            <p>${new Date().toLocaleDateString()}</p>
+            
+            <table>
+              <thead>
+                <tr>
+                  <th>${t('export.itemName', 'Item Name')}</th>
+                  <th style="text-align: center;">${t('export.quantity', 'Qty')}</th>
+                  <th style="text-align: right;">${t('export.cost', 'Unit Cost')}</th>
+                  <th style="text-align: right;">${t('export.total', 'Total')}</th>
+                  <th>${t('export.warehouse', 'Warehouse')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml}
+              </tbody>
+            </table>
+
+            <div class="summary">
+              <div class="summary-row">
+                ${t('export.subtotal', 'Total (Excl. Tax)')}: 
+                <span>${subtotal.toFixed(2)}</span>
+              </div>
+              <div class="summary-row">
+                ${t('export.taxAmount', 'Tax ({{rate}}%)', { rate: taxRate * 100 })}: 
+                <span>${taxAmount.toFixed(2)}</span>
+              </div>
+              <div class="summary-row total">
+                ${t('export.totalWithTax', 'Total (Incl. Tax)')}: 
+                <span>${totalWithTax.toFixed(2)}</span>
+              </div>
+            </div>
+          </body>
+        </html>
+      `;
+
+      const { uri } = await Print.printToFileAsync({ html });
+      await Sharing.shareAsync(uri);
+    } catch (e: any) {
+      showError(t('general.error'), e.message);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // Prevent rendering if theme context is not ready
   if (!colors) return <View style={{flex:1}} />;
@@ -166,7 +332,7 @@ export default function SettingsScreen() {
     <ScrollView 
       style={{ flex: 1, backgroundColor: colors.background }} 
       contentContainerStyle={styles.container}
-      removeClippedSubviews={true} // Performance optimization
+      removeClippedSubviews={true}
     >
       
       {/* APPEARANCE */}
@@ -356,7 +522,7 @@ const styles = StyleSheet.create({
   // Theme Grid
   themeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
   themeButton: { 
-    width: '30%', // Percentage width is faster and safer than Dimensions calculation
+    width: '30%', 
     paddingVertical: 12, 
     borderRadius: 8, 
     alignItems: 'center',
