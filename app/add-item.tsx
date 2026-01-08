@@ -1,250 +1,163 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TextInput, 
-  Pressable, 
-  ActivityIndicator, 
-  KeyboardAvoidingView, 
-  Platform,
-  Keyboard,
-  TouchableWithoutFeedback,
-  Dimensions
-} from 'react-native';
-import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
-import { CameraView, useCameraPermissions } from 'expo-camera'; 
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../providers/ThemeProvider';
-import { useAuth } from '../providers/AuthProvider'; // <--- ADDED THIS
-import { showError } from '../lib/toast';
+import { useAuth } from '../providers/AuthProvider';
+import { showError, showSuccess } from '../lib/toast';
 import { typography } from '../styles/typography';
+import { logActivity } from '../lib/logger';
 
-const SCREEN_HEIGHT = Dimensions.get('window').height;
-
-export default function ScanScreen() {
+export default function AddItemScreen() {
   const { t } = useTranslation();
-  const { colors } = useTheme(); 
-  const { profile } = useAuth(); // <--- GET PROFILE
+  const { warehouseId, storageId, barcode } = useLocalSearchParams<{ warehouseId?: string; storageId?: string; barcode?: string }>();
+  const { colors } = useTheme();
+  const { profile, workgroup } = useAuth();
   const router = useRouter();
-  
-  const [permission, requestPermission] = useCameraPermissions();
-  const [scanned, setScanned] = useState(false);
-  const [barcode, setBarcode] = useState('');
-  const [loading, setLoading] = useState(false);
+
+  const [name, setName] = useState('');
+  const [quantity, setQuantity] = useState('0');
+  const [restockThreshold, setRestockThreshold] = useState('10');
+  const [barcodeValue, setBarcodeValue] = useState(barcode || '');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!permission) {
-        requestPermission();
+    if (!warehouseId || !storageId) {
+      router.replace('/select-location-modal');
     }
-  }, [permission]);
+  }, [warehouseId, storageId]);
 
-  // --- ACTIONS ---
+  const increment = () => setQuantity(prev => (parseInt(prev || '0', 10) + 1).toString());
+  const decrement = () => setQuantity(prev => {
+    const val = parseInt(prev || '0', 10);
+    return val > 0 ? (val - 1).toString() : '0';
+  });
 
-  const handleScanOrSubmit = async (code: string) => {
-    if (scanned || loading) return; 
-    if (!code.trim()) {
-      showError(t('general.error'), t('scan.enterNum')); 
+  const handleSave = async () => {
+    if (!name.trim()) {
+      showError(t('general.error'), t('general.fillFields'));
       return;
     }
 
-    // Safety check for profile
     if (!profile?.workgroup_id) {
-        showError(t('general.error'), "No active workgroup found.");
-        return;
+      showError(t('general.error'), 'No active workgroup found.');
+      return;
     }
 
-    setScanned(true); 
-    setLoading(true);
-    setBarcode(code); 
-    Keyboard.dismiss(); 
-
+    setSaving(true);
     try {
-      // 2. Database Lookup SCOPED to Workgroup
-      const { data: item, error } = await supabase
-        .from('items')
-        .select('id')
-        .eq('barcode', code.trim())
-        .eq('workgroup_id', profile.workgroup_id) // <--- CRITICAL FIX
-        .single(); // It is now safe to use .single() because duplicates are impossible within one group
+      const newItem = {
+        name: name.trim(),
+        quantity: parseInt(quantity, 10),
+        restock_threshold: parseInt(restockThreshold, 10),
+        barcode: barcodeValue.trim() || null,
+        storage_id: storageId,
+        workgroup_id: profile.workgroup_id,
+      };
 
-      // Handle actual DB errors (ignoring 'Item not found' code PGRST116)
-      if (error && error.code !== 'PGRST116') {
-        throw error;
-      }
-       
-      if (item) {
-        // 3a. Item Exists in THIS workgroup -> Edit
-        router.push(`/edit-item/${item.id}`);
-      } else {
-        // 3b. Item New (or exists in other groups but not here) -> Add
-        router.push({ 
-          pathname: '/select-location-modal', 
-          params: { barcode: code.trim() } 
+      const { data, error } = await supabase
+        .from('items')
+        .insert(newItem)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (workgroup?.id && data) {
+        logActivity({
+          workgroup_id: workgroup.id,
+          item_id: data.id,
+          item_name: data.name,
+          action: 'ADD',
+          change_amount: data.quantity,
+          final_quantity: data.quantity
         });
       }
-      
-      // Delay resetting 'scanned' slightly
-      setTimeout(() => {
-         setScanned(false);
-         setLoading(false);
-      }, 1000);
 
+      showSuccess(t('general.success'), t('general.itemAdded'));
+      router.back();
     } catch (error: any) {
-      console.error(error);
-      showError(t('general.error'), error.message || t('general.errorOccurred'));
-      setLoading(false); 
-      setScanned(false); 
+      showError(t('general.error'), error.message);
+    } finally {
+      setSaving(false);
     }
   };
 
-  if (!colors) return <View style={{flex:1}} />;
-
-  if (!permission) {
-    return <View style={{flex:1, backgroundColor: colors.background}} />;
-  }
-
-  if (!permission.granted) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={[typography.h3, { textAlign: 'center', color: colors.text, marginBottom: 20 }]}>
-            {t('scan.permissionNeeded', 'Camera permission is required to scan barcodes.')}
-        </Text>
-        <Pressable onPress={requestPermission} style={[styles.actionButton, { backgroundColor: colors.primary }]}>
-            <Text style={[typography.button, { color: '#fff' }]}>{t('scan.grantPermission', 'Grant Permission')}</Text>
-        </Pressable>
-      </View>
-    );
+  if (!warehouseId || !storageId) {
+    return <ActivityIndicator style={{ flex: 1, backgroundColor: colors.background }} size="large" color={colors.primary} />;
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#000' }}>
-        
-        {/* CAMERA LAYER */}
-        <CameraView
-            style={StyleSheet.absoluteFill}
-            facing="back"
-            onBarcodeScanned={scanned ? undefined : ({ data }) => handleScanOrSubmit(data)}
-        >
-            <View style={styles.overlay}>
-                <View style={[styles.scanBox, { borderColor: scanned ? colors.success : '#fff' }]} />
-                <Text style={{ color: '#fff', marginTop: 10, textAlign: 'center', ...typography.caption }}>
-                    {loading ? t('scan.processing', 'Processing...') : t('scan.align', 'Align barcode within frame')}
-                </Text>
-            </View>
-        </CameraView>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{flex:1}}>
+      <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={styles.contentContainer}>
 
-        {/* MANUAL INPUT LAYER */}
-        <KeyboardAvoidingView 
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.manualContainer}
-        >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={[styles.manualContent, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
-            
-             <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>
-                {t('scan.orManual', 'Or enter manually')}
-             </Text>
-             
-             <View style={styles.inputRow}>
-                <TextInput
-                  style={[
-                    typography.body, 
-                    styles.input, 
-                    { color: colors.text, backgroundColor: colors.background, borderColor: colors.border }
-                  ]}
-                  placeholder={t('scan.enterNum', 'e.g. 123456789')}
-                  placeholderTextColor={colors.subtext || '#888'}
-                  value={barcode}
-                  onChangeText={setBarcode}
-                  keyboardType="numeric"
-                  returnKeyType="done"
-                  onSubmitEditing={() => handleScanOrSubmit(barcode)}
-                  editable={!loading}
-                />
-                <Pressable 
-                    style={[styles.goButton, { backgroundColor: colors.primary }]}
-                    onPress={() => handleScanOrSubmit(barcode)}
-                    disabled={loading}
-                >
-                    {loading ? <ActivityIndicator size="small" color="#fff" /> : <FontAwesome name="arrow-right" size={16} color="#fff" />}
-                </Pressable>
-             </View>
+        <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.itemName*')}</Text>
+        <TextInput
+          style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+          value={name}
+          onChangeText={setName}
+          placeholder={t('item.itemNamePlaceholder', 'Enter item name')}
+          placeholderTextColor={colors.subtext}
+        />
 
-          </View>
-        </TouchableWithoutFeedback>
-      </KeyboardAvoidingView>
-    </View>
+        <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.quantity*')}</Text>
+        <View style={styles.stepperContainer}>
+          <Pressable onPress={decrement} style={[styles.stepperButton, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <FontAwesome name="minus" size={16} color={colors.text} />
+          </Pressable>
+          <TextInput
+            style={[typography.h2, styles.qtyInput, { color: colors.text, backgroundColor: colors.background }]}
+            value={quantity}
+            onChangeText={setQuantity}
+            keyboardType="numeric"
+            textAlign="center"
+          />
+          <Pressable onPress={increment} style={[styles.stepperButton, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <FontAwesome name="plus" size={16} color={colors.text} />
+          </Pressable>
+        </View>
+
+        <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.restockThreshold*')}</Text>
+        <TextInput
+          style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+          value={restockThreshold}
+          onChangeText={setRestockThreshold}
+          keyboardType="numeric"
+          placeholder="10"
+          placeholderTextColor={colors.subtext}
+        />
+
+        <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.barcode', 'Barcode (Optional)')}</Text>
+        <TextInput
+          style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+          value={barcodeValue}
+          onChangeText={setBarcodeValue}
+          keyboardType="numeric"
+          placeholder={t('item.barcodePlaceholder', 'Enter barcode')}
+          placeholderTextColor={colors.subtext}
+        />
+
+        <Pressable style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleSave} disabled={saving}>
+          {saving ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={[typography.button, styles.buttonText, { color: '#fff' }]}>{t('general.save')}</Text>
+          )}
+        </Pressable>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 24,
-    flex: 1,
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingBottom: 150, 
-  },
-  scanBox: {
-      width: 250,
-      height: 250,
-      borderWidth: 2,
-      borderRadius: 20,
-      backgroundColor: 'transparent'
-  },
-  manualContainer: {
-      position: 'absolute',
-      bottom: 0,
-      left: 0,
-      right: 0,
-  },
-  manualContent: {
-      padding: 20,
-      paddingBottom: 40,
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
-      borderTopWidth: 1,
-      elevation: 5,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: -2 },
-      shadowOpacity: 0.2,
-      shadowRadius: 5,
-  },
-  sectionTitle: { 
-    marginBottom: 12, 
-    fontSize: 14, 
-    opacity: 0.8,
-    textAlign: 'center'
-  },
-  inputRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  input: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    fontSize: 16,
-  },
-  goButton: {
-      width: 50,
-      borderRadius: 12,
-      justifyContent: 'center',
-      alignItems: 'center',
-  },
-  actionButton: {
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  }
+  contentContainer: { padding: 24, paddingBottom: 50 },
+  label: { marginBottom: 8, fontWeight: '500' },
+  input: { borderWidth: 1, borderRadius: 8, padding: 16, marginBottom: 16 },
+  button: { padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 30 },
+  buttonText: { fontWeight: 'bold' },
+  stepperContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  stepperButton: { width: 50, height: 50, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderRadius: 8 },
+  qtyInput: { flex: 1, height: 50, textAlign: 'center', fontSize: 22, fontWeight: 'bold' },
 });
