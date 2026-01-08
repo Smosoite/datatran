@@ -57,7 +57,7 @@ export default function WelcomeScreen() {
           <View style={styles.iconContainer}>
              <View style={[styles.iconCircle, { backgroundColor: colors.card, borderColor: colors.border }]}>
     <Image 
-      source={require('./assets/images/icon.png')} /* Adjust path based on your file structure */
+      source={require('../../assets/images/icon.png')} /* Adjust path based on your file structure */
       style={{ width: 60, height: 60, resizeMode: 'contain' }}
       accessibilityLabel="App Icon" /* Remember to localize this string */
     />
