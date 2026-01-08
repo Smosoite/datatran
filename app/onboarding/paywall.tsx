@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  Pressable, 
-  ScrollView, 
-  ActivityIndicator, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  ScrollView,
+  ActivityIndicator,
   Alert,
-  Platform
+  Platform,
+  Modal
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -15,6 +16,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Purchases, { PurchasesPackage } from 'react-native-purchases';
+import { ChevronDown } from 'lucide-react-native';
 
 // Contexts & Styles
 import { useTheme } from '../../providers/ThemeProvider'; 
@@ -45,6 +47,7 @@ export default function PaywallScreen() {
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('yearly');
   const [userCount, setUserCount] = useState<UserCount>(5);
   const [packages, setPackages] = useState<PurchasesPackage[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
 
   // 1. Initialize RevenueCat (or Mock Data)
   useEffect(() => {
@@ -268,7 +271,7 @@ export default function PaywallScreen() {
                 onPress={() => setBillingCycle('monthly')}
               >
                 <Text style={[typography.h3, { color: colors.text, fontSize: 16 }]}>{t('paywall.monthly')}</Text>
-                <Text style={[typography.h3, { color: colors.primary, marginTop: 8 }]}>
+                <Text style={[typography.h3, { color: colors.primary, marginTop: 4 }]}>
                   {billingCycle === 'monthly' ? displayPrice : '...'}
                 </Text>
                 <Text style={[typography.caption, { color: colors.subtext }]}>/ {t('paywall.mo')}</Text>
@@ -292,7 +295,7 @@ export default function PaywallScreen() {
                     <Text style={{ color: '#fff', fontSize: 9, fontWeight: 'bold' }}>BEST</Text>
                   </View>
                 </View>
-                <Text style={[typography.h3, { color: colors.primary, marginTop: 8 }]}>
+                <Text style={[typography.h3, { color: colors.primary, marginTop: 4 }]}>
                   {billingCycle === 'yearly' ? displayPrice : '...'}
                 </Text>
                 <Text style={[typography.caption, { color: colors.subtext }]}>/ {t('paywall.yr')}</Text>
@@ -301,33 +304,23 @@ export default function PaywallScreen() {
           ) : (
             <View style={styles.planRow}>
               {/* Team Size Dropdown */}
-              <View style={[styles.dropdownCard, { backgroundColor: `${colors.card}CC`, borderColor: colors.border }]}>
-                <Text style={[typography.caption, { color: colors.subtext, marginBottom: 4 }]}>
+              <Pressable
+                style={[styles.dropdownCard, { backgroundColor: `${colors.card}CC`, borderColor: colors.border }]}
+                onPress={() => setShowDropdown(true)}
+              >
+                <Text style={[typography.caption, { color: colors.subtext, marginBottom: 4, fontSize: 11 }]}>
                   {t('paywall.teamSize', 'Team Size')}
                 </Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-                  {[5, 10, 20, 50, 100].map((count) => (
-                    <Pressable
-                      key={count}
-                      onPress={() => setUserCount(count as UserCount)}
-                      style={[
-                        styles.dropdownOption,
-                        {
-                          backgroundColor: userCount === count ? colors.primary : `${colors.selector}80`,
-                          borderColor: userCount === count ? colors.primary : colors.border
-                        }
-                      ]}
-                    >
-                      <Text style={[
-                        typography.caption,
-                        { color: userCount === count ? '#fff' : colors.text, fontWeight: '600' }
-                      ]}>
-                        {count}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </ScrollView>
-              </View>
+                <View style={styles.dropdownDisplay}>
+                  <Text style={[typography.h3, { color: colors.text, fontSize: 18 }]}>
+                    {userCount}
+                  </Text>
+                  <ChevronDown size={18} color={colors.subtext} />
+                </View>
+                <Text style={[typography.caption, { color: colors.subtext, fontSize: 10 }]}>
+                  {t('paywall.users', 'Users')}
+                </Text>
+              </Pressable>
 
               {/* Yearly Plan */}
               <Pressable
@@ -341,7 +334,7 @@ export default function PaywallScreen() {
                 ]}
               >
                 <Text style={[typography.h3, { color: colors.text, fontSize: 16 }]}>{t('paywall.yearly')}</Text>
-                <Text style={[typography.h3, { color: colors.primary, marginTop: 8 }]}>
+                <Text style={[typography.h3, { color: colors.primary, marginTop: 4 }]}>
                   {displayPrice}
                 </Text>
                 <Text style={[typography.caption, { color: colors.subtext }]}>/ {t('paywall.yr')}</Text>
@@ -355,7 +348,7 @@ export default function PaywallScreen() {
            <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>
             {t('paywall.included', 'What is included')}
           </Text>
-          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, paddingVertical: 8 }]}>
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, paddingVertical: 4, paddingHorizontal: 8 }]}>
             <FeatureRow text={t('paywall.f1', 'Unlimited Warehouses')} colors={colors} />
             <FeatureRow text={t('paywall.f2', 'Barcode Scanning')} colors={colors} />
             <FeatureRow text={t('paywall.f3', 'Export to CSV/PDF')} colors={colors} />
@@ -365,11 +358,56 @@ export default function PaywallScreen() {
           </View>
         </View>
 
-        <Text style={[typography.caption, { textAlign: 'center', color: colors.subtext, marginVertical: 20 }]}>
+        <Text style={[typography.caption, { textAlign: 'center', color: colors.subtext, marginVertical: 12 }]}>
           {t('paywall.terms', 'Subscription automatically renews unless turned off 24h before end of period.')}
         </Text>
 
       </ScrollView>
+
+      {/* TEAM SIZE DROPDOWN MODAL */}
+      <Modal
+        transparent
+        visible={showDropdown}
+        animationType="fade"
+        onRequestClose={() => setShowDropdown(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowDropdown(false)}
+        >
+          <View style={[styles.dropdownModal, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[typography.h3, { color: colors.text, marginBottom: 16 }]}>
+              {t('paywall.teamSize', 'Team Size')}
+            </Text>
+            {[5, 10, 20, 50, 100].map((count) => (
+              <Pressable
+                key={count}
+                style={[
+                  styles.dropdownModalItem,
+                  { borderBottomColor: colors.border },
+                  userCount === count && { backgroundColor: `${colors.primary}15` }
+                ]}
+                onPress={() => {
+                  setUserCount(count as UserCount);
+                  setShowDropdown(false);
+                }}
+              >
+                <Text
+                  style={[
+                    typography.body,
+                    { color: userCount === count ? colors.primary : colors.text, fontWeight: userCount === count ? '600' : '400' }
+                  ]}
+                >
+                  {count} {t('paywall.users', 'Users')}
+                </Text>
+                {userCount === count && (
+                  <FontAwesome name="check" size={16} color={colors.primary} />
+                )}
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
 
       {/* FOOTER ACTION */}
       <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
@@ -397,9 +435,9 @@ export default function PaywallScreen() {
 // Helper Component
 function FeatureRow({ text, colors }: { text: string, colors: any }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 0 }}>
-      <FontAwesome name="check" size={14} color={colors.primary} style={{ marginRight: 12 }} />
-      <Text style={[typography.body, { color: colors.text }]}>{text}</Text>
+    <View style={{ flexDirection: 'row', alignItems: 'center', padding: 10, borderBottomWidth: 0 }}>
+      <FontAwesome name="check" size={14} color={colors.primary} style={{ marginRight: 10 }} />
+      <Text style={[typography.body, { color: colors.text, fontSize: 14 }]}>{text}</Text>
     </View>
   );
 }
@@ -409,9 +447,9 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
   closeButton: { padding: 8, marginLeft: -8 },
 
-  heroSection: { alignItems: 'center', marginBottom: 20 },
+  heroSection: { alignItems: 'center', marginBottom: 16 },
 
-  section: { marginBottom: 24 },
+  section: { marginBottom: 20 },
   sectionTitle: { marginBottom: 8, fontSize: 13, textTransform: 'uppercase', opacity: 0.7 },
 
   // Toggle
@@ -420,14 +458,19 @@ const styles = StyleSheet.create({
 
   // Plan Cards
   planRow: { flexDirection: 'row', gap: 10 },
-  planCard: { flex: 1, borderRadius: 12, padding: 16, borderWidth: 1 },
+  planCard: { flex: 1, borderRadius: 12, padding: 12, borderWidth: 1 },
 
   // Dropdown for Company Team Size
-  dropdownCard: { flex: 1, borderRadius: 12, padding: 12, borderWidth: 1 },
-  dropdownOption: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1 },
+  dropdownCard: { flex: 1, borderRadius: 12, padding: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  dropdownDisplay: { flexDirection: 'row', alignItems: 'center', gap: 6, marginVertical: 2 },
+
+  // Dropdown Modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  dropdownModal: { width: '80%', borderRadius: 12, padding: 20, borderWidth: 1 },
+  dropdownModalItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1 },
 
   // Cards
-  card: { borderRadius: 12, padding: 16, borderWidth: 1 },
+  card: { borderRadius: 12, padding: 12, borderWidth: 1 },
   cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   badge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, alignSelf: 'flex-start' },
 
