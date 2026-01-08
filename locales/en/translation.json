@@ -172,7 +172,8 @@
     "noResults": "No results found.",
     "itemName*": "Item Name*",
     "quantity*": "Quantity*",
-    "restockThreshold*": "Restock at or below*"
+    "restockThreshold*": "Restock at or below*",
+    "costPerUnit": "Cost per Unit",
   },
   "restock": {
     "title": "Restock Items",
@@ -200,6 +201,9 @@
     "noPermission": "No access to camera. Please enable it in your device settings.",
     "scanOverlay": "Scan a Barcode",
     "enterNum": "Enter barcode number"
+  },
+  "cost": {
+    "example": "8,50",
   },
   "settings": {
     "title": "Settings",
