@@ -271,10 +271,12 @@ export default function PaywallScreen() {
                 onPress={() => setBillingCycle('monthly')}
               >
                 <Text style={[typography.h3, { color: colors.text, fontSize: 13, fontWeight: '600' }]}>MONTH</Text>
-                <Text style={[typography.h3, { color: colors.primary, marginTop: 2 }]}>
-                  {billingCycle === 'monthly' ? displayPrice : '...'}
-                </Text>
-                <Text style={[typography.caption, { color: colors.subtext, fontSize: 12 }]}>/ {t('paywall.mo')}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 2 }}>
+                  <Text style={[typography.h3, { color: colors.primary }]}>
+                    {billingCycle === 'monthly' ? displayPrice : '...'}
+                  </Text>
+                  <Text style={[typography.caption, { color: colors.subtext, fontSize: 11 }]}>/ {t('paywall.mo')}</Text>
+                </View>
               </Pressable>
 
               {/* Yearly */}
@@ -295,10 +297,12 @@ export default function PaywallScreen() {
                     <Text style={{ color: '#fff', fontSize: 9, fontWeight: 'bold' }}>BEST</Text>
                   </View>
                 </View>
-                <Text style={[typography.h3, { color: colors.primary, marginTop: 2 }]}>
-                  {billingCycle === 'yearly' ? displayPrice : '...'}
-                </Text>
-                <Text style={[typography.caption, { color: colors.subtext, fontSize: 12 }]}>/ {t('paywall.yr')}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 2 }}>
+                  <Text style={[typography.h3, { color: colors.primary }]}>
+                    {billingCycle === 'yearly' ? displayPrice : '...'}
+                  </Text>
+                  <Text style={[typography.caption, { color: colors.subtext, fontSize: 11 }]}>/ {t('paywall.yr')}</Text>
+                </View>
               </Pressable>
             </View>
           ) : (
@@ -342,10 +346,12 @@ export default function PaywallScreen() {
                 ]}
               >
                 <Text style={[typography.h3, { color: colors.text, fontSize: 13, fontWeight: '600' }]}>YEAR</Text>
-                <Text style={[typography.h3, { color: colors.primary, marginTop: 2 }]}>
-                  {displayPrice}
-                </Text>
-                <Text style={[typography.caption, { color: colors.subtext, fontSize: 12 }]}>/ {t('paywall.yr')}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 2 }}>
+                  <Text style={[typography.h3, { color: colors.primary }]}>
+                    {displayPrice}
+                  </Text>
+                  <Text style={[typography.caption, { color: colors.subtext, fontSize: 11 }]}>/ {t('paywall.yr')}</Text>
+                </View>
               </Pressable>
             </View>
           )}
@@ -357,11 +363,15 @@ export default function PaywallScreen() {
             {t('paywall.included', 'What is included')}
           </Text>
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, paddingVertical: 4, paddingHorizontal: 8 }]}>
+            <FeatureRow text={t('paywall.f0', 'Use on any mobile device')} colors={colors} />
             <FeatureRow text={t('paywall.f1', 'Unlimited Warehouses')} colors={colors} />
             <FeatureRow text={t('paywall.f2', 'Barcode Scanning')} colors={colors} />
             <FeatureRow text={t('paywall.f3', 'Export to CSV/PDF')} colors={colors} />
             {planType === 'company' && (
-               <FeatureRow text={t('paywall.f4', 'Team Roles & Admin Controls')} colors={colors} />
+               <>
+                 <FeatureRow text={t('paywall.f4', 'Team Roles & Admin Controls')} colors={colors} />
+                 <FeatureRow text={t('paywall.f5', 'Purchase additional users at any time')} colors={colors} />
+               </>
             )}
           </View>
         </View>
@@ -466,10 +476,10 @@ const styles = StyleSheet.create({
 
   // Plan Cards
   planRow: { flexDirection: 'row', gap: 10 },
-  planCard: { flex: 1, borderRadius: 12, padding: 10, paddingVertical: 12, borderWidth: 1 },
+  planCard: { flex: 1, borderRadius: 12, padding: 8, paddingVertical: 8, borderWidth: 1 },
 
   // Dropdown for Company Team Size
-  dropdownCard: { flex: 1, borderRadius: 12, padding: 10, paddingVertical: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  dropdownCard: { flex: 1, borderRadius: 12, padding: 8, paddingVertical: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   dropdownDisplay: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   arrowGlow: {
     shadowOffset: { width: 0, height: 0 },
