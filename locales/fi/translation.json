@@ -361,6 +361,19 @@
     "restoreSuccess": "Ostot palautettu onnistuneesti!",
     "noPurchases": "Palautettavia ostoja ei löytynyt"
   },
+  "export": {
+    "inventoryReport": "Inventory Report",
+    "preparedBy": "Prepared by",
+    "generatedOn": "Generated on",
+    "colName": "NAME",
+    "colQty": "QUANTITY",
+    "colUnitCost": "UNIT COST",
+    "colTax": "TAX %",
+    "colTotalNet": "COST (NET)",
+    "colTotalGross": "COST (GROSS)",
+    "costOfStock": "COST OF STOCK",
+    "withTax": "WITH TAX",
+  },
   "onboarding": {
     "welcome": "Tervetuloa StoreTool:iin",
     "welcomeSubtitle": "Täydellinen varastonhallintaratkaisusi",
