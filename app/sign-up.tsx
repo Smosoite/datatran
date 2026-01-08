@@ -1,17 +1,16 @@
 import { useTranslation } from 'react-i18next';
 import React, { useState } from 'react';
-import { Alert, StyleSheet, View, Text, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, TextInput, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../providers/ThemeProvider';
 import { showError, showSuccess } from '../lib/toast';
 import { typography } from '../styles/typography';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function SignUpScreen() {
   const { t } = useTranslation();
   const [email, setEmail] = useState('');
-  const { colors } = useTheme(); // --- FIX: Correct way to get colosrs ---
+  const { colors } = useTheme();
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,16 +28,20 @@ export default function SignUpScreen() {
       },
     });
 
+    // --- FIX START: Cleaned up logic ---
     if (error) {
-      showError(error.message);(t('general.error'), error.message);
+      // Error exists, show it
+      showError(t('general.error'), error.message);
     } else {
-      showSuccess(error.message);(t('general.success'), t('general.accountCreated'));
+      // Success (Error is null here, so don't try to read error.message)
+      showSuccess(t('general.success'), t('general.accountCreated'));
       router.push('/login');
     }
+    // --- FIX END ---
+    
     setLoading(false);
   }
 
-  // --- FIX: Re-introduced KeyboardAvoidingView and ScrollView ---
   return (
       <ScrollView contentContainerStyle={[styles.container, { backgroundColor: colors.background }]}>
         <Text style={[typography.h3, styles.header, { color: colors.text }]}>{t('auth.signUpHeader')}</Text>
@@ -70,7 +73,6 @@ export default function SignUpScreen() {
           secureTextEntry
         />
 
-        {/* --- FIX: Improved button with loading indicator --- */}
         <Pressable style={[styles.button, { backgroundColor: colors.primary }]} onPress={signUpWithEmail} disabled={loading}>
           {loading ? (
             <ActivityIndicator color={colors.text || '#fff'} />
@@ -86,7 +88,6 @@ export default function SignUpScreen() {
   );
 }
 
-// --- FIX: Stylesheet cleaned and corrected for KeyboardAvoidingView ---
 const styles = StyleSheet.create({
   container: { 
     flexGrow: 1, 
