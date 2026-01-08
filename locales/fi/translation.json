@@ -362,17 +362,17 @@
     "noPurchases": "Palautettavia ostoja ei löytynyt"
   },
   "export": {
-  "inventoryReport": "Varastoraportti",
-  "preparedBy": "Laatinut",
-  "generatedOn": "Luotu",
-  "colName": "NIMI",
-  "colQty": "MÄÄRÄ",
-  "colUnitCost": "KAPPALEHINTA",
-  "colTax": "VERO %",
-  "colTotalNet": "ARVO (ALV 0)",
-  "colTotalGross": "ARVO (SIS. ALV)",
-  "costOfStock": "VARASTON ARVO",
-  "withTax": "SIS. VERO"
+    "inventoryReport": "Varastoraportti",
+    "preparedBy": "Laatinut",
+    "generatedOn": "Luotu",
+    "colName": "NIMI",
+    "colQty": "MÄÄRÄ",
+    "colUnitCost": "KAPPALEHINTA",
+    "colTax": "VERO %",
+    "colTotalNet": "ARVO (ALV 0)",
+    "colTotalGross": "ARVO (SIS. ALV)",
+    "costOfStock": "VARASTON ARVO",
+    "withTax": "SIS. VERO"
   },
   "onboarding": {
     "welcome": "Tervetuloa StoreTool:iin",
