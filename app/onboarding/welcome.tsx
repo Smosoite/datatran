@@ -1,10 +1,11 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, Animated, ScrollView, Image } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, Pressable, Animated, ScrollView, Image, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../providers/ThemeProvider';
 import { typography } from '../../styles/typography';
 import { FontAwesome } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const capabilities = [
   { icon: 'warehouse', titleKey: 'onboarding.warehouseManagement', descKey: 'onboarding.warehouseDesc' },
@@ -22,6 +23,9 @@ export default function WelcomeScreen() {
 
   const fadeAnim = new Animated.Value(0);
   const slideAnim = new Animated.Value(50);
+  const [isScrolledToBottom, setIsScrolledToBottom] = useState(false);
+  const buttonOpacity = new Animated.Value(0);
+  const scrollIndicatorOpacity = new Animated.Value(1);
 
   useEffect(() => {
     Animated.parallel([
@@ -38,12 +42,36 @@ export default function WelcomeScreen() {
     ]).start();
   }, []);
 
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(buttonOpacity, {
+        toValue: isScrolledToBottom ? 1 : 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scrollIndicatorOpacity, {
+        toValue: isScrolledToBottom ? 0 : 1,
+        duration: 300,
+        useNativeDriver: true,
+      })
+    ]).start();
+  }, [isScrolledToBottom]);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const paddingToBottom = 20;
+    const isAtBottom = contentOffset.y >= contentSize.height - layoutMeasurement.height - paddingToBottom;
+    setIsScrolledToBottom(isAtBottom);
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
       >
         <Animated.View
           style={[
@@ -104,7 +132,44 @@ export default function WelcomeScreen() {
         </Animated.View>
       </ScrollView>
 
-      <View style={[styles.footer, { backgroundColor: colors.background }]}>
+      {/* Scroll Indicator */}
+      <Animated.View
+        style={[
+          styles.scrollIndicator,
+          { opacity: scrollIndicatorOpacity }
+        ]}
+        pointerEvents="none"
+      >
+        <LinearGradient
+          colors={[colors.background + '00', colors.background]}
+          style={styles.gradient}
+        >
+          <View style={styles.scrollHint}>
+            <FontAwesome name="chevron-down" size={16} color={colors.subtext} />
+            <Text style={[typography.caption, { color: colors.subtext, marginTop: 4 }]}>
+              {t('onboarding.scrollToSeeMore', 'Scroll to see more')}
+            </Text>
+          </View>
+        </LinearGradient>
+      </Animated.View>
+
+      {/* Continue Button */}
+      <Animated.View
+        style={[
+          styles.footer,
+          {
+            backgroundColor: colors.background,
+            opacity: buttonOpacity,
+            transform: [{
+              translateY: buttonOpacity.interpolate({
+                inputRange: [0, 1],
+                outputRange: [20, 0]
+              })
+            }]
+          }
+        ]}
+        pointerEvents={isScrolledToBottom ? 'auto' : 'none'}
+      >
         <Pressable
           style={[styles.continueButton, { backgroundColor: colors.primary }]}
           onPress={() => router.push('/onboarding/demo')}
@@ -114,7 +179,7 @@ export default function WelcomeScreen() {
           </Text>
           <FontAwesome name="arrow-right" size={16} color="#fff" style={{ marginLeft: 8 }} />
         </Pressable>
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -188,6 +253,24 @@ const styles = StyleSheet.create({
   whyText: {
     lineHeight: 22,
     textAlign: 'center',
+  },
+
+  scrollIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 120,
+    justifyContent: 'flex-end',
+  },
+  gradient: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingBottom: 30,
+  },
+  scrollHint: {
+    alignItems: 'center',
   },
 
   footer: {

@@ -270,11 +270,11 @@ export default function PaywallScreen() {
                 ]}
                 onPress={() => setBillingCycle('monthly')}
               >
-                <Text style={[typography.h3, { color: colors.text, fontSize: 16 }]}>{t('paywall.monthly')}</Text>
-                <Text style={[typography.h3, { color: colors.primary, marginTop: 4 }]}>
+                <Text style={[typography.h3, { color: colors.text, fontSize: 15 }]}>{t('paywall.monthly')}</Text>
+                <Text style={[typography.h3, { color: colors.primary, marginTop: 2 }]}>
                   {billingCycle === 'monthly' ? displayPrice : '...'}
                 </Text>
-                <Text style={[typography.caption, { color: colors.subtext }]}>/ {t('paywall.mo')}</Text>
+                <Text style={[typography.caption, { color: colors.subtext, fontSize: 12 }]}>/ {t('paywall.mo')}</Text>
               </Pressable>
 
               {/* Yearly */}
@@ -290,15 +290,15 @@ export default function PaywallScreen() {
                 onPress={() => setBillingCycle('yearly')}
               >
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <Text style={[typography.h3, { color: colors.text, fontSize: 16 }]}>{t('paywall.yearly')}</Text>
+                  <Text style={[typography.h3, { color: colors.text, fontSize: 15 }]}>{t('paywall.yearly')}</Text>
                   <View style={[styles.badge, { backgroundColor: colors.success || '#4CAF50' }]}>
                     <Text style={{ color: '#fff', fontSize: 9, fontWeight: 'bold' }}>BEST</Text>
                   </View>
                 </View>
-                <Text style={[typography.h3, { color: colors.primary, marginTop: 4 }]}>
+                <Text style={[typography.h3, { color: colors.primary, marginTop: 2 }]}>
                   {billingCycle === 'yearly' ? displayPrice : '...'}
                 </Text>
-                <Text style={[typography.caption, { color: colors.subtext }]}>/ {t('paywall.yr')}</Text>
+                <Text style={[typography.caption, { color: colors.subtext, fontSize: 12 }]}>/ {t('paywall.yr')}</Text>
               </Pressable>
             </View>
           ) : (
@@ -333,11 +333,11 @@ export default function PaywallScreen() {
                   }
                 ]}
               >
-                <Text style={[typography.h3, { color: colors.text, fontSize: 16 }]}>{t('paywall.yearly')}</Text>
-                <Text style={[typography.h3, { color: colors.primary, marginTop: 4 }]}>
+                <Text style={[typography.h3, { color: colors.text, fontSize: 15 }]}>{t('paywall.yearly')}</Text>
+                <Text style={[typography.h3, { color: colors.primary, marginTop: 2 }]}>
                   {displayPrice}
                 </Text>
-                <Text style={[typography.caption, { color: colors.subtext }]}>/ {t('paywall.yr')}</Text>
+                <Text style={[typography.caption, { color: colors.subtext, fontSize: 12 }]}>/ {t('paywall.yr')}</Text>
               </Pressable>
             </View>
           )}
@@ -447,10 +447,10 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
   closeButton: { padding: 8, marginLeft: -8 },
 
-  heroSection: { alignItems: 'center', marginBottom: 16 },
+  heroSection: { alignItems: 'center', marginBottom: 12 },
 
-  section: { marginBottom: 20 },
-  sectionTitle: { marginBottom: 8, fontSize: 13, textTransform: 'uppercase', opacity: 0.7 },
+  section: { marginBottom: 16 },
+  sectionTitle: { marginBottom: 6, fontSize: 13, textTransform: 'uppercase', opacity: 0.7 },
 
   // Toggle
   toggleContainer: { flexDirection: 'row', borderRadius: 12, borderWidth: 1, padding: 4 },
@@ -458,10 +458,10 @@ const styles = StyleSheet.create({
 
   // Plan Cards
   planRow: { flexDirection: 'row', gap: 10 },
-  planCard: { flex: 1, borderRadius: 12, padding: 12, borderWidth: 1 },
+  planCard: { flex: 1, borderRadius: 12, padding: 8, borderWidth: 1 },
 
   // Dropdown for Company Team Size
-  dropdownCard: { flex: 1, borderRadius: 12, padding: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  dropdownCard: { flex: 1, borderRadius: 12, padding: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   dropdownDisplay: { flexDirection: 'row', alignItems: 'center', gap: 6, marginVertical: 2 },
 
   // Dropdown Modal
