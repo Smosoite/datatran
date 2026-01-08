@@ -25,7 +25,7 @@ export default function JoinWorkgroupScreen() {
       const { data: workgroupData, error: workgroupError } = await supabase
         .from('workgroups')
         .select('id')
-        .eq('passcode', code.trim().toUpperCase())
+        .eq('join_code', code.trim().toUpperCase())
         .single();
 
       if (workgroupError || !workgroupData) {

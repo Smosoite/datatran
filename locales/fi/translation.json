@@ -170,11 +170,7 @@
     "noResults": "Tuloksia ei löytynyt.",
     "itemName*": "Tuotteen nimi*",
     "quantity*": "Määrä*",
-    "restockThreshold*": "Täydennysraja*",
-    "pricePerUnit": "Yksikköhinta (Vapaaehtoinen)",
-    "pricePerUnitPlaceholder": "0.00",
-    "itemNamePlaceholder": "Syötä tuotteen nimi",
-    "barcodePlaceholder": "Syötä viivakoodi"
+    "restockThreshold*": "Täydennysraja*"
   },
   "restock": {
     "title": "Täydennä tuotteita",

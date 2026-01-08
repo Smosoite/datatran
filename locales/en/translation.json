@@ -172,11 +172,7 @@
     "noResults": "No results found.",
     "itemName*": "Item Name*",
     "quantity*": "Quantity*",
-    "restockThreshold*": "Restock at or below*",
-    "pricePerUnit": "Price per Unit (Optional)",
-    "pricePerUnitPlaceholder": "0.00",
-    "itemNamePlaceholder": "Enter item name",
-    "barcodePlaceholder": "Enter barcode"
+    "restockThreshold*": "Restock at or below*"
   },
   "restock": {
     "title": "Restock Items",

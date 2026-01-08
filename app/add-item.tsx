@@ -21,7 +21,6 @@ export default function AddItemScreen() {
   const [quantity, setQuantity] = useState('0');
   const [restockThreshold, setRestockThreshold] = useState('10');
   const [barcodeValue, setBarcodeValue] = useState(barcode || '');
-  const [pricePerUnit, setPricePerUnit] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -54,7 +53,6 @@ export default function AddItemScreen() {
         quantity: parseInt(quantity, 10),
         restock_threshold: parseInt(restockThreshold, 10),
         barcode: barcodeValue.trim() || null,
-        price_per_unit: pricePerUnit.trim() ? parseFloat(pricePerUnit) : null,
         storage_id: storageId,
         workgroup_id: profile.workgroup_id,
       };
@@ -128,16 +126,6 @@ export default function AddItemScreen() {
           onChangeText={setRestockThreshold}
           keyboardType="numeric"
           placeholder="10"
-          placeholderTextColor={colors.subtext}
-        />
-
-        <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.pricePerUnit', 'Price per Unit (Optional)')}</Text>
-        <TextInput
-          style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
-          value={pricePerUnit}
-          onChangeText={setPricePerUnit}
-          keyboardType="decimal-pad"
-          placeholder={t('item.pricePerUnitPlaceholder', '0.00')}
           placeholderTextColor={colors.subtext}
         />
 

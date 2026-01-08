@@ -39,11 +39,11 @@ export default function SettingsScreen() {
       try {
         const { error } = await supabase
           .from('workgroups')
-          .update({ passcode: newCode })
+          .update({ admin_passcode: newCode })
           .eq('id', workgroup?.id);
 
         if (error) throw error;
-        await refreshProfile();
+        await refreshProfile(); 
         showSuccess(t('general.success'), t('settings.passcodeSet'));
       } catch (err: any) {
         showError(t('general.error'), err.message);
@@ -54,18 +54,18 @@ export default function SettingsScreen() {
       setTimeout(() => {
         showPasscodeModal({
           title: t('settings.enterNewPasscode', 'Enter New Passcode'),
-          message: '',
+          message: '', 
           onSubmit: (newCode) => performUpdate(newCode)
         });
       }, 300);
     };
 
-    if (workgroup?.passcode) {
+    if (workgroup?.admin_passcode) {
       showPasscodeModal({
         title: t('settings.enterCurrentPasscode', 'Enter Current Passcode'),
         message: '',
         onSubmit: (inputCode) => {
-          if (inputCode === workgroup.passcode) {
+          if (inputCode === workgroup.admin_passcode) {
             promptForNewCode();
           } else {
             showError(t('general.error'), t('stockGrid.invalidPasscode'));
@@ -99,12 +99,12 @@ export default function SettingsScreen() {
       }, 500);
     };
 
-    if (workgroup?.passcode) {
+    if (workgroup?.admin_passcode) {
       showPasscodeModal({
         title: t('stockGrid.passcodeTitle', 'Admin Passcode'),
         message: t('stockGrid.passcodeMessage', 'Required to delete workgroup'),
         onSubmit: (passcode) => {
-          if (passcode === workgroup.passcode) {
+          if (passcode === workgroup.admin_passcode) {
             proceedToDelete();
           } else {
             showError(t('stockGrid.invalidPasscode'));
@@ -232,7 +232,7 @@ export default function SettingsScreen() {
           </View>
           <View style={[styles.row, { borderBottomWidth: 0 }]}>
             <Text style={[typography.button, styles.label, { color: colors.text }]}>{t('settings.code')}</Text>
-            <Text style={[typography.button, styles.value, { color: colors.primary }]}>{workgroup?.passcode || '...'}</Text>
+            <Text style={[typography.button, styles.value, { color: colors.primary }]}>{workgroup?.join_code || '...'}</Text>
           </View>
         </View>
       </View>
