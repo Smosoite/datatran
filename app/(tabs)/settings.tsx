@@ -33,7 +33,8 @@ export default function SettingsScreen() {
   const { profile, workgroup, refreshProfile } = useAuth();
   
   const [isExporting, setIsExporting] = useState(false);
-  const [taxRate, setTaxRate] = useState(0.255); // Default to 25.5% (Standard FI VAT)
+  // Default fallback tax rate if item doesn't have one specific
+  const [globalTaxRate, setGlobalTaxRate] = useState(0.255); 
 
   // --- ACTIONS ---
 
@@ -132,14 +133,14 @@ export default function SettingsScreen() {
 
   const handleSelectTaxRate = useCallback(() => {
     Alert.alert(
-      t('settings.selectTax', 'Select Tax Rate'),
-      t('settings.selectTaxMsg', 'Choose the VAT rate to apply to the export calculation.'),
+      t('settings.selectTax', 'Select Fallback Tax Rate'),
+      t('settings.selectTaxMsg', 'This rate applies to items that do not have a specific tax set.'),
       [
-        { text: '0%', onPress: () => setTaxRate(0) },
-        { text: '10%', onPress: () => setTaxRate(0.10) },
-        { text: '14%', onPress: () => setTaxRate(0.14) },
-        { text: '24%', onPress: () => setTaxRate(0.24) },
-        { text: '25.5%', onPress: () => setTaxRate(0.255) },
+        { text: '0%', onPress: () => setGlobalTaxRate(0) },
+        { text: '10%', onPress: () => setGlobalTaxRate(0.10) },
+        { text: '14%', onPress: () => setGlobalTaxRate(0.14) },
+        { text: '24%', onPress: () => setGlobalTaxRate(0.24) },
+        { text: '25.5%', onPress: () => setGlobalTaxRate(0.255) },
         { text: t('general.cancel', 'Cancel'), style: 'cancel' }
       ]
     );
@@ -150,18 +151,18 @@ export default function SettingsScreen() {
   const handleExportData = useCallback(async () => {
     setIsExporting(true);
     try {
+      // 1. Fetch Data (Added new financial columns)
       const { data: items, error } = await supabase
         .from('items')
         .select(`
           name, 
           quantity, 
           cost_per_unit, 
-          barcode, 
-          restock_threshold, 
-          warehouses ( name ), 
-          storages ( name ), 
-          defined_locations ( shelf, row, "column", container )
-        `);
+          purchase_price,
+          purchase_vat_percent,
+          barcode
+        `)
+        .order('name', { ascending: true }); // Order by name for cleaner list
 
       if (error) throw error;
       if (!items || items.length === 0) {
@@ -170,30 +171,39 @@ export default function SettingsScreen() {
         return;
       }
 
-      let subtotal = 0;
+      let totalNetStockValue = 0;
+      let totalGrossStockValue = 0;
 
+      // 2. Format Data & Calculate Totals
       const formattedData = items.map(item => {
         const qty = item.quantity || 0;
-        const cost = item.cost_per_unit || 0;
-        const totalItemCost = qty * cost;
         
-        subtotal += totalItemCost;
+        // Use new fields if available, otherwise fallback to old 'cost_per_unit'
+        const unitCost = item.purchase_price !== null ? item.purchase_price : (item.cost_per_unit || 0);
+        
+        // Use item specific tax if available, otherwise global setting
+        const taxPercent = item.purchase_vat_percent !== null ? item.purchase_vat_percent : (globalTaxRate * 100);
+        
+        const rowTotalNet = qty * unitCost;
+        const taxMultiplier = 1 + (taxPercent / 100);
+        const rowTotalGross = rowTotalNet * taxMultiplier;
+
+        totalNetStockValue += rowTotalNet;
+        totalGrossStockValue += rowTotalGross;
 
         return {
           name: item.name,
           quantity: qty,
-          costPerUnit: cost,
-          totalCost: totalItemCost,
-          barcode: item.barcode,
-          restock: item.restock_threshold,
-          warehouse: item.warehouses?.name || '',
-          storage: item.storages?.name || '',
-          location: `${item.defined_locations?.shelf || ''} ${item.defined_locations?.row || ''}`,
+          unitCost: unitCost,
+          taxPercent: taxPercent,
+          totalNet: rowTotalNet,
+          totalGross: rowTotalGross
         };
       });
 
-      const taxAmount = subtotal * taxRate;
-      const totalWithTax = subtotal + taxAmount;
+      // 3. Prepare Metadata
+      const exportedBy = profile?.full_name || profile?.email || 'Admin';
+      const exportDate = new Date().toLocaleString(i18n.language); // Localized date
 
       Alert.alert(
         t('settings.exportFormatTitle', 'Choose Export Format'),
@@ -201,11 +211,11 @@ export default function SettingsScreen() {
         [
           {
             text: 'CSV',
-            onPress: () => generateCSV(formattedData, subtotal, taxAmount, totalWithTax, taxRate)
+            onPress: () => generateCSV(formattedData, totalNetStockValue, totalGrossStockValue, exportedBy, exportDate)
           },
           {
             text: 'PDF',
-            onPress: () => generatePDF(formattedData, subtotal, taxAmount, totalWithTax, taxRate)
+            onPress: () => generatePDF(formattedData, totalNetStockValue, totalGrossStockValue, exportedBy, exportDate)
           },
           {
             text: t('general.cancel', 'Cancel'),
@@ -219,36 +229,51 @@ export default function SettingsScreen() {
       showError(t('general.error'), t('general.exportError', { message: error.message }));
       setIsExporting(false);
     }
-  }, [t, taxRate]); // Added taxRate dependency
+  }, [t, globalTaxRate, profile, i18n.language]);
 
-  const generateCSV = async (data: any[], subtotal: number, taxAmount: number, totalWithTax: number, rate: number) => {
+  const generateCSV = async (data: any[], totalNet: number, totalGross: number, user: string, date: string) => {
     try {
-      const csvRows = data.map(item => ({
-        [t('export.itemName', 'Item Name')]: item.name,
-        [t('export.quantity', 'Quantity')]: item.quantity,
-        [t('export.costPerUnit', 'Cost Per Unit')]: item.costPerUnit.toFixed(2),
-        [t('export.totalCost', 'Total Item Cost')]: item.totalCost.toFixed(2),
-        [t('export.warehouse', 'Warehouse')]: item.warehouse,
-        [t('export.location', 'Location')]: item.location,
-      }));
+      const csvRows = [];
+      
+      // Header Info
+      csvRows.push({ [t('export.colName')]: `${t('export.generatedOn')}: ${date}` });
+      csvRows.push({ [t('export.colName')]: `${t('export.preparedBy')}: ${user}` });
+      csvRows.push({}); // Empty line
 
-      csvRows.push({});
-      csvRows.push({ [t('export.itemName')]: '--- SUMMARY ---' });
-      csvRows.push({ 
-        [t('export.itemName')]: t('export.subtotal', 'Total (Excl. Tax)'), 
-        [t('export.quantity')]: subtotal.toFixed(2) 
+      // Loop Data
+      data.forEach((item, index) => {
+        csvRows.push({
+          [t('export.colName')]: item.name,
+          [t('export.colQty')]: item.quantity,
+          [t('export.colUnitCost')]: item.unitCost.toFixed(2),
+          [t('export.colTax')]: `${item.taxPercent}%`,
+          [t('export.colTotalNet')]: item.totalNet.toFixed(2),
+          [t('export.colTotalGross')]: item.totalGross.toFixed(2),
+        });
+
+        // Empty row every 10 items for readability
+        if ((index + 1) % 10 === 0) {
+          csvRows.push({});
+        }
       });
-      csvRows.push({ 
-        [t('export.itemName')]: t('export.taxAmount', 'Tax Amount ({{rate}}%)', { rate: rate * 100 }), 
-        [t('export.quantity')]: taxAmount.toFixed(2) 
+
+      // Footer
+      csvRows.push({}); // Empty line at bottom
+      
+      // Summary Rows (aligned roughly to columns by using empty keys)
+      // Note: CSV alignment is tricky, but we put it in the "Total Net" column area
+      csvRows.push({
+        [t('export.colTax')]: t('export.costOfStock'), // "One column to left" -> Tax Column
+        [t('export.colTotalNet')]: totalNet.toFixed(2) // "In column with cost" -> Total Net Column
       });
-      csvRows.push({ 
-        [t('export.itemName')]: t('export.totalWithTax', 'Total (Incl. Tax)'), 
-        [t('export.quantity')]: totalWithTax.toFixed(2) 
+      
+      csvRows.push({
+        [t('export.colTax')]: t('export.withTax'),
+        [t('export.colTotalNet')]: totalGross.toFixed(2)
       });
 
       const csvString = Papa.unparse(csvRows);
-      const filename = `inventory_export_${new Date().getTime()}.csv`;
+      const filename = `inventory_${new Date().getTime()}.csv`;
       const fileUri = FileSystem.documentDirectory + filename;
       
       await FileSystem.writeAsStringAsync(fileUri, csvString, { encoding: FileSystem.EncodingType.UTF8 });
@@ -260,66 +285,89 @@ export default function SettingsScreen() {
     }
   };
 
-  const generatePDF = async (data: any[], subtotal: number, taxAmount: number, totalWithTax: number, rate: number) => {
+  const generatePDF = async (data: any[], totalNet: number, totalGross: number, user: string, date: string) => {
     try {
-      const rowsHtml = data.map(item => `
-        <tr>
-          <td>${item.name}</td>
-          <td style="text-align: center;">${item.quantity}</td>
-          <td style="text-align: right;">${item.costPerUnit.toFixed(2)}</td>
-          <td style="text-align: right;">${item.totalCost.toFixed(2)}</td>
-          <td>${item.warehouse}</td>
-        </tr>
-      `).join('');
+      // Build Rows with spacing logic
+      const rowsHtml = data.map((item, index) => {
+        const isSpacer = (index + 1) % 10 === 0;
+        
+        let html = `
+          <tr>
+            <td style="text-align: left;">${item.name}</td>
+            <td style="text-align: center;">${item.quantity}</td>
+            <td style="text-align: right;">${item.unitCost.toFixed(2)}</td>
+            <td style="text-align: center;">${item.taxPercent}%</td>
+            <td style="text-align: right;">${item.totalNet.toFixed(2)}</td>
+            <td style="text-align: right;">${item.totalGross.toFixed(2)}</td>
+          </tr>
+        `;
+
+        // Add empty row spacer
+        if (isSpacer) {
+          html += `<tr style="height: 20px;"><td colspan="6" style="border:none;"></td></tr>`;
+        }
+        return html;
+      }).join('');
 
       const html = `
         <html>
           <head>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
             <style>
-              body { font-family: 'Helvetica', sans-serif; padding: 20px; }
-              h1 { color: #10567A; }
-              table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-              th, td { border: 1px solid #ddd; padding: 8px; font-size: 12px; }
-              th { background-color: #f2f2f2; text-align: left; }
-              .summary { margin-top: 30px; text-align: right; font-size: 14px; }
-              .summary-row { margin-bottom: 5px; }
-              .total { font-weight: bold; font-size: 16px; margin-top: 10px; }
+              body { font-family: 'Helvetica', sans-serif; padding: 30px; color: #333; }
+              .header { margin-bottom: 20px; }
+              .header h1 { color: #10567A; margin-bottom: 5px; }
+              .meta { font-size: 12px; color: #666; }
+              
+              table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+              th { background-color: #f2f2f2; border: 1px solid #ccc; padding: 8px; font-size: 11px; text-transform: uppercase; }
+              td { border: 1px solid #ddd; padding: 8px; font-size: 12px; }
+              
+              /* Footer Styling */
+              tfoot td { font-weight: bold; font-size: 14px; background-color: #fff; border: none; padding-top: 10px; }
+              .label-col { text-align: right; padding-right: 10px; color: #10567A; }
+              .value-col { text-align: right; border-bottom: 1px solid #000; }
             </style>
           </head>
           <body>
-            <h1>${t('export.inventoryReport', 'Inventory Report')}</h1>
-            <p>${new Date().toLocaleDateString()}</p>
+            <div class="header">
+              <h1>${t('export.inventoryReport')}</h1>
+              <div class="meta">${t('export.generatedOn')}: ${date}</div>
+              <div class="meta">${t('export.preparedBy')}: ${user}</div>
+            </div>
             
             <table>
               <thead>
                 <tr>
-                  <th>${t('export.itemName', 'Item Name')}</th>
-                  <th style="text-align: center;">${t('export.quantity', 'Qty')}</th>
-                  <th style="text-align: right;">${t('export.cost', 'Unit Cost')}</th>
-                  <th style="text-align: right;">${t('export.total', 'Total')}</th>
-                  <th>${t('export.warehouse', 'Warehouse')}</th>
+                  <th style="text-align: left;">${t('export.colName')}</th>
+                  <th>${t('export.colQty')}</th>
+                  <th>${t('export.colUnitCost')}</th>
+                  <th>${t('export.colTax')}</th>
+                  <th>${t('export.colTotalNet')}</th>
+                  <th>${t('export.colTotalGross')}</th>
                 </tr>
               </thead>
               <tbody>
                 ${rowsHtml}
               </tbody>
-            </table>
+              <tfoot>
+                <tr style="height: 20px;"><td colspan="6"></td></tr>
+                
+                <tr>
+                  <td colspan="3"></td>
+                  <td class="label-col">${t('export.costOfStock')}</td>
+                  <td class="value-col">${totalNet.toFixed(2)}</td>
+                  <td></td>
+                </tr>
 
-            <div class="summary">
-              <div class="summary-row">
-                ${t('export.subtotal', 'Total (Excl. Tax)')}: 
-                <span>${subtotal.toFixed(2)}</span>
-              </div>
-              <div class="summary-row">
-                ${t('export.taxAmount', 'Tax ({{rate}}%)', { rate: rate * 100 })}: 
-                <span>${taxAmount.toFixed(2)}</span>
-              </div>
-              <div class="summary-row total">
-                ${t('export.totalWithTax', 'Total (Incl. Tax)')}: 
-                <span>${totalWithTax.toFixed(2)}</span>
-              </div>
-            </div>
+                <tr>
+                  <td colspan="3"></td>
+                  <td class="label-col">${t('export.withTax')}</td>
+                  <td class="value-col">${totalGross.toFixed(2)}</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
           </body>
         </html>
       `;
@@ -340,7 +388,6 @@ export default function SettingsScreen() {
     <ScrollView 
       style={{ flex: 1, backgroundColor: colors.background }} 
       contentContainerStyle={styles.container}
-      removeClippedSubviews={true}
     >
       
       {/* APPEARANCE */}
@@ -485,10 +532,13 @@ export default function SettingsScreen() {
           >
              <View style={{flexDirection:'row', alignItems:'center'}}>
               <Ionicons name="pricetag-outline" size={18} color={colors.primary} />
-              <Text style={[typography.button, styles.menuButtonText, { color: colors.text }]}>{t('settings.taxRate')}</Text>
+              <View>
+                 <Text style={[typography.button, styles.menuButtonText, { color: colors.text }]}>{t('settings.taxRate')}</Text>
+                 <Text style={[typography.caption, { marginLeft: 12, color: colors.subtext }]}>{t('settings.taxFallback', '(Default Fallback)')}</Text>
+              </View>
             </View>
             <View style={{ flexDirection:'row', alignItems:'center'}}>
-              <Text style={[typography.button, { color: colors.primary, marginRight: 8 }]}>{(taxRate * 100).toFixed(1)}%</Text>
+              <Text style={[typography.button, { color: colors.primary, marginRight: 8 }]}>{(globalTaxRate * 100).toFixed(1)}%</Text>
               <FontAwesome name="chevron-down" size={12} color={colors.subtext} />
             </View>
           </Pressable>
@@ -508,7 +558,7 @@ export default function SettingsScreen() {
           </Pressable>
         </View>
       </View>
-      
+       
       {/* DELETE & LOGOUT */}
       <View style={[styles.section, { marginTop: 20, marginBottom: 50 }]}>
         {profile?.role === 'admin' && (
@@ -562,5 +612,5 @@ const styles = StyleSheet.create({
   
   // Footer Actions
   dangerButton: { borderWidth: 1, padding: 16, borderRadius: 12, alignItems: 'center', marginBottom: 12 },
-  logoutButton: { padding: 16, borderRadius: 12, alignItems: 'center' },
+  logoutButton: { padding: 16, borderRadius: 12, alignItems: 'center },
 });
