@@ -108,7 +108,7 @@ export default function PaywallScreen() {
         setLoading(false);
         // FIX: Route to Login, passing the start_trial param
         router.push({
-            pathname: '/login',
+            pathname: '/app/login',
             params: { start_trial: 'true' }
         });
     }, 500);
