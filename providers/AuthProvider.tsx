@@ -70,7 +70,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         .from('profiles')
         .select('id, username, workgroup_id, role, trial_ends_at')
         .eq('id', currentSession.user.id)
-        .single();
+        .maybeSingle();
 
       if (profileError) throw profileError;
       
