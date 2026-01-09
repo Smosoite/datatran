@@ -161,6 +161,21 @@
     "editHeader": "Muokkaa sijaintia"
   },
   "item": {
+    "financialDetails": "Talous- ja verotustiedot",
+    "usageType": "Käyttötarkoitus",
+    "production": "Tuotanto",
+    "resale": "Jälleenmyynti",
+    "purchasePrice": "Ostohinta (ALV 0%)",
+    "purchaseTaxBracket": "Osto ALV %",
+    "salePrice": "Myyntihinta (ALV 0%)",
+    "salesTaxBracket": "Myynti ALV %",
+    "costPerUnit": "Yksikkökustannus",
+    "barcode": "Viivakoodi (Valinnainen)",
+    "barcodePlaceholder": "Syötä viivakoodi",
+    "stockIn": "Varastoon",
+    "stockOut": "Varastosta",
+    "addStockAmount": "Lisättävä määrä:",
+    "removeStockAmount": "Vähennettävä määrä:"
     "addHeader": "Lisää uusi tuote",
     "editHeader": "Muokkaa tuotetta",
     "addButton": "Lisää tuote",
