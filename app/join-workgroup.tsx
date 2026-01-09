@@ -46,6 +46,7 @@ export default function JoinWorkgroupScreen() {
       await refreshProfile();
 
     } catch (error: any) {
+      console.error("LOGIN ERROR DETAILED:", JSON.stringify(error, null, 2));
       showError(t('general.error'), error.message);
     } finally {
       setLoading(false);
