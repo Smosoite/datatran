@@ -169,7 +169,7 @@
     "purchaseTaxBracket": "Osto ALV %",
     "salePrice": "Myyntihinta (ALV 0%)",
     "salesTaxBracket": "Myynti ALV %",
-    "costPerUnit": "Yksikkökustannus",
+    "costPerUnit": "Kappalehinta",
     "barcode": "Viivakoodi (Valinnainen)",
     "barcodePlaceholder": "Syötä viivakoodi",
     "stockIn": "Varastoon",
