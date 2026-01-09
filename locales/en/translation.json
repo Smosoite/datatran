@@ -221,6 +221,9 @@
     "example": "8,50",
   },
   "settings": {
+    "selectTax": "Select Fallback Tax Rate",
+    "selectTaxMsg": "This rate applies to items that do not have a specific tax set.",
+    "taxFallback": "(Default Fallback)",
     "title": "Settings",
     "language": "Language",
     "account": "Account",
