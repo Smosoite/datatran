@@ -221,6 +221,9 @@
     "enterNum": "Syötä viivakoodin numero"
   },
   "settings": {
+    "selectTax": "Valitse oletusverokanta",
+    "selectTaxMsg": "Tätä verokantaa käytetään tuotteille, joille ei ole määritetty omaa veroa.",
+    "taxFallback": "(Oletusarvo)",
     "title": "Asetukset",
     "language": "Kieli",
     "account": "Tili",
