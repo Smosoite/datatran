@@ -253,7 +253,7 @@ export default function PaywallScreen() {
                 ]}
                 onPress={() => setBillingCycle('monthly')}
               >
-                <Text style={[typography.h3, { color: colors.text, fontSize: 13, fontWeight: '600' }]}>MONTH</Text>
+                <Text style={[typography.h3, { color: colors.text, fontSize: 13, fontWeight: '600' }]}>{t('paywall.mo')}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 2 }}>
                   <Text style={[typography.h3, { color: colors.primary }]}>{billingCycle === 'monthly' ? displayPrice : '...'}</Text>
                   <Text style={[typography.caption, { color: colors.subtext, fontSize: 11 }]}>/ {t('paywall.mo')}</Text>
