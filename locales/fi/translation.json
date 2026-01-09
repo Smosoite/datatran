@@ -161,7 +161,7 @@
     "editHeader": "Muokkaa sijaintia"
   },
   "item": {
-    "financialDetails": "Talous- ja verotustiedot",
+    "financialDetails": "Taloustiedot",
     "usageType": "Käyttötarkoitus",
     "production": "Tuotanto",
     "resale": "Jälleenmyynti",
@@ -175,7 +175,7 @@
     "stockIn": "Varastoon",
     "stockOut": "Varastosta",
     "addStockAmount": "Lisättävä määrä:",
-    "removeStockAmount": "Vähennettävä määrä:"
+    "removeStockAmount": "Vähennettävä määrä:",
     "addHeader": "Lisää uusi tuote",
     "editHeader": "Muokkaa tuotetta",
     "addButton": "Lisää tuote",
