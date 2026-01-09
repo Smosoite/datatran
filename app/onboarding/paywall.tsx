@@ -270,7 +270,7 @@ export default function PaywallScreen() {
                 onPress={() => setBillingCycle('yearly')}
               >
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <Text style={[typography.h3, { color: colors.text, fontSize: 13, fontWeight: '600' }]}>YEAR</Text>
+                  <Text style={[typography.h3, { color: colors.text, fontSize: 13, fontWeight: '600' }]}>{t('paywall.yr')}</Text>
                   <View style={[styles.badge, { backgroundColor: colors.success || '#4CAF50' }]}>
                     <Text style={{ color: '#fff', fontSize: 9, fontWeight: 'bold' }}>BEST</Text>
                   </View>
