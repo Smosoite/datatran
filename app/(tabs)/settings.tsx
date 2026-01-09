@@ -612,5 +612,5 @@ const styles = StyleSheet.create({
   
   // Footer Actions
   dangerButton: { borderWidth: 1, padding: 16, borderRadius: 12, alignItems: 'center', marginBottom: 12 },
-  logoutButton: { padding: 16, borderRadius: 12, alignItems: 'center },
+  logoutButton: { padding: 16, borderRadius: 12, alignItems: 'center' },
 });
