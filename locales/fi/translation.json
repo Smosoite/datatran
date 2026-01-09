@@ -43,7 +43,7 @@
     "short": "Lyhyt kuvaus varastosta",
     "workgroupSuccess": "Työryhmä luotiin onnistuneesti.",
     "searchByName": "Etsi tuotteen nimellä",
-    "addBarcode": "Lisää viivakoodin numero",
+    "addBarcode": "Lisää viivakoodin numero (valinnainen)",
     "found": "Tuote löytyi!",
     "notFound": "Tuotetta ei löytynyt!",
     "navigate": "Siirrytään tuotteeseen: {{barcode}}",
