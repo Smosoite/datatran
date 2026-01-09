@@ -29,6 +29,7 @@ export default function LoginScreen() {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
+      console.error("LOGIN ERROR DETAILED:", JSON.stringify(error, null, 2));
       showError(t('general.error'), error.message);
       setLoading(false);
       return;
