@@ -39,7 +39,7 @@ export default function LoginScreen() {
     }
 
     await completeOnboarding();
-    router.replace('/(tabs)');
+    
   };
 
   const handleForgotPassword = async () => {
