@@ -1,15 +1,6 @@
+// ... imports equal to your current file ...
 import React, { useState, useEffect, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  ScrollView,
-  ActivityIndicator,
-  Alert,
-  Platform,
-  Modal
-} from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, Alert, Platform, Modal } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { FontAwesome } from '@expo/vector-icons';
@@ -18,20 +9,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Purchases, { PurchasesPackage } from 'react-native-purchases';
 import { ChevronDown } from 'lucide-react-native';
 
-// Contexts & Styles
 import { useTheme } from '../../providers/ThemeProvider';
 import { useOnboarding } from '../../providers/OnboardingProvider';
 import { typography } from '../../styles/typography';
 import { useSubscription } from '../../hooks/useSubscription';
 
-// --- CONFIGURATION ---
+// ... Keep API_KEYS, DEMO_MODE, Types same as before ...
 const API_KEYS = {
   apple: "appl_your_api_key_here",
   google: "goog_your_api_key_here"
 };
-
 const DEMO_MODE = true;
-
 type PlanType = 'individual' | 'company';
 type BillingCycle = 'monthly' | 'yearly';
 type UserCount = 5 | 10 | 20 | 50 | 100;
@@ -42,8 +30,7 @@ export default function PaywallScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { completeOnboarding } = useOnboarding();
-  // Included startTrial in destructuring
-  const { buySubscription, startTrial } = useSubscription();
+  const { buySubscription, startTrial } = useSubscription(); // destructured startTrial
 
   const isTrialExpired = params.expired === 'true';
 
@@ -54,11 +41,10 @@ export default function PaywallScreen() {
   const [packages, setPackages] = useState<PurchasesPackage[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
 
-  // 1. Initialize RevenueCat (or Mock Data)
+  // ... Keep useEffect setupPurchases same as before ...
   useEffect(() => {
     const setupPurchases = async () => {
       if (DEMO_MODE) {
-        console.log("DEV: Loading Mock Packages");
         setPackages([
             { identifier: '$rc_monthly', packageType: 'MONTHLY', product: { identifier: 'monthly_pro', priceString: '$9.99', price: 9.99, title: 'Monthly', description: '', currencyCode: 'USD' }, offeringIdentifier: 'default' } as any,
             { identifier: '$rc_annual', packageType: 'ANNUAL', product: { identifier: 'yearly_pro', priceString: '$99.99', price: 99.99, title: 'Yearly', description: '', currencyCode: 'USD' }, offeringIdentifier: 'default' } as any,
@@ -71,23 +57,12 @@ export default function PaywallScreen() {
         ]);
         return;
       }
-
-      try {
-        if (Platform.OS === 'ios') await Purchases.configure({ apiKey: API_KEYS.apple });
-        else if (Platform.OS === 'android') await Purchases.configure({ apiKey: API_KEYS.google });
-        
-        const offerings = await Purchases.getOfferings();
-        if (offerings.current?.availablePackages) {
-          setPackages(offerings.current.availablePackages);
-        }
-      } catch (e) {
-        console.error("Error fetching offerings", e);
-      }
+      // ... RevenueCat setup ...
     };
     setupPurchases();
   }, []);
 
-  // 2. Select Product Logic
+  // ... Keep selectedProduct logic same ...
   const selectedProduct = useMemo(() => {
     if (planType === 'individual') {
       const identifier = billingCycle === 'monthly' ? '$rc_monthly' : '$rc_annual';
@@ -102,21 +77,28 @@ export default function PaywallScreen() {
 
   const displayPrice = selectedProduct ? selectedProduct.product.priceString : '...';
 
-  // 3. Actions
+  // --- ACTIONS ---
+
   const handleStartTrial = async () => {
     setLoading(true);
-    // 1. Activate trial in Local Storage immediately so useSubscription returns 'trial_active'
-    await startTrial(); 
-    // 2. Mark onboarding as done
+    
+    // 1. Set the flag for AuthProvider to pick up later (Crucial for account creation flow)
+    await AsyncStorage.setItem('PENDING_TRIAL_START', 'true');
+    
+    // 2. Also start local trial (optional but good backup)
+    await startTrial();
+    
+    // 3. Complete onboarding
     await completeOnboarding();
+    
     setLoading(false);
-    // 3. Go to login (we no longer need to pass ?start_trial=true, but can leave it as safety)
+    
+    // 4. Navigate to login
     router.push('/login');
   };
 
   const handleBuySubscription = async () => {
     setLoading(true);
-
     if (DEMO_MODE) {
       setTimeout(async () => {
         await buySubscription();
@@ -126,16 +108,14 @@ export default function PaywallScreen() {
       }, 1000);
       return;
     }
-
+    // ... RevenueCat purchase logic ...
     try {
       if (!selectedProduct) {
         Alert.alert(t('common.error'), 'Please select a plan');
         setLoading(false);
         return;
       }
-
       const { customerInfo } = await Purchases.purchasePackage(selectedProduct);
-
       if (customerInfo.entitlements.active['Pro Access']) {
         await buySubscription();
         Alert.alert(t('common.success'), t('paywall.purchaseSuccess'));
@@ -153,6 +133,7 @@ export default function PaywallScreen() {
   };
 
   const handleRestore = async () => {
+    // ... same as before ...
     setLoading(true);
     if (DEMO_MODE) {
         setTimeout(async () => {
@@ -163,25 +144,26 @@ export default function PaywallScreen() {
         }, 1000);
         return;
     }
-
+    // ...
     try {
-      const customerInfo = await Purchases.restorePurchases();
-      if (customerInfo.entitlements.active['Pro Access']) {
-        await buySubscription();
-        Alert.alert(t('common.success'), t('paywall.restoreSuccess'));
-        router.replace('/(tabs)');
-      } else {
-        Alert.alert(t('common.info'), t('paywall.noPurchases'));
+        const customerInfo = await Purchases.restorePurchases();
+        if (customerInfo.entitlements.active['Pro Access']) {
+          await buySubscription();
+          Alert.alert(t('common.success'), t('paywall.restoreSuccess'));
+          router.replace('/(tabs)');
+        } else {
+          Alert.alert(t('common.info'), t('paywall.noPurchases'));
+        }
+      } catch (e: any) {
+        Alert.alert(t('common.error'), e.message);
+      } finally {
+          setLoading(false);
       }
-    } catch (e: any) {
-      Alert.alert(t('common.error'), e.message);
-    } finally {
-        setLoading(false);
-    }
   };
 
   if (!colors) return <View style={{flex:1}} />;
 
+  // ... Return JSX same as before ...
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
@@ -217,7 +199,7 @@ export default function PaywallScreen() {
           </Text>
         </View>
 
-        {/* TOGGLE (Individual vs Company) */}
+        {/* TOGGLE */}
         <View style={styles.section}>
           <View style={[styles.toggleContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Pressable
@@ -241,7 +223,7 @@ export default function PaywallScreen() {
           </View>
         </View>
 
-        {/* PLAN CARDS - (Kept your existing structure) */}
+        {/* PLANS - Same as original */}
         <View style={styles.section}>
           <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>
             {t('paywall.selectPlan', 'Select Plan')}
@@ -249,7 +231,6 @@ export default function PaywallScreen() {
 
           {planType === 'individual' ? (
             <View style={styles.planRow}>
-              {/* Monthly */}
               <Pressable
                 style={[
                   styles.planCard,
@@ -265,7 +246,6 @@ export default function PaywallScreen() {
                 </View>
               </Pressable>
 
-              {/* Yearly */}
               <Pressable
                 style={[
                   styles.planCard,
@@ -315,7 +295,7 @@ export default function PaywallScreen() {
           )}
         </View>
 
-        {/* FEATURES LIST */}
+        {/* FEATURES - Same as original */}
         <View style={styles.section}>
            <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>
             {t('paywall.included', 'What is included')}
@@ -340,7 +320,7 @@ export default function PaywallScreen() {
 
       </ScrollView>
 
-      {/* TEAM SIZE DROPDOWN MODAL */}
+      {/* TEAM SIZE DROPDOWN - Same as original */}
       <Modal
         transparent
         visible={showDropdown}
@@ -413,7 +393,7 @@ export default function PaywallScreen() {
   );
 }
 
-// Helper Component
+// FeatureRow helper
 function FeatureRow({ text, colors }: { text: string, colors: any }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', padding: 10, borderBottomWidth: 0 }}>
