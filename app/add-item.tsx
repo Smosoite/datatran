@@ -38,16 +38,16 @@ export default function AddItemScreen() {
   const { profile, workgroup } = useAuth();
   const router = useRouter();
 
-  // --- Original State ---
+  // --- Form State ---
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState('0');
   const [restockThreshold, setRestockThreshold] = useState('10');
   const [barcodeValue, setBarcodeValue] = useState(barcode || '');
   const [saving, setSaving] = useState(false);
 
-  // --- Location Selection State ---
+  // --- Location Selection State (Multi-Select) ---
   const [availableLocations, setAvailableLocations] = useState<LocationDef[]>([]);
-  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
+  const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>([]); // Changed to Array
   const [loadingLocations, setLoadingLocations] = useState(false);
 
   // --- Financial State ---
@@ -81,13 +81,12 @@ export default function AddItemScreen() {
           if(data) setAvailableLocations(data);
       } catch (err: any) {
           console.error('Error fetching locations:', err);
-          // Optional: don't block user if locations fail, just log it
       } finally {
           setLoadingLocations(false);
       }
   };
 
-  // --- Group Locations by Shelf for Display ---
+  // --- Group Locations by Shelf ---
   const groupedLocations = useMemo(() => {
       const groups: { [key: string]: LocationDef[] } = {};
       availableLocations.forEach(loc => {
@@ -98,16 +97,45 @@ export default function AddItemScreen() {
       return groups;
   }, [availableLocations, t]);
 
-  // Sort keys for rendering (Shelf A, Shelf B...)
   const sortedShelves = Object.keys(groupedLocations).sort(naturalSort);
 
-  const increment = () => setQuantity(prev => (parseInt(prev || '0', 10) + 1).toString());
+  // --- Toggle Location Selection ---
+  const toggleLocation = (id: string) => {
+    setSelectedLocationIds(prev => {
+      if (prev.includes(id)) {
+        return prev.filter(locId => locId !== id);
+      } else {
+        return [...prev, id];
+      }
+    });
+  };
+
+  // --- Reset Form Helper ---
+  const resetForm = () => {
+      setName('');
+      setQuantity('0');
+      setRestockThreshold('10');
+      setBarcodeValue('');
+      setSelectedLocationIds([]);
+      // We keep financial settings/tax as they are often repetitive
+      // but clear specific prices if needed:
+      setPurchasePrice('');
+      setSalePrice('');
+  };
+
+  // --- Increment/Decrement ---
+  const increment = () => setQuantity(prev => {
+    const val = parseInt(prev || '0', 10);
+    return isNaN(val) ? '1' : (val + 1).toString();
+  });
+  
   const decrement = () => setQuantity(prev => {
     const val = parseInt(prev || '0', 10);
-    return val > 0 ? (val - 1).toString() : '0';
+    return (isNaN(val) || val <= 0) ? '0' : (val - 1).toString();
   });
 
   const handleSave = async () => {
+    // 1. Validation
     if (!name.trim()) {
       showError(t('general.error'), t('general.fillFields'));
       return;
@@ -118,21 +146,32 @@ export default function AddItemScreen() {
       return;
     }
 
+    const finalQty = parseInt(quantity, 10);
+    const finalThreshold = parseInt(restockThreshold, 10);
+
+    if (isNaN(finalQty) || isNaN(finalThreshold)) {
+        showError(t('general.error'), t('general.invalidValues', 'Invalid numbers'));
+        return;
+    }
+
     setSaving(true);
     try {
-      const parseNum = (str: string) => str.trim() ? parseFloat(str.replace(',', '.')) : null;
+      const parseNum = (str: string) => {
+        if (!str || !str.trim()) return null;
+        const cleaned = str.replace(',', '.');
+        const num = parseFloat(cleaned);
+        return isNaN(num) ? null : num;
+      };
 
-      const newItem = {
+      // Base Item Object
+      const baseItem = {
         name: name.trim(),
-        quantity: parseInt(quantity, 10),
-        restock_threshold: parseInt(restockThreshold, 10),
+        quantity: finalQty,
+        restock_threshold: finalThreshold,
         barcode: barcodeValue.trim() || null,
         storage_id: storageId,
         workgroup_id: profile.workgroup_id,
         
-        // --- Added Location ID ---
-        location_id: selectedLocationId || null, 
-
         // Financials
         usage_type: showFinancials ? usageType : 'production', 
         cost_per_unit: showFinancials ? parseNum(purchasePrice) : null,
@@ -142,27 +181,45 @@ export default function AddItemScreen() {
         sale_vat_percent: (showFinancials && usageType === 'resale') ? parseNum(saleTax) : null,
       };
 
+      // 2. Prepare Inserts (Multiple if multiple locations selected)
+      let itemsToInsert = [];
+      
+      if (selectedLocationIds.length > 0) {
+          itemsToInsert = selectedLocationIds.map(locId => ({
+              ...baseItem,
+              location_id: locId
+          }));
+      } else {
+          // Default: Insert once with null location
+          itemsToInsert = [{ ...baseItem, location_id: null }];
+      }
+
       const { data, error } = await supabase
         .from('items')
-        .insert(newItem)
-        .select()
-        .single();
+        .insert(itemsToInsert)
+        .select();
 
       if (error) throw error;
 
+      // 3. Log Activity for each inserted item
       if (workgroup?.id && data) {
-        logActivity({
-          workgroup_id: workgroup.id,
-          item_id: data.id,
-          item_name: data.name,
-          action: 'ADD',
-          change_amount: data.quantity,
-          final_quantity: data.quantity
+        data.forEach((item: any) => {
+            logActivity({
+                workgroup_id: workgroup.id,
+                item_id: item.id,
+                item_name: item.name,
+                action: 'ADD',
+                change_amount: item.quantity,
+                final_quantity: item.quantity
+            });
         });
       }
 
       showSuccess(t('general.success'), t('general.itemAdded'));
-      router.back();
+      
+      // 4. RESET FORM instead of router.back()
+      resetForm();
+
     } catch (error: any) {
       showError(t('general.error'), error.message);
     } finally {
@@ -196,7 +253,11 @@ export default function AddItemScreen() {
   );
 
   if (!warehouseId || !storageId) {
-    return <ActivityIndicator style={{ flex: 1, backgroundColor: colors.background }} size="large" color={colors.primary} />;
+    return (
+        <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+    );
   }
 
   return (
@@ -204,7 +265,7 @@ export default function AddItemScreen() {
       <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={styles.contentContainer}>
 
         {/* --- Standard Fields --- */}
-        <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.itemName*', 'Item Name')}</Text>
+        <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.itemName', 'Item Name')} *</Text>
         <TextInput
           style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
           value={name}
@@ -213,55 +274,7 @@ export default function AddItemScreen() {
           placeholderTextColor={colors.subtext}
         />
 
-        {/* --- Location Selector Grid (Restored) --- */}
-        {sortedShelves.length > 0 && (
-            <View style={{marginBottom: 20}}>
-                 <Text style={[typography.h3, styles.label, { color: colors.text }]}>
-                    {t('item.selectLocation', 'Select Grid Location (Optional)')}
-                 </Text>
-                 <View style={[styles.locationContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                    {loadingLocations ? (
-                        <ActivityIndicator color={colors.primary} />
-                    ) : (
-                        sortedShelves.map(shelf => (
-                            <View key={shelf} style={styles.shelfGroup}>
-                                <Text style={[typography.caption, { color: colors.subtext, marginBottom: 6 }]}>
-                                    {t('item.shelf', 'Shelf')} {shelf}
-                                </Text>
-                                <View style={styles.gridRow}>
-                                    {groupedLocations[shelf].sort((a,b) => naturalSort(a.row, b.row) || naturalSort(a.column, b.column)).map(loc => {
-                                        const isSelected = selectedLocationId === loc.id;
-                                        return (
-                                            <TouchableOpacity
-                                                key={loc.id}
-                                                onPress={() => setSelectedLocationId(isSelected ? null : loc.id)}
-                                                style={[
-                                                    styles.gridChip,
-                                                    { 
-                                                        backgroundColor: isSelected ? colors.primary : colors.background,
-                                                        borderColor: isSelected ? colors.primary : colors.border,
-                                                    }
-                                                ]}
-                                            >
-                                                <Text style={{ 
-                                                    fontSize: 10, 
-                                                    fontWeight: '600', 
-                                                    color: isSelected ? '#fff' : colors.text 
-                                                }}>
-                                                    {loc.row}-{loc.column}
-                                                </Text>
-                                            </TouchableOpacity>
-                                        )
-                                    })}
-                                </View>
-                            </View>
-                        ))
-                    )}
-                 </View>
-            </View>
-        )}
-
-        <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.quantity*', 'Quantity')}</Text>
+        <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.quantity', 'Quantity')} *</Text>
         <View style={styles.stepperContainer}>
           <Pressable onPress={decrement} style={[styles.stepperButton, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <FontAwesome name="minus" size={16} color={colors.text} />
@@ -278,7 +291,7 @@ export default function AddItemScreen() {
           </Pressable>
         </View>
 
-        <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.restockThreshold*', 'Restock Threshold')}</Text>
+        <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.restockThreshold', 'Restock Threshold')} *</Text>
         <TextInput
           style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
           value={restockThreshold}
@@ -303,7 +316,7 @@ export default function AddItemScreen() {
         {showFinancials && (
           <View style={[styles.financialContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
             
-            {/* Usage Type Selection */}
+            {/* Usage Type */}
             <Text style={[typography.caption, styles.subLabel, { color: colors.subtext }]}>
                 {t('item.usageType', 'Item Usage')}
             </Text>
@@ -326,7 +339,7 @@ export default function AddItemScreen() {
               </Pressable>
             </View>
 
-            {/* Purchase Price Input */}
+            {/* Purchase Price */}
             <Text style={[typography.h3, styles.label, { color: colors.text, marginTop: 12 }]}>
               {t('item.purchasePrice', 'Purchase Price (Net)')}
             </Text>
@@ -358,7 +371,7 @@ export default function AddItemScreen() {
             </Text>
             <TaxSelector value={purchaseTax} onChange={setPurchaseTax} />
 
-            {/* Sales Price (Only if Resale) */}
+            {/* Sales Price */}
             {usageType === 'resale' && (
               <>
                 <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -407,6 +420,54 @@ export default function AddItemScreen() {
           placeholderTextColor={colors.subtext}
         />
 
+        {/* --- Location Selector Grid (MOVED HERE) --- */}
+        {sortedShelves.length > 0 && (
+            <View style={{marginTop: 20, marginBottom: 10}}>
+                 <Text style={[typography.h3, styles.label, { color: colors.text }]}>
+                    {t('item.selectLocation', 'Select Location(s)')}
+                 </Text>
+                 <View style={[styles.locationContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    {loadingLocations ? (
+                        <ActivityIndicator color={colors.primary} />
+                    ) : (
+                        sortedShelves.map(shelf => (
+                            <View key={shelf} style={styles.shelfGroup}>
+                                <Text style={[typography.caption, { color: colors.subtext, marginBottom: 6, fontWeight: '700' }]}>
+                                    {t('item.shelf', 'Shelf')} {shelf}
+                                </Text>
+                                <View style={styles.gridRow}>
+                                    {groupedLocations[shelf]
+                                      .sort((a,b) => naturalSort(a.row, b.row) || naturalSort(a.column, b.column))
+                                      .map(loc => {
+                                        const isSelected = selectedLocationIds.includes(loc.id);
+                                        return (
+                                            <TouchableOpacity
+                                                key={loc.id}
+                                                onPress={() => toggleLocation(loc.id)}
+                                                style={[
+                                                    styles.gridChip,
+                                                    { 
+                                                        backgroundColor: isSelected ? colors.primary : colors.background,
+                                                        borderColor: isSelected ? colors.primary : colors.border,
+                                                    }
+                                                ]}
+                                            />
+                                        )
+                                    })}
+                                </View>
+                            </View>
+                        ))
+                    )}
+                 </View>
+                 {selectedLocationIds.length > 0 && (
+                     <Text style={[typography.caption, { color: colors.primary, textAlign: 'right', marginTop: 4 }]}>
+                         {selectedLocationIds.length} location{selectedLocationIds.length !== 1 ? 's' : ''} selected
+                     </Text>
+                 )}
+            </View>
+        )}
+
+        {/* --- Submit Button --- */}
         <Pressable style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleSave} disabled={saving}>
           {saving ? (
             <ActivityIndicator color="#fff" />
@@ -416,6 +477,7 @@ export default function AddItemScreen() {
             </Text>
           )}
         </Pressable>
+        
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -426,24 +488,21 @@ const styles = StyleSheet.create({
   label: { marginBottom: 8, fontWeight: '500' },
   subLabel: { marginBottom: 4, fontWeight: '600' },
   input: { borderWidth: 1, borderRadius: 8, padding: 16, marginBottom: 16 },
-  button: { padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 30 },
+  button: { padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 10 },
   buttonText: { fontWeight: 'bold' },
   stepperContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   stepperButton: { width: 50, height: 50, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderRadius: 8 },
   qtyInput: { flex: 1, height: 50, textAlign: 'center', fontSize: 22, fontWeight: 'bold' },
   
   // Location Grid Styles
-  locationContainer: { borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 10 },
+  locationContainer: { borderWidth: 1, borderRadius: 12, padding: 12 },
   shelfGroup: { marginBottom: 12 },
   gridRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   gridChip: { 
-      paddingVertical: 8, 
-      paddingHorizontal: 8, 
+      width: 28, // Fixed small size
+      height: 28,
       borderWidth: 1, 
-      borderRadius: 6,
-      minWidth: 40,
-      alignItems: 'center',
-      justifyContent: 'center'
+      borderRadius: 4,
   },
 
   // Financial Styles
