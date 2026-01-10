@@ -1,6 +1,3 @@
-import '../../i18n';
-import i18n from '../../i18n';
-import { I18nextProvider } from 'react-i18next';
 import { useTranslation } from 'react-i18next';
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Switch } from 'react-native';
