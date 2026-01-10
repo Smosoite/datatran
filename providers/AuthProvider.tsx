@@ -12,7 +12,7 @@ type Profile = {
   username: string;
   workgroup_id: string | null;
   role: string | null;
-  trial_ends_at: string | null; // Added this field
+  trial_ends_at: string | null;
 };
 
 type Workgroup = {
@@ -49,8 +49,7 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export function AuthProvider({ children }: PropsWithChildren) {
-  const router = useRouter();
-  const segments = useSegments();
+  // Removed routing hooks as they are not needed here and cause conflicts
   
   // State
   const [session, setSession] = useState<Session | null>(null);
@@ -65,7 +64,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const fetchProfileAndWorkgroup = useCallback(async (currentSession: Session) => {
     try {
-      // 1. Fetch Profile (Now including trial_ends_at)
+      // 1. Fetch Profile
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('id, username, workgroup_id, role, trial_ends_at')
@@ -92,8 +91,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
               setDaysRemaining(diff >= 0 ? diff : 0);
           }
       } else {
-          // Fallback if no trial date set (e.g., old user or error)
-          // You might want to default to 'trial_expired' or 'trial_active' depending on your strategy
           setSubscriptionStatus('trial_active'); 
       }
 
@@ -151,22 +148,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => subscription.unsubscribe();
   }, [fetchProfileAndWorkgroup]);
 
-  // --- 3. Protection Logic: Auto-Redirect if Expired ---
-  useEffect(() => {
-    if (loading) return;
-
-    // List of routes allowed even when expired (so they don't get stuck in a loop)
-    // Adjust these based on your actual file structure
-    const allowedRoutes = ['paywall', 'login', 'sign-up', 'onboarding']; 
-    const currentRoute = segments[segments.length - 1];
-
-    if (subscriptionStatus === 'trial_expired' && !allowedRoutes.includes(currentRoute)) {
-        // Prevent infinite loop if already on paywall
-        if (currentRoute !== 'paywall') {
-            router.replace('/paywall');
-        }
-    }
-  }, [subscriptionStatus, loading, segments, router]);
+  // DELETED: The "Protection Logic" useEffect has been removed.
+  // Routing is now handled exclusively in app/_layout.tsx
 
   return (
     <AuthContext.Provider 
