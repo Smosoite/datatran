@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Switch } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Switch, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
@@ -18,6 +18,19 @@ const TAX_BRACKETS = [
   { label: '0%', value: '0' },
 ];
 
+// Helper for sorting shelves/rows naturally (A, B, C... 1, 2, 10)
+const naturalSort = (a: string | null, b: string | null) => {
+    return (a || '').localeCompare(b || '', undefined, { numeric: true, sensitivity: 'base' });
+};
+
+type LocationDef = {
+    id: string;
+    shelf: string;
+    row: string;
+    column: string;
+    name?: string; 
+};
+
 export default function AddItemScreen() {
   const { t } = useTranslation();
   const { warehouseId, storageId, barcode } = useLocalSearchParams<{ warehouseId?: string; storageId?: string; barcode?: string }>();
@@ -32,7 +45,12 @@ export default function AddItemScreen() {
   const [barcodeValue, setBarcodeValue] = useState(barcode || '');
   const [saving, setSaving] = useState(false);
 
-  // --- New Financial State ---
+  // --- Location Selection State ---
+  const [availableLocations, setAvailableLocations] = useState<LocationDef[]>([]);
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
+  const [loadingLocations, setLoadingLocations] = useState(false);
+
+  // --- Financial State ---
   const [showFinancials, setShowFinancials] = useState(false);
   const [usageType, setUsageType] = useState<'production' | 'resale'>('production');
   const [purchasePrice, setPurchasePrice] = useState('');
@@ -40,12 +58,48 @@ export default function AddItemScreen() {
   const [salePrice, setSalePrice] = useState('');
   const [saleTax, setSaleTax] = useState('25.5');
 
-  // --- Restored Storage Location Logic ---
+  // --- Checks ---
   useEffect(() => {
     if (!warehouseId || !storageId) {
       router.replace('/select-location-modal');
+    } else {
+        fetchLocations();
     }
   }, [warehouseId, storageId]);
+
+  // --- Fetch Locations Logic ---
+  const fetchLocations = async () => {
+      if(!storageId) return;
+      setLoadingLocations(true);
+      try {
+          const { data, error } = await supabase
+            .from('defined_locations')
+            .select('id, shelf, row, column')
+            .eq('storage_id', storageId);
+          
+          if(error) throw error;
+          if(data) setAvailableLocations(data);
+      } catch (err: any) {
+          console.error('Error fetching locations:', err);
+          // Optional: don't block user if locations fail, just log it
+      } finally {
+          setLoadingLocations(false);
+      }
+  };
+
+  // --- Group Locations by Shelf for Display ---
+  const groupedLocations = useMemo(() => {
+      const groups: { [key: string]: LocationDef[] } = {};
+      availableLocations.forEach(loc => {
+          const shelf = loc.shelf || t('general.undefined', 'Other');
+          if(!groups[shelf]) groups[shelf] = [];
+          groups[shelf].push(loc);
+      });
+      return groups;
+  }, [availableLocations, t]);
+
+  // Sort keys for rendering (Shelf A, Shelf B...)
+  const sortedShelves = Object.keys(groupedLocations).sort(naturalSort);
 
   const increment = () => setQuantity(prev => (parseInt(prev || '0', 10) + 1).toString());
   const decrement = () => setQuantity(prev => {
@@ -66,7 +120,6 @@ export default function AddItemScreen() {
 
     setSaving(true);
     try {
-      // Helper to parse floats safely (handles commas and empty strings)
       const parseNum = (str: string) => str.trim() ? parseFloat(str.replace(',', '.')) : null;
 
       const newItem = {
@@ -76,11 +129,14 @@ export default function AddItemScreen() {
         barcode: barcodeValue.trim() || null,
         storage_id: storageId,
         workgroup_id: profile.workgroup_id,
+        
+        // --- Added Location ID ---
+        location_id: selectedLocationId || null, 
 
-        // Financials (Only added if the toggle is ON)
+        // Financials
         usage_type: showFinancials ? usageType : 'production', 
-        cost_per_unit: showFinancials ? parseNum(purchasePrice) : null, // Assuming your DB maps this to purchase_price or cost_per_unit
-        purchase_price: showFinancials ? parseNum(purchasePrice) : null, // Explicit field if your DB has it
+        cost_per_unit: showFinancials ? parseNum(purchasePrice) : null,
+        purchase_price: showFinancials ? parseNum(purchasePrice) : null,
         purchase_vat_percent: showFinancials ? parseNum(purchaseTax) : null,
         sale_price: (showFinancials && usageType === 'resale') ? parseNum(salePrice) : null,
         sale_vat_percent: (showFinancials && usageType === 'resale') ? parseNum(saleTax) : null,
@@ -114,7 +170,6 @@ export default function AddItemScreen() {
     }
   };
 
-  // Reusable Tax Selector Component
   const TaxSelector = ({ value, onChange }: { value: string, onChange: (v: string) => void }) => (
     <View style={styles.taxRow}>
       {TAX_BRACKETS.map((bracket) => (
@@ -140,7 +195,6 @@ export default function AddItemScreen() {
     </View>
   );
 
-  // --- Restored Loading State ---
   if (!warehouseId || !storageId) {
     return <ActivityIndicator style={{ flex: 1, backgroundColor: colors.background }} size="large" color={colors.primary} />;
   }
@@ -158,6 +212,54 @@ export default function AddItemScreen() {
           placeholder={t('item.itemNamePlaceholder', 'Enter item name')}
           placeholderTextColor={colors.subtext}
         />
+
+        {/* --- Location Selector Grid (Restored) --- */}
+        {sortedShelves.length > 0 && (
+            <View style={{marginBottom: 20}}>
+                 <Text style={[typography.h3, styles.label, { color: colors.text }]}>
+                    {t('item.selectLocation', 'Select Grid Location (Optional)')}
+                 </Text>
+                 <View style={[styles.locationContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    {loadingLocations ? (
+                        <ActivityIndicator color={colors.primary} />
+                    ) : (
+                        sortedShelves.map(shelf => (
+                            <View key={shelf} style={styles.shelfGroup}>
+                                <Text style={[typography.caption, { color: colors.subtext, marginBottom: 6 }]}>
+                                    {t('item.shelf', 'Shelf')} {shelf}
+                                </Text>
+                                <View style={styles.gridRow}>
+                                    {groupedLocations[shelf].sort((a,b) => naturalSort(a.row, b.row) || naturalSort(a.column, b.column)).map(loc => {
+                                        const isSelected = selectedLocationId === loc.id;
+                                        return (
+                                            <TouchableOpacity
+                                                key={loc.id}
+                                                onPress={() => setSelectedLocationId(isSelected ? null : loc.id)}
+                                                style={[
+                                                    styles.gridChip,
+                                                    { 
+                                                        backgroundColor: isSelected ? colors.primary : colors.background,
+                                                        borderColor: isSelected ? colors.primary : colors.border,
+                                                    }
+                                                ]}
+                                            >
+                                                <Text style={{ 
+                                                    fontSize: 10, 
+                                                    fontWeight: '600', 
+                                                    color: isSelected ? '#fff' : colors.text 
+                                                }}>
+                                                    {loc.row}-{loc.column}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        )
+                                    })}
+                                </View>
+                            </View>
+                        ))
+                    )}
+                 </View>
+            </View>
+        )}
 
         <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.quantity*', 'Quantity')}</Text>
         <View style={styles.stepperContainer}>
@@ -310,7 +412,7 @@ export default function AddItemScreen() {
             <ActivityIndicator color="#fff" />
           ) : (
             <Text style={[typography.button, styles.buttonText, { color: '#fff' }]}>
-                {t('general.addItem', 'Add Item')}
+                {t('dashboard.addItem', 'Add Item')}
             </Text>
           )}
         </Pressable>
@@ -330,6 +432,20 @@ const styles = StyleSheet.create({
   stepperButton: { width: 50, height: 50, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderRadius: 8 },
   qtyInput: { flex: 1, height: 50, textAlign: 'center', fontSize: 22, fontWeight: 'bold' },
   
+  // Location Grid Styles
+  locationContainer: { borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 10 },
+  shelfGroup: { marginBottom: 12 },
+  gridRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  gridChip: { 
+      paddingVertical: 8, 
+      paddingHorizontal: 8, 
+      borderWidth: 1, 
+      borderRadius: 6,
+      minWidth: 40,
+      alignItems: 'center',
+      justifyContent: 'center'
+  },
+
   // Financial Styles
   toggleHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 20, marginBottom: 12, borderTopWidth: 1 },
   financialContainer: { borderWidth: 1, borderRadius: 12, padding: 16, marginBottom: 16 },
