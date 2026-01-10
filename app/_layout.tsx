@@ -9,12 +9,10 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ThemeProvider, useTheme } from '../providers/ThemeProvider';
 import { StatusBar } from 'expo-status-bar';
 import Toast, { BaseToast, ErrorToast, InfoToast } from 'react-native-toast-message';
-import { FontAwesome } from '@expo/vector-icons';
 import { ModalProvider } from '../providers/ModalProvider';
 import { CopilotProvider } from "react-native-copilot";
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { OnboardingProvider, useOnboarding } from '../providers/OnboardingProvider';
-import { useSubscription } from '../hooks/useSubscription';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // --- 1. ThemedStack (Visual Layer) ---
@@ -70,9 +68,11 @@ const ThemedStack = () => {
 
 // --- 2. AuthRedirectHandler (Logic Layer) ---
 const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
-  const { session, profile, loading: authLoading } = useAuth();
+  // FIX: Destructure subscriptionStatus directly from useAuth()
+  // This uses the Source of Truth (Supabase/Context) instead of the local hook
+  const { session, profile, loading: authLoading, subscriptionStatus } = useAuth();
+  
   const { hasCompletedOnboarding, isLoading: onboardingLoading } = useOnboarding();
-  const { status: subStatus } = useSubscription();
   const { colors } = useTheme();
 
   const segments = useSegments();
@@ -91,7 +91,7 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
     checkDemo();
   }, [hasCompletedOnboarding]);
 
-  const isLoading = onboardingLoading || authLoading || subStatus === 'loading' || !isMounted;
+  const isLoading = onboardingLoading || authLoading || !isMounted;
 
   useEffect(() => {
     if (isLoading) return;
@@ -121,14 +121,18 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
 
     // 3. Subscription Check (Paywall) - MOVED UP
     // Logic: Must pay before joining a workgroup.
-    if (!isDemoMode && (subStatus === 'trial_expired' || subStatus === 'none')) {
-      // If we are already on paywall (or deep inside onboarding paywall path), do nothing.
+    // We check subscriptionStatus from AuthProvider. If 'trial_active', we proceed.
+    if (!isDemoMode && (subscriptionStatus === 'trial_expired')) {
+      // Note: We are lenient with 'none' here to allow the AuthProvider to set defaults for new users
+      // But if it is explicitly expired, we block.
+      
       if (currentRoute !== 'paywall' && !pathname.includes('paywall')) {
-          const isExpired = subStatus === 'trial_expired';
-          router.replace(`/onboarding/paywall?expired=${isExpired}`);
+          router.replace('/onboarding/paywall?expired=true');
       }
       return;
     }
+    // Double check: if status is 'none', it implies data error, but we usually default to active.
+    // If you want to be strict: || subscriptionStatus === 'none'
 
     // 4. No Workgroup? -> Setup
     if (!profile?.workgroup_id) {
@@ -142,7 +146,7 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
       router.replace('/(tabs)');
     }
 
-  }, [session, profile, hasCompletedOnboarding, subStatus, segments, isLoading, isDemoMode, pathname]);
+  }, [session, profile, hasCompletedOnboarding, subscriptionStatus, segments, isLoading, isDemoMode, pathname]);
 
   // --- RENDERING ---
   return (
