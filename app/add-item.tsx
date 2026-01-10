@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
       borderRadius: 4,
   },
 
-  // Financial Styles
+  // Financial Styles.
   toggleHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 20, marginBottom: 12, borderTopWidth: 1 },
   financialContainer: { borderWidth: 1, borderRadius: 12, padding: 16, marginBottom: 16 },
   usageRow: { flexDirection: 'row', borderRadius: 8, overflow: 'hidden', borderWidth: 1, marginBottom: 16 },
