@@ -1,3 +1,6 @@
+import '../../i18n';
+import i18n from '../../i18n';
+import { I18nextProvider } from 'react-i18next';
 import React, { useState, useEffect } from 'react';
 import { Text, StyleSheet, TextInput, Pressable, Alert, ScrollView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
