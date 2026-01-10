@@ -1,11 +1,12 @@
 import React, { useState, useEffect, createContext, useContext, PropsWithChildren, useCallback } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-import { differenceInDays, parseISO } from 'date-fns';
+import { differenceInDays, parseISO, addDays } from 'date-fns';
 import { useRouter, useSegments } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // 1. Updated Types
-export type SubscriptionStatus = 'trial_active' | 'trial_expired' | 'subscribed';
+export type SubscriptionStatus = 'trial_active' | 'trial_expired' | 'subscribed' | 'none';
 
 type Profile = {
   id: string;
@@ -44,13 +45,11 @@ const AuthContext = createContext<AuthContextType>({
   refreshProfile: async () => {},
   isStockGridLocked: false,
   setStockGridLocked: () => {},
-  subscriptionStatus: 'trial_active',
+  subscriptionStatus: 'trial_active', // Default is permissive
   daysRemaining: 7,
 });
 
 export function AuthProvider({ children }: PropsWithChildren) {
-  // Removed routing hooks as they are not needed here and cause conflicts
-  
   // State
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -73,6 +72,26 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
       if (profileError) throw profileError;
       
+      // --- FIX: Check if we need to activate a new trial ---
+      // This bridges the gap between Onboarding (AsyncStorage) and Auth (Supabase)
+      const pendingTrial = await AsyncStorage.getItem('PENDING_TRIAL_START');
+      
+      if (pendingTrial === 'true' && profileData) {
+         const newTrialDate = addDays(new Date(), 7).toISOString();
+         
+         // Update Supabase
+         const { error: updateError } = await supabase
+           .from('profiles')
+           .update({ trial_ends_at: newTrialDate })
+           .eq('id', profileData.id);
+
+         if (!updateError) {
+             profileData.trial_ends_at = newTrialDate;
+             await AsyncStorage.removeItem('PENDING_TRIAL_START');
+         }
+      }
+      // ---------------------------------------------------
+
       setProfile(profileData);
 
       // --- 2. Calculate Trial Logic Based on Profile ---
@@ -80,7 +99,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
           const trialEnd = parseISO(profileData.trial_ends_at);
           const now = new Date();
           
-          // Calculate remaining days
           const diff = differenceInDays(trialEnd, now);
           
           if (now > trialEnd) {
@@ -91,10 +109,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
               setDaysRemaining(diff >= 0 ? diff : 0);
           }
       } else {
+          // Fallback: If no date is set, we assume they are a new user or legacy user
+          // defaulting to 'trial_active' ensures they can get to Workgroup creation
           setSubscriptionStatus('trial_active'); 
       }
 
-      // 3. Fetch Workgroup (if applicable)
+      // 3. Fetch Workgroup
       if (profileData?.workgroup_id) {
         const { data: workgroupData, error: workgroupError } = await supabase
           .from('workgroups')
@@ -112,6 +132,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       console.error("Error fetching profile/workgroup:", error);
       setProfile(null);
       setWorkgroup(null);
+      // In case of error, we don't want to lock them out completely immediately
+      setSubscriptionStatus('trial_active');
     }
   }, []);
 
@@ -147,9 +169,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     return () => subscription.unsubscribe();
   }, [fetchProfileAndWorkgroup]);
-
-  // DELETED: The "Protection Logic" useEffect has been removed.
-  // Routing is now handled exclusively in app/_layout.tsx
 
   return (
     <AuthContext.Provider 
