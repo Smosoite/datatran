@@ -1,3 +1,6 @@
+import '../i18n';
+import i18n from '../i18n';
+import { I18nextProvider } from 'react-i18next';
 import { useRouter, useFocusEffect } from 'expo-router';
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, FlatList, Alert } from 'react-native';
