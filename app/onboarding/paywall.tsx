@@ -42,7 +42,8 @@ export default function PaywallScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { completeOnboarding } = useOnboarding();
-  const { buySubscription } = useSubscription();
+  // Included startTrial in destructuring
+  const { buySubscription, startTrial } = useSubscription();
 
   const isTrialExpired = params.expired === 'true';
 
@@ -104,9 +105,13 @@ export default function PaywallScreen() {
   // 3. Actions
   const handleStartTrial = async () => {
     setLoading(true);
+    // 1. Activate trial in Local Storage immediately so useSubscription returns 'trial_active'
+    await startTrial(); 
+    // 2. Mark onboarding as done
     await completeOnboarding();
     setLoading(false);
-    router.push('/login?start_trial=true');
+    // 3. Go to login (we no longer need to pass ?start_trial=true, but can leave it as safety)
+    router.push('/login');
   };
 
   const handleBuySubscription = async () => {
