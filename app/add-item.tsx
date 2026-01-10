@@ -14,10 +14,10 @@ import {
 import { useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { FontAwesome } from '@expo/vector-icons';
-import { supabase } from '../../lib/supabase'; // Adjust path if needed
-import { useTheme } from '../../providers/ThemeProvider'; // Adjust path if needed
-import { showError, showSuccess } from '../../lib/toast'; // Adjust path if needed
-import { typography } from '../../styles/typography'; // Adjust path if needed
+import { supabase } from '../lib/supabase'; // Adjust path if needed
+import { useTheme } from '../providers/ThemeProvider'; // Adjust path if needed
+import { showError, showSuccess } from '../lib/toast'; // Adjust path if needed
+import { typography } from '../styles/typography'; // Adjust path if needed
 
 // --- Types ---
 type Warehouse = {
