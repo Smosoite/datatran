@@ -119,14 +119,10 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
       return;
     }
 
-    // 3. No Workgroup? -> Setup
-    if (!profile?.workgroup_id) {
-      if (!inSetupGroup) router.replace('/workgroup-gate');
-      return;
-    }
-
-    // 4. Subscription Check (Paywall)
+    // 3. Subscription Check (Paywall) - MOVED UP
+    // Logic: Must pay before joining a workgroup.
     if (!isDemoMode && (subStatus === 'trial_expired' || subStatus === 'none')) {
+      // If we are already on paywall (or deep inside onboarding paywall path), do nothing.
       if (currentRoute !== 'paywall' && !pathname.includes('paywall')) {
           const isExpired = subStatus === 'trial_expired';
           router.replace(`/onboarding/paywall?expired=${isExpired}`);
@@ -134,8 +130,15 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
       return;
     }
 
+    // 4. No Workgroup? -> Setup
+    if (!profile?.workgroup_id) {
+      if (!inSetupGroup) router.replace('/workgroup-gate');
+      return;
+    }
+
     // 5. All Good -> Main App (Tabs)
-    if (inAuthGroup || inSetupGroup || inOnboardingGroup) {
+    // Only redirect if we are currently stuck in auth/setup/onboarding but don't need to be.
+    if (inAuthGroup || inSetupGroup || inOnboardingGroup || pathname.includes('paywall')) {
       router.replace('/(tabs)');
     }
 
