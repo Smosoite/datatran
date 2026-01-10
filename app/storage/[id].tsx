@@ -19,7 +19,7 @@ type DefinedLocation = {
 };
 
 export default function ManageStorageScreen() {
-  const { t } = useTranslation();
+  //const { t } = useTranslation();
   const { id: storageId } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme(); // --- FIX: Correct way to get colors ---
   const router = useRouter();
