@@ -2,7 +2,7 @@
   "common": {
     "error": "Error",
     "success": "Success",
-    "info": "Info"
+    "info": "Info",
   },
   "general": {
     "error": "Error",
