@@ -191,6 +191,7 @@
     "quantity*": "Quantity*",
     "restockThreshold*": "Restock at or below*",
     "costPerUnit": "Cost per Unit",
+    "newItem": "New Item",
   },
   "restock": {
     "title": "Restock Items",
