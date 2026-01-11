@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Pressable, Switch, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Switch, ScrollView, ActivityIndicator, Alert, Modal, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../providers/AuthProvider';
@@ -32,7 +32,12 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { profile, workgroup, refreshProfile } = useAuth();
   
+  // --- EXPORT STATE ---
   const [isExporting, setIsExporting] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'csv' | 'pdf'>('csv');
+  const [customDays, setCustomDays] = useState('');
+
   // Default fallback tax rate if item doesn't have one specific
   const [globalTaxRate, setGlobalTaxRate] = useState(0.255); 
 
@@ -148,13 +153,12 @@ export default function SettingsScreen() {
 
   // --- EXPORT LOGIC ---
 
-  const handleExportData = useCallback(async () => {
+  const handleExportData = useCallback(async (timeFilter: 'today' | 'all' | 'custom' = 'all') => {
     setIsExporting(true);
     try {
-      // 1. Fetch Data (Added new financial columns + Relationships for Location)
-      // Note: This assumes you have relationships set up in Supabase:
-      // items -> storages -> warehouses
-      const { data: items, error } = await supabase
+      // 1. Fetch Data 
+      // Added 'updated_at' to handle "Today/Custom" logic if needed
+      let query = supabase
         .from('items')
         .select(`
           name, 
@@ -163,12 +167,27 @@ export default function SettingsScreen() {
           purchase_price,
           purchase_vat_percent,
           barcode,
+          updated_at,
           storage:storages (
             name,
             warehouse:warehouses ( name )
           )
         `)
         .order('name', { ascending: true });
+
+      // Apply Filters based on Modal selection
+      if (timeFilter !== 'all') {
+        const date = new Date();
+        if (timeFilter === 'today') {
+           date.setHours(0, 0, 0, 0); // Start of today
+        } else if (timeFilter === 'custom' && customDays) {
+           const days = parseInt(customDays) || 0;
+           date.setDate(date.getDate() - days);
+        }
+        query = query.gte('updated_at', date.toISOString());
+      }
+
+      const { data: items, error } = await query;
 
       if (error) throw error;
       if (!items || items.length === 0) {
@@ -202,8 +221,8 @@ export default function SettingsScreen() {
         totalGrossStockValue += rowTotalGross;
 
         return {
-          warehouseName, // Added
-          storageName,   // Added
+          warehouseName, 
+          storageName,   
           name: item.name,
           quantity: qty,
           unitCost: unitCost,
@@ -215,33 +234,24 @@ export default function SettingsScreen() {
 
       // 3. Prepare Metadata
       const exportedBy = profile?.full_name || profile?.email || 'Admin';
-      const exportDate = new Date().toLocaleString(i18n.language); // Localized date
+      const exportDate = new Date().toLocaleString(i18n.language); 
 
-      Alert.alert(
-        t('settings.exportFormatTitle', 'Choose Export Format'),
-        t('settings.exportFormatMessage', 'Select how you want to view the inventory report.'),
-        [
-          {
-            text: 'CSV',
-            onPress: () => generateCSV(formattedData, totalNetStockValue, totalGrossStockValue, exportedBy, exportDate)
-          },
-          {
-            text: 'PDF',
-            onPress: () => generatePDF(formattedData, totalNetStockValue, totalGrossStockValue, exportedBy, exportDate)
-          },
-          {
-            text: t('general.cancel', 'Cancel'),
-            style: 'cancel',
-            onPress: () => setIsExporting(false)
-          }
-        ]
-      );
+      // 4. Generate File based on Toggle Selection
+      if (exportFormat === 'csv') {
+        await generateCSV(formattedData, totalNetStockValue, totalGrossStockValue, exportedBy, exportDate);
+      } else {
+        await generatePDF(formattedData, totalNetStockValue, totalGrossStockValue, exportedBy, exportDate);
+      }
+
+      // Close modal on success
+      setShowExportModal(false);
 
     } catch (error: any) {
       showError(t('general.error'), t('general.exportError', { message: error.message }));
+    } finally {
       setIsExporting(false);
     }
-  }, [t, globalTaxRate, profile, i18n.language]);
+  }, [t, globalTaxRate, profile, i18n.language, exportFormat, customDays]);
 
   const generateCSV = async (data: any[], totalNet: number, totalGross: number, user: string, date: string) => {
     try {
@@ -296,8 +306,6 @@ export default function SettingsScreen() {
       await Sharing.shareAsync(fileUri);
     } catch (e: any) {
       showError(t('general.error'), e.message);
-    } finally {
-      setIsExporting(false);
     }
   };
 
@@ -396,8 +404,6 @@ export default function SettingsScreen() {
       await Sharing.shareAsync(uri);
     } catch (e: any) {
       showError(t('general.error'), e.message);
-    } finally {
-      setIsExporting(false);
     }
   };
 
@@ -472,7 +478,7 @@ export default function SettingsScreen() {
             <Text style={[typography.button, styles.value, { color: colors.primary }]}>{workgroup?.name || '...'}</Text>
           </View>
           <View style={[styles.row, { borderBottomWidth: 0 }]}>
-            <Text style={[typography.button, styles.label, { color: colors.text }]}>{t('settings.code')}</Text>
+            <Text style={[typography.button, styles.label, { color: colors.selector }]}>{t('settings.code')}</Text>
             <Text style={[typography.button, styles.value, { color: colors.primary }]}>{workgroup?.join_code || '...'}</Text>
           </View>
         </View>
@@ -563,10 +569,10 @@ export default function SettingsScreen() {
             </View>
           </Pressable>
 
-          {/* EXPORT BUTTON */}
+          {/* EXPORT BUTTON - TRIGGER MODAL */}
           <Pressable 
             style={[styles.menuButton, { paddingHorizontal: 16, borderBottomWidth: 0 }, isExporting && { opacity: 0.6 }]} 
-            onPress={handleExportData} 
+            onPress={() => setShowExportModal(true)} 
             disabled={isExporting}
           >
             <View style={{flexDirection:'row', alignItems:'center'}}>
@@ -594,7 +600,82 @@ export default function SettingsScreen() {
           <Text style={[typography.button, { color: colors.text }]}>{t('settings.logout')}</Text>
         </Pressable>
       </View>
-        
+      
+      {/* EXPORT MODAL */}
+      <Modal
+        visible={showExportModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowExportModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[typography.h3, styles.modalTitle, { color: colors.text }]}>
+              {t('settings.exportTitle', 'Export Inventory')}
+            </Text>
+
+            {/* FORMAT TOGGLE */}
+            <View style={styles.toggleContainer}>
+              <Pressable 
+                style={[styles.toggleBtn, exportFormat === 'csv' && { backgroundColor: colors.primary }]}
+                onPress={() => setExportFormat('csv')}
+              >
+                <Text style={[styles.toggleText, { color: exportFormat === 'csv' ? '#fff' : colors.text }]}>CSV</Text>
+              </Pressable>
+              <Pressable 
+                style={[styles.toggleBtn, exportFormat === 'pdf' && { backgroundColor: colors.primary }]}
+                onPress={() => setExportFormat('pdf')}
+              >
+                <Text style={[styles.toggleText, { color: exportFormat === 'pdf' ? '#fff' : colors.text }]}>PDF</Text>
+              </Pressable>
+            </View>
+
+            {/* Option 1: Today */}
+            <Pressable 
+              style={[styles.modalBtn, { borderColor: colors.border }]} 
+              onPress={() => handleExportData('today')}
+              disabled={isExporting}
+            >
+              <Text style={[typography.button, { color: colors.text }]}>{t('history.exportToday', 'Today')}</Text>
+            </Pressable>
+
+            {/* Option 2: All Time */}
+            <Pressable 
+              style={[styles.modalBtn, { borderColor: colors.border }]} 
+              onPress={() => handleExportData('all')}
+              disabled={isExporting}
+            >
+              <Text style={[typography.button, { color: colors.text }]}>{t('history.exportAll', 'From Start (All)')}</Text>
+            </Pressable>
+
+            {/* Option 3: Custom Days */}
+            <View style={styles.customRow}>
+              <Text style={[typography.body, { color: colors.text, marginRight: 10 }]}>{t('history.last', 'Last')}</Text>
+              <TextInput
+                style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
+                keyboardType="numeric"
+                value={customDays}
+                onChangeText={setCustomDays}
+              />
+              <Text style={[typography.body, { color: colors.text, marginLeft: 10 }]}>{t('history.days', 'Days')}</Text>
+              
+              <Pressable 
+                style={[styles.smallBtn, { backgroundColor: colors.primary }]} 
+                onPress={() => handleExportData('custom')}
+                disabled={isExporting}
+              >
+                 {isExporting ? <ActivityIndicator color="#fff" size="small"/> : <FontAwesome name="arrow-right" size={14} color="#fff" />}
+              </Pressable>
+            </View>
+
+            <Pressable style={styles.cancelBtn} onPress={() => setShowExportModal(false)}>
+              <Text style={{ color: colors.subtext }}>{t('general.cancel', 'Cancel')}</Text>
+            </Pressable>
+
+          </View>
+        </View>
+      </Modal>
+
     </ScrollView>
   );
 }
@@ -633,4 +714,82 @@ const styles = StyleSheet.create({
   // Footer Actions
   dangerButton: { borderWidth: 1, padding: 16, borderRadius: 12, alignItems: 'center', marginBottom: 12 },
   logoutButton: { padding: 16, borderRadius: 12, alignItems: 'center' },
+
+  // --- MODAL STYLES ---
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '85%',
+    borderRadius: 20,
+    padding: 24,
+    borderWidth: 1,
+    alignItems: 'center',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalTitle: {
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderRadius: 10,
+    padding: 4,
+    marginBottom: 20,
+    width: '100%',
+  },
+  toggleBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  toggleText: {
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  modalBtn: {
+    width: '100%',
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  customRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    width: 60,
+    textAlign: 'center',
+    fontSize: 16,
+  },
+  smallBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
+  },
+  cancelBtn: {
+    marginTop: 0,
+    padding: 10,
+  },
 });
