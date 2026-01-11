@@ -498,7 +498,7 @@ export default function SettingsScreen() {
                  <FontAwesome name="history" size={18} color={colors.selector} />
                  <Text style={[typography.button, styles.menuButtonText, { color: colors.text }]}>{t('settings.history')}</Text>
                </View>
-               <FontAwesome name="chevron-right" size={14} color={colors.subtext} />
+               <FontAwesome name="chevron-right" size={14} color={colors.selector} />
              </Pressable> 
 
              <Pressable 
@@ -509,7 +509,7 @@ export default function SettingsScreen() {
                  <FontAwesome name="lock" size={18} color={colors.selector} />
                  <Text style={[typography.button, styles.menuButtonText, { color: colors.text }]}>{t('settings.changePasscode')}</Text>
                </View>
-               <FontAwesome name="chevron-right" size={14} color={colors.subtext} />
+               <FontAwesome name="chevron-right" size={14} color={colors.selector} />
              </Pressable>
 
              <Pressable 
@@ -520,7 +520,7 @@ export default function SettingsScreen() {
                  <FontAwesome name="users" size={18} color={colors.selector} />
                  <Text style={[typography.button, styles.menuButtonText, { color: colors.text }]}>{t('settings.members')}</Text>
                </View>
-               <FontAwesome name="chevron-right" size={14} color={colors.subtext} />
+               <FontAwesome name="chevron-right" size={14} color={colors.selector} />
              </Pressable>
            </View>
         </View>
