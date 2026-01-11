@@ -506,7 +506,7 @@ export default function SettingsScreen() {
                onPress={handleChangePasscode}
              >
                <View style={{flexDirection:'row', alignItems:'center'}}>
-                 <FontAwesome name="lock" size={18} color={colors.primary} />
+                 <FontAwesome name="lock" size={18} color={colors.selector} />
                  <Text style={[typography.button, styles.menuButtonText, { color: colors.text }]}>{t('settings.changePasscode')}</Text>
                </View>
                <FontAwesome name="chevron-right" size={14} color={colors.subtext} />
