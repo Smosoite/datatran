@@ -57,7 +57,7 @@ export default function HomeScreen() {
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.5}
-              style={[typography.button, typography.shadow, styles.buttonText, { color: colors.text, textShadowColor: colors.textShadow }]}
+              style={[typography.button, styles.buttonText, { color: colors.text }]}
             >
               {t('dashboard.addItem')}
             </Text>
