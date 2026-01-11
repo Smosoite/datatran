@@ -109,6 +109,7 @@
     "passwordsNoMatch": "Passwords do not match",
     "passwordUpdated": "Password updated successfully. Please sign in.",
     "signIn": "Sign In",
+    "verify": "Verify",
     "noAccount": "Don't have an account? Sign Up"
   },
   "dashboard": {
