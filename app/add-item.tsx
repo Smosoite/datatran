@@ -310,7 +310,7 @@ export default function AddItemScreen() {
             <Switch 
               value={showFinancials} 
               onValueChange={setShowFinancials} 
-              trackColor={{ false: colors.border, true: colors.border }}
+              trackColor={{ false: colors.border, true: colors.primary }}
             />
         </View>
 
@@ -323,7 +323,7 @@ export default function AddItemScreen() {
             </Text>
             <View style={[styles.usageRow, { borderColor: colors.border }]}>
               <Pressable 
-                style={[styles.usageBtn, usageType === 'production' && { backgroundColor: colors.selector }]}
+                style={[styles.usageBtn, usageType === 'production' && { backgroundColor: colors.primary }]}
                 onPress={() => setUsageType('production')}
               >
                  <Text style={[typography.body, { color: usageType === 'production' ? '#fff' : colors.text }]}>
@@ -331,7 +331,7 @@ export default function AddItemScreen() {
                  </Text>
               </Pressable>
               <Pressable 
-                style={[styles.usageBtn, usageType === 'resale' && { backgroundColor: colors.selector }]}
+                style={[styles.usageBtn, usageType === 'resale' && { backgroundColor: colors.primary }]}
                 onPress={() => setUsageType('resale')}
               >
                  <Text style={[typography.body, { color: usageType === 'resale' ? '#fff' : colors.text }]}>
@@ -429,7 +429,7 @@ export default function AddItemScreen() {
                  </Text>
                  <View style={[styles.locationContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
                     {loadingLocations ? (
-                        <ActivityIndicator color={colors.selector} />
+                        <ActivityIndicator color={colors.primary} />
                     ) : (
                         sortedShelves.map(shelf => (
                             <View key={shelf} style={styles.shelfGroup}>
@@ -469,7 +469,7 @@ export default function AddItemScreen() {
         )}
 
         {/* --- Submit Button --- */}
-        <Pressable style={[styles.button, { backgroundColor: colors.selector }]} onPress={handleSave} disabled={saving}>
+        <Pressable style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleSave} disabled={saving}>
           {saving ? (
             <ActivityIndicator color="#fff" />
           ) : (
