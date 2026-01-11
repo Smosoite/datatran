@@ -310,7 +310,7 @@ export default function AddItemScreen() {
             <Switch 
               value={showFinancials} 
               onValueChange={setShowFinancials} 
-              trackColor={{ false: colors.border, true: colors.primary }}
+              trackColor={{ false: colors.border, true: colors.berder }}
             />
         </View>
 
