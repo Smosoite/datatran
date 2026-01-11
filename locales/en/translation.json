@@ -280,6 +280,7 @@
     "promoteSuccess": "User promoted to Admin!",
     "demoteSuccess": "User demoted to Member.",
     "removeSuccess": "User removed from workgroup.",
+    "taxRate": "Tax rate",
   },
   "profile": {
     "title": "Profile",
