@@ -138,7 +138,7 @@
     "createButton": "Luo hyllypaikka",
     "generatorHeader": "Paikkojen luonti",
     "generatorButton": "Luo asettelu",
-    "noLocations": "Tälle varastoyksikölle ei ole määritelty paikkoja.",
+    "noLocations": "Tälle varastoyksikölle ei ole määritelty hyllypaikkoja.",
     "addAShelf": "Lisää sijainti painamalla '+' -painiketta yläpalkissa.",
     "shelf": "Hylly*",
     "row": "Rivi (Vapaaehtoinen)",
