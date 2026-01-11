@@ -399,7 +399,7 @@ export default function SettingsScreen() {
             <Text style={[typography.button, styles.label, { color: colors.text }]}>{t('settings.dark')}</Text>
             <Switch
               trackColor={{ false: colors.background, true: colors.selector }}
-              thumbColor={colors.primary}
+              thumbColor={colors.selector}
               onValueChange={toggleMode}
               value={isDarkMode}
             />
