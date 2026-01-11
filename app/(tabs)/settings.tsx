@@ -635,7 +635,7 @@ export default function SettingsScreen() {
             {/* FORMAT TOGGLE */}
             <View style={styles.toggleContainer}>
               <Pressable 
-                style={[styles.toggleBtn, exportFormat === 'csv' && { backgroundColor: colors.primary }]}
+                style={[styles.toggleBtn, exportFormat === 'csv' && { backgroundColor: colors.selector }]}
                 onPress={() => setExportFormat('csv')}
               >
                 <Text style={[styles.toggleText, { color: exportFormat === 'csv' ? '#fff' : colors.text }]}>CSV</Text>
