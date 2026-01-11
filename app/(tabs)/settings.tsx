@@ -23,6 +23,14 @@ const themes = [
   { key: 'sunset', name: 'Sunset', representativeColor: '#D93000' },
 ];
 
+const TAX_OPTIONS = [
+  { label: '0%', value: 0 },
+  { label: '10%', value: 0.10 },
+  { label: '14%', value: 0.14 },
+  { label: '24%', value: 0.24 },
+  { label: '25.5%', value: 0.255 },
+];
+
 export default function SettingsScreen() {
   const { mode, setMode, theme, setTheme, colors } = useTheme();
   const isDarkMode = mode === 'dark';
@@ -31,7 +39,7 @@ export default function SettingsScreen() {
   const { showConfirmation, showPasscodeModal } = useModal();
   const router = useRouter();
   const { profile, workgroup, refreshProfile } = useAuth();
-  
+   
   // --- EXPORT STATE ---
   const [isExporting, setIsExporting] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
@@ -40,6 +48,8 @@ export default function SettingsScreen() {
 
   // Default fallback tax rate if item doesn't have one specific
   const [globalTaxRate, setGlobalTaxRate] = useState(0.255); 
+  // Tax dropdown visibility state
+  const [showTaxDropdown, setShowTaxDropdown] = useState(false);
 
   // --- ACTIONS ---
 
@@ -133,23 +143,6 @@ export default function SettingsScreen() {
   const toggleMode = useCallback(() => {
     setMode(prev => (prev === 'dark' ? 'light' : 'dark'));
   }, [setMode]);
-
-  // --- TAX SELECTOR ---
-
-  const handleSelectTaxRate = useCallback(() => {
-    Alert.alert(
-      t('settings.selectTax', 'Select Fallback Tax Rate'),
-      t('settings.selectTaxMsg', 'This rate applies to items that do not have a specific tax set.'),
-      [
-        { text: '0%', onPress: () => setGlobalTaxRate(0) },
-        { text: '10%', onPress: () => setGlobalTaxRate(0.10) },
-        { text: '14%', onPress: () => setGlobalTaxRate(0.14) },
-        { text: '24%', onPress: () => setGlobalTaxRate(0.24) },
-        { text: '25.5%', onPress: () => setGlobalTaxRate(0.255) },
-        { text: t('general.cancel', 'Cancel'), style: 'cancel' }
-      ]
-    );
-  }, [t]);
 
   // --- EXPORT LOGIC ---
 
@@ -551,10 +544,10 @@ export default function SettingsScreen() {
         
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, padding: 0 }]}>
           
-          {/* TAX RATE SELECTOR */}
+          {/* TAX RATE SELECTOR (DROPDOWN) */}
           <Pressable 
-            style={[styles.row, { paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: colors.border }]} 
-            onPress={handleSelectTaxRate}
+            style={[styles.row, { paddingHorizontal: 16, borderBottomWidth: showTaxDropdown ? 0 : 1, borderBottomColor: colors.border }]} 
+            onPress={() => setShowTaxDropdown(!showTaxDropdown)}
           >
              <View style={{flexDirection:'row', alignItems:'center'}}>
               <Ionicons name="pricetag-outline" size={18} color={colors.primary} />
@@ -565,9 +558,34 @@ export default function SettingsScreen() {
             </View>
             <View style={{ flexDirection:'row', alignItems:'center'}}>
               <Text style={[typography.button, { color: colors.selector, marginRight: 8 }]}>{(globalTaxRate * 100).toFixed(1)}%</Text>
-              <FontAwesome name="chevron-down" size={12} color={colors.selector} />
+              <FontAwesome name={showTaxDropdown ? "chevron-up" : "chevron-down"} size={12} color={colors.selector} />
             </View>
           </Pressable>
+          
+          {/* DROPDOWN OPTIONS (Accordion Style) */}
+          {showTaxDropdown && (
+            <View style={{ borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: 'rgba(0,0,0,0.02)' }}>
+              {TAX_OPTIONS.map((rate) => (
+                <Pressable
+                  key={rate.value}
+                  onPress={() => {
+                    setGlobalTaxRate(rate.value);
+                    setShowTaxDropdown(false);
+                  }}
+                  style={{ 
+                    flexDirection: 'row', 
+                    justifyContent: 'space-between', 
+                    paddingVertical: 12, 
+                    paddingHorizontal: 24,
+                    paddingLeft: 46 
+                  }}
+                >
+                   <Text style={[typography.body, { color: colors.text }]}>{rate.label}</Text>
+                   {globalTaxRate === rate.value && <FontAwesome name="check" size={12} color={colors.selector} />}
+                </Pressable>
+              ))}
+            </View>
+          )}
 
           {/* EXPORT BUTTON - TRIGGER MODAL */}
           <Pressable 
@@ -685,19 +703,19 @@ const styles = StyleSheet.create({
   section: { marginBottom: 24 },
   sectionTitle: { marginBottom: 8, fontSize: 13, textTransform: 'uppercase', opacity: 0.7 },
   card: { borderRadius: 12, paddingHorizontal: 16, borderWidth: 1 },
-  
+   
   // Rows
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1 },
   appRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12 },
-  
+   
   // Text
   label: { fontSize: 15 },
   value: { fontSize: 15 },
-  
+   
   // Buttons
   menuButton: { paddingVertical: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   menuButtonText: { marginLeft: 12, fontSize: 15 },
-  
+   
   // Theme Grid
   themeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
   themeButton: { 
@@ -707,10 +725,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center'
   },
-  
+   
   // Language
   langButton: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
-  
+   
   // Footer Actions
   dangerButton: { borderWidth: 1, padding: 16, borderRadius: 12, alignItems: 'center', marginBottom: 12 },
   logoutButton: { padding: 16, borderRadius: 12, alignItems: 'center' },
