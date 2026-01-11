@@ -310,7 +310,7 @@ export default function EditItemScreen() {
           </Text>
           <View style={styles.usageRow}>
             <Pressable 
-              style={[styles.usageBtn, usageType === 'production' && { backgroundColor: colors.primary }]}
+              style={[styles.usageBtn, usageType === 'production' && { backgroundColor: colors.selector }]}
               onPress={() => setUsageType('production')}
             >
                <Text style={[typography.body, { color: usageType === 'production' ? '#fff' : colors.text }]}>
