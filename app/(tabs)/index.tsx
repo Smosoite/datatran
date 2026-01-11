@@ -69,7 +69,7 @@ export default function HomeScreen() {
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.5}
-              style={[typography.button, styles.buttonText, { color: colors.text }]}
+              style={[typography.button, styles.buttonText, { color: colors.subtext }]}
             >
               {t('dashboard.findItem')}
             </Text>
