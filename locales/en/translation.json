@@ -187,7 +187,7 @@
     "locationOccupied": "This location is allready occupied by: {{itemName}}",
     "barcode": "Barcode",
     "noResults": "No results found.",
-    "itemName*": "Item Name*",
+    "itemName*": "Item Name",
     "quantity*": "Quantity*",
     "restockThreshold*": "Restock at or below*",
     "costPerUnit": "Cost per Unit",
