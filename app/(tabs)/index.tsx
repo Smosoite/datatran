@@ -220,4 +220,4 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   restockButtonText: { marginLeft: 16 },
-});
+})
