@@ -49,7 +49,7 @@ export default function SignUpScreen() {
 
         <TextInput
           style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
-          placeholder={t('auth.username1')}
+          placeholder={t('auth.username')}
           placeholderTextColor={colors.subtext}
           value={username}
           onChangeText={setUsername}
