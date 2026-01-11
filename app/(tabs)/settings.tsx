@@ -495,7 +495,7 @@ export default function SettingsScreen() {
                onPress={() => router.push('/history')}
              >
                <View style={{flexDirection:'row', alignItems:'center'}}>
-                 <FontAwesome name="history" size={18} color={colors.primary} />
+                 <FontAwesome name="history" size={18} color={colors.selector} />
                  <Text style={[typography.button, styles.menuButtonText, { color: colors.text }]}>{t('settings.history')}</Text>
                </View>
                <FontAwesome name="chevron-right" size={14} color={colors.subtext} />
