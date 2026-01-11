@@ -331,7 +331,7 @@ export default function AddItemScreen() {
                  </Text>
               </Pressable>
               <Pressable 
-                style={[styles.usageBtn, usageType === 'resale' && { backgroundColor: colors.primary }]}
+                style={[styles.usageBtn, usageType === 'resale' && { backgroundColor: colors.selector }]}
                 onPress={() => setUsageType('resale')}
               >
                  <Text style={[typography.body, { color: usageType === 'resale' ? '#fff' : colors.text }]}>
