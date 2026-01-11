@@ -270,7 +270,7 @@ export default function EditItemScreen() {
                     placeholder="#"
                     placeholderTextColor={colors.subtext}
                   />
-                  <Pressable onPress={applyBulkAdjustment} style={[styles.miniBtn, { backgroundColor: colors.primary }]}>
+                  <Pressable onPress={applyBulkAdjustment} style={[styles.miniBtn, { backgroundColor: colors.selector }]}>
                      <FontAwesome name="check" size={16} color="#fff" />
                   </Pressable>
                   <Pressable onPress={() => { setAdjustmentMode('none'); setAdjustmentAmount(''); }} style={[styles.miniBtn, { backgroundColor: colors.subtext }]}>
