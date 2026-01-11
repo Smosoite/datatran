@@ -22,6 +22,7 @@ export const Colors = {
       danger: '#DC2626',
       primaryMuted: 'rgba(217, 119, 6, 0.1)',
       textShadow: '#FFFFFF',
+      textWhite: '#FFFFFF',
     },
     industrial: {
      background: '#F3F4F6',
@@ -36,6 +37,7 @@ export const Colors = {
       danger: '#DC2626',
       primaryMuted: 'rgba(217, 119, 6, 0.1)',
       textShadow: '#FFFFFF',
+      textWhite: '#FFFFFF',
     },
     forest: {
       background: '#F3F4F6',
@@ -50,6 +52,7 @@ export const Colors = {
       danger: '#DC2626',
       primaryMuted: 'rgba(217, 119, 6, 0.1)',
       textShadow: '#FFFFFF',
+      textWhite: '#FFFFFF',
     },
     cherryblossom: {
      background: '#F3F4F6',
@@ -64,6 +67,7 @@ export const Colors = {
       danger: '#DC2626',
       primaryMuted: 'rgba(217, 119, 6, 0.1)',
       textShadow: '#FFFFFF',
+      textWhite: '#FFFFFF',
     },
     sunflower: {
      background: '#F3F4F6',
@@ -78,6 +82,7 @@ export const Colors = {
       danger: '#DC2626',
       primaryMuted: 'rgba(217, 119, 6, 0.1)',
       textShadow: '#FFFFFF',
+      textWhite: '#FFFFFF',
     },
     sunset: {
      background: '#F3F4F6',
@@ -92,6 +97,7 @@ export const Colors = {
       danger: '#DC2626',
       primaryMuted: 'rgba(217, 119, 6, 0.1)',
       textShadow: '#FFFFFF',
+      textWhite: '#FFFFFF',
     },
   },
   dark: {
@@ -108,6 +114,7 @@ export const Colors = {
       danger: '#F87171',
       primaryMuted: 'rgba(251, 191, 36, 0.15)',
       textShadow: '#1F2937',
+      textWhite: '#a3adbf',
     },
     industrial: {
       background: '#1F2937',
@@ -122,6 +129,7 @@ export const Colors = {
       danger: '#F87171',
       primaryMuted: 'rgba(251, 191, 36, 0.15)',
       textShadow: '#1F2937',
+      textWhite: '#a3adbf',
     },
     forest: {
       background: '#1F2937',
@@ -136,6 +144,7 @@ export const Colors = {
       danger: '#F87171',
       primaryMuted: 'rgba(251, 191, 36, 0.15)',
       textShadow: '#1F2937',
+      textWhite: '#a3adbf',
     },
     cherryblossom: {
       background: '#1F2937',
@@ -150,6 +159,7 @@ export const Colors = {
       danger: '#F87171',
       primaryMuted: 'rgba(251, 191, 36, 0.15)',
       textShadow: '#1F2937',
+      textWhite: '#a3adbf',
     },
     sunflower: {
       background: '#1F2937',
@@ -164,6 +174,7 @@ export const Colors = {
       danger: '#F87171',
       primaryMuted: 'rgba(251, 191, 36, 0.15)',
       textShadow: '#1F2937',
+      textWhite: '#a3adbf',
     },
     sunset: {
       background: '#1F2937',
@@ -178,6 +189,7 @@ export const Colors = {
       danger: '#F87171',
       primaryMuted: 'rgba(251, 191, 36, 0.15)',
       textShadow: '#1F2937',
+      textWhite: '#a3adbf',
   },
 },
 };
