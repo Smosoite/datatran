@@ -226,7 +226,7 @@ export default function EditItemScreen() {
       />
       
       {/* 2. Quantity (Stepper) */}
-      <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.quantity*')}</Text>
+      <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.quantity')}</Text>
       <View style={styles.stepperContainer}>
           <Pressable onPress={decrement} style={[styles.stepperButton, { backgroundColor: colors.card, borderColor: colors.border }]}>
              <FontAwesome name="minus" size={16} color={colors.text} />
