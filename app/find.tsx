@@ -122,7 +122,7 @@ export default function FindScreen() {
 
               <View style={styles.actionsColumn}>
                 <Pressable style={styles.editButton} onPress={() => router.push(`/edit-item/${item.id}`)}>
-                   <FontAwesome name="pencil" size={18} color={colors.primary} />
+                   <FontAwesome name="pencil" size={18} color={colors.selector} />
                    <Text style={[typography.button, styles.editButtonText, { color: colors.primary }]}>{t('find.edit')}</Text>
                 </Pressable>
                 
