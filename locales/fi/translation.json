@@ -146,7 +146,7 @@
     "container": "Laatikko (Vapaaehtoinen)",
     "numShelves": "Hyllyjen määrä*",
     "numRows": "Rivien määrä per hylly (Vapaaehtoinen)",
-    "numCols": "Sarakkeiden määrä per rivi (Vapaaehtoinen)",
+    "numCols": "Sarakkeiden määrä per hylly",
     "selectLocation": "Valitse sijainti",
     "selectLocal": "Valitse hyllypaikka",
     "shelfSelect": "Valitse hylly",
