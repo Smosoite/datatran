@@ -49,7 +49,7 @@ export default function SignUpScreen() {
 
         <TextInput
           style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
-          placeholder={t('auth.username')}
+          placeholder={t('auth.username1')}
           placeholderTextColor={colors.subtext}
           value={username}
           onChangeText={setUsername}
@@ -57,7 +57,7 @@ export default function SignUpScreen() {
         />
         <TextInput
           style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
-          placeholder={t('auth.email')}
+          placeholder={t('auth.email1')}
           placeholderTextColor={colors.subtext}
           value={email}
           onChangeText={setEmail}
@@ -66,7 +66,7 @@ export default function SignUpScreen() {
         />
         <TextInput
           style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
-          placeholder={t('auth.password')}
+          placeholder={t('auth.password1')}
           placeholderTextColor={colors.subtext}
           value={password}
           onChangeText={setPassword}
