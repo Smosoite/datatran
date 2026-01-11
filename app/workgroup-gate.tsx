@@ -17,14 +17,14 @@ export default function WorkgroupGateScreen() {
             <Text style={[typography.body, styles.subHeader, { color: colors.subtext }]}>{t('auth.gateSubheader')}</Text>
 
             <Pressable 
-              style={[styles.button, { backgroundColor: colors.primary }]} 
+              style={[styles.button, { backgroundColor: colors.selector }]} 
               onPress={() => router.push('/create-workgroup')}
             >
                 <Text style={[typography.button, styles.buttonText, { color: colors.text }]}>{t('auth.createWorkgroup')}</Text>
             </Pressable>
 
             <Pressable 
-              style={[styles.button, styles.secondaryButton, { backgroundColor: colors.card, borderColor: colors.border }]} 
+              style={[styles.button, styles.secondaryButton, { backgroundColor: colors.selector, borderColor: colors.border }]} 
               onPress={() => router.push('/join-workgroup')}
             >
                 <Text style={[typography.button, styles.buttonText, { color: colors.primary }]}>{t('auth.joinWithCode')}</Text>
