@@ -80,7 +80,7 @@ export default function SelectLocationModal() {
       <Pressable
         style={[
           styles.button, 
-          { backgroundColor: colors.primary }, 
+          { backgroundColor: colors.selector }, 
           (!selectedWarehouse || !selectedStorage) && styles.disabledButton
         ]}
         onPress={handleContinue}
