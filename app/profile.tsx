@@ -91,11 +91,11 @@ export default function ProfileScreen() {
       />
       
       {/* --- FIX: Improved button with loading indicator --- */}
-      <Pressable style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleUpdateProfile} disabled={loading}>
+      <Pressable style={[styles.button, { backgroundColor: colors.selector }]} onPress={handleUpdateProfile} disabled={loading}>
         {loading ? (
           <ActivityIndicator color={colors.text || '#fff'} />
         ) : (
-          <Text style={[typography.button, styles.buttonText, { color: colors.selector || '#fff' }]}>{t('general.save')}</Text>
+          <Text style={[typography.button, styles.buttonText, { color: colors.text || '#fff' }]}>{t('general.save')}</Text>
         )}
       </Pressable>
     </ScrollView>
