@@ -311,6 +311,7 @@ export default function AddItemScreen() {
             <Switch 
               value={showFinancials} 
               onValueChange={setShowFinancials} 
+              thumbColor={colors.selector}
               trackColor={{ false: colors.border, true: colors.border }}
             />
         </View>
