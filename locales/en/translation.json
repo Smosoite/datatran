@@ -354,6 +354,8 @@
     "colTotalGross": "COST (GROSS)",
     "costOfStock": "COST OF STOCK",
     "withTax": "WITH TAX",
+    "colWarehouse": "WAREHOUSE",
+    "colStorage": "STORAGE",
   },
   "paywall": {
     "title": "Unlock StoreTool",
