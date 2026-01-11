@@ -134,8 +134,8 @@
   },
   "location": {
     "defined": "Määritellyt hyllypaikat",
-    "createHeader": "Lisää uusi varastopaikka",
-    "createButton": "Luo varastopaikka",
+    "createHeader": "Lisää uusi hyllypaikka",
+    "createButton": "Luo hyllypaikka",
     "generatorHeader": "Paikkojen luonti",
     "generatorButton": "Luo asettelu",
     "noLocations": "Tälle varastoyksikölle ei ole määritelty paikkoja.",
