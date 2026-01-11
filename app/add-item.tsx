@@ -448,7 +448,7 @@ export default function AddItemScreen() {
                                                 style={[
                                                     styles.gridChip,
                                                     { 
-                                                        backgroundColor: isSelected ? colors.primary : colors.background,
+                                                        backgroundColor: isSelected ? colors.selector : colors.background,
                                                         borderColor: isSelected ? colors.primary : colors.border,
                                                     }
                                                 ]}
