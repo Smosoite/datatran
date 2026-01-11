@@ -93,7 +93,7 @@
     "showPassword": "Show password",
     "forgotPassword": "Forgot Password?",
     "emailRequired": "Please enter your email address",
-    "resetEmailSent": "Password reset link has been sent to your email",
+    "resetEmailSent": "Password reset code has been sent to your email",
     "signIn": "Sign In",
     "noAccount": "Don't have an account? Sign Up"
   },
