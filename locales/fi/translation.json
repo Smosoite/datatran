@@ -190,10 +190,11 @@
     "locationOccupied": "Sijainti on jo varattu tuotteelle: {{itemName}}",
     "barcode": "Viivakoodi",
     "noResults": "Tuloksia ei löytynyt.",
-    "itemName*": "Tuotteen nimi*",
+    "itemName*": "Tuotteen nimi",
     "quantity*": "Määrä*",
     "restockThreshold*": "Täydennysraja*",
     "costPerUnit": "Kappale hinta"
+    "newItem": "Uusi tuote",
   },
   "restock": {
     "title": "Täydennä tuotteita",
