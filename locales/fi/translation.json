@@ -394,6 +394,12 @@
     "colWarehouse": "VARASTO",
     "colStorage": "VARASTOYKSIKKÖ",
   },
+  "history": {
+    "Last": "Viimeiset",
+    "days": "päivää.",
+    "exportAll": "Alusta",
+    "today": "24h",
+  },
   "onboarding": {
     "welcome": "Tervetuloa StoreTooliin",
     "welcomeSubtitle": "Täydellinen varastonhallintaratkaisusi",
