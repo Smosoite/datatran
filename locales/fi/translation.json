@@ -314,7 +314,7 @@
     "forest": "Forest",
     "cherryblossom": "Blossom",
     "sunflower": "Sunflower",
-    "sunset": "Sunset"
+    "sunset": "Sunset",
   },
   "pilot": {
     "addNew": "Napauta tästä lisätäksesi uusia tuotteita varastoosi manuaalisesti.",
@@ -395,7 +395,7 @@
     "purchaseSuccess": "Tilaus aktivoitu onnistuneesti!",
     "purchaseCancelled": "Osto peruutettu",
     "restoreSuccess": "Ostot palautettu onnistuneesti!",
-    "noPurchases": "Palautettavia ostoja ei löytynyt"
+    "noPurchases": "Palautettavia ostoja ei löytynyt",
   },
   "export": {
     "inventoryReport": "Varastoraportti",
@@ -493,6 +493,6 @@
     "takeaway4": "Tiimityöskentely ja roolinhallinta",
     "nextSteps": "Valmis vapauttamaan StoreTool:in täyden potentiaalin?",
     "unlockFullAccess": "Avaa täysi käyttöoikeus",
-    "freeTrialNote": "7 päivän ilmainen kokeilu • Ei sitoutumista"
+    "freeTrialNote": "7 päivän ilmainen kokeilu • Ei sitoutumista",
   }
 }
