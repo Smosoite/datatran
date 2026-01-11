@@ -107,6 +107,9 @@ export default function LoginScreen() {
     }
     setResetLoading(true);
 
+    // --- NEW LOGIC: Set a flag so _layout knows to send us to Profile ---
+    await AsyncStorage.setItem('LOGIN_DESTINATION', '/profile'); 
+
     // Verify OTP for recovery. This logs the user in if successful.
     const { error } = await supabase.auth.verifyOtp({
       email: resetEmail,
@@ -117,10 +120,14 @@ export default function LoginScreen() {
     setResetLoading(false);
 
     if (error) {
+      // If error, clear the flag so we don't get stuck later
+      await AsyncStorage.removeItem('LOGIN_DESTINATION');
       showError(t('general.error'), t('login.invalidOtp', 'Invalid code, please try again'));
     } else {
-      // Move to New Password step
-      setForgotStep('password');
+      // Success! The _layout.tsx will now handle the redirect to Profile
+      // We don't need to manually navigate or change steps here because 
+      // the session change will trigger the _layout effect.
+      setShowForgotModal(false);
     }
   };
 
