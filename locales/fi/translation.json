@@ -128,7 +128,7 @@
     "createButton": "Luo varastoyksikkö",
     "createLoad": "Luodaan...",
     "name": "Varastoyksikön nimi*",
-    "namePlaceholder": "esim. Hylly 5, Kaappi B",
+    "namePlaceholder": "esim. Kaappi B",
     "selectPlaceholder": "Valitse varastoyksikkö",
     "title": "Varastoyksikkö"
   },
