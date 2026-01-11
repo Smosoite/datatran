@@ -247,7 +247,7 @@
     "security": "Tietoturva",
     "changePasscode": "Vaihda/aseta ylläpitäjän salasana",
     "enterCurrentPasscode": "Syötä nykyinen salasana",
-    "enterNewPasscode": "Syötä Uusi Salasana",
+    "enterNewPasscode": "Syötä uusi Salasana",
     "passcodeUpdated": "Salasana päivitetty onnistuneesti!",
     "passcodeSet": "Salasana asetettu onnistuneesti!",
     "history": "Tapahtumahistoria",
