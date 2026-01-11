@@ -125,12 +125,12 @@ export default function WelcomeScreen() {
           </View>
 
           <View style={[styles.whyContainer, { backgroundColor: colors.primaryMuted, borderColor: colors.primary }]}>
-            <Text style={[typography.h3, styles.whyTitle, { color: colors.primary }]}>
+            {/*  <Text style={[typography.h3, styles.whyTitle, { color: colors.primary }]}>
               {t('onboarding.whyYouNeedIt', 'Why You Need StoreTool')}
             </Text>
             <Text style={[typography.body, styles.whyText, { color: colors.text }]}>
               {t('onboarding.whyDescription', 'Stop losing track of inventory, wasting time searching for items, and dealing with stockouts. StoreTool gives you complete visibility and control over your entire inventory operation.')}
-            </Text>
+            </Text>*/}
           </View>
         </Animated.View>
       </ScrollView>
