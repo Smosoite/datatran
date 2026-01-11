@@ -517,7 +517,7 @@ export default function SettingsScreen() {
                onPress={() => router.push('/manage-members')}
              >
                <View style={{flexDirection:'row', alignItems:'center'}}>
-                 <FontAwesome name="users" size={18} color={colors.primary} />
+                 <FontAwesome name="users" size={18} color={colors.selector} />
                  <Text style={[typography.button, styles.menuButtonText, { color: colors.text }]}>{t('settings.members')}</Text>
                </View>
                <FontAwesome name="chevron-right" size={14} color={colors.subtext} />
