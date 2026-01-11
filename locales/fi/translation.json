@@ -207,7 +207,7 @@
     "itemName*": "Tuotteen nimi",
     "quantity*": "Määrä*",
     "restockThreshold*": "Täydennysraja*",
-    "costPerUnit": "Kappale hinta"
+    "costPerUnit": "Kappale hinta",
     "newItem": "Uusi tuote",
   },
   "restock": {
