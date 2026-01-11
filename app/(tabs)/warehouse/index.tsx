@@ -54,7 +54,7 @@ export default function WarehouseScreen() {
   const renderEmptyComponent = () => (
     <View style={[styles.centered, { backgroundColor: colors.background }]}>
       <Text style={[typography.caption, styles.emptyText, { color: colors.subtext }]}>{t('warehouse.noWarehouses')}</Text>
-      <Pressable style={[styles.button, { backgroundColor: colors.primary }]} onPress={() => router.push('/create-warehouse')}>
+      <Pressable style={[styles.button, { backgroundColor: colors.selector }]} onPress={() => router.push('/create-warehouse')}>
         <Text style={[typography.button, styles.buttonText, { color: colors.primaryText }]}>{t('warehouse.createFirst')}</Text>
       </Pressable>
     </View>
