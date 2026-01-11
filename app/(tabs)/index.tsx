@@ -52,36 +52,36 @@ export default function HomeScreen() {
         <Text style={[styles.title, { color: colors.text }]}></Text>
         <View style={styles.buttonContainer}>
           <Pressable style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/add-item')}>
-            <FontAwesome name="plus-circle" size={20} color={colors.subtext}/>
+            <FontAwesome name="plus-circle" size={20} color={colors.textWhite}/>
             <Text
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.5}
-              style={[typography.button, styles.buttonText, { color: colors.subtext }]}
+              style={[typography.button, styles.buttonText, { color: colors.textWhite }]}
             >
               {t('dashboard.addItem')}
             </Text>
           </Pressable>
 
           <Pressable style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/find')}>
-            <FontAwesome name="search" size={20} color={colors.subtext}/>
+            <FontAwesome name="search" size={20} color={colors.textWhite}/>
             <Text
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.5}
-              style={[typography.button, styles.buttonText, { color: colors.subtext }]}
+              style={[typography.button, styles.buttonText, { color: colors.textWhite }]}
             >
               {t('dashboard.findItem')}
             </Text>
           </Pressable>
 
           <Pressable style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/scan')}>
-            <FontAwesome name="barcode" size={20} color={colors.subtext}/>
+            <FontAwesome name="barcode" size={20} color={colors.textWhite}/>
             <Text
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.5}
-              style={[typography.button, styles.buttonText, { color: colors.subtext }]}
+              style={[typography.button, styles.buttonText, { color: colors.textWhite }]}
             >
               {t('dashboard.scanItem')}
             </Text>
@@ -90,7 +90,7 @@ export default function HomeScreen() {
       </View>
 
       {!loading && restockItems.length > 0 && (
-        <Text style={[typography.h3, styles.listHeader, { color: colors.text }]}>
+        <Text style={[typography.h3, styles.listHeader, { color: colors.subtext }]}>
           {t('dashboard.needsRestock')}
         </Text>
       )}
