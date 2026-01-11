@@ -9,6 +9,7 @@ import { showError, showSuccess } from '../lib/toast'; // Assuming showSuccess e
 import { Feather } from '@expo/vector-icons';
 import { useOnboarding } from '../providers/OnboardingProvider';
 import { useSubscription } from '../hooks/useSubscription';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function LoginScreen() {
   const { t, i18n } = useTranslation();
