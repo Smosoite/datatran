@@ -315,7 +315,7 @@ export default function LoginScreen() {
                   maxLength={6}
                 />
                  <Pressable
-                  style={[styles.button, { backgroundColor: colors.primary, marginTop: 10 }]}
+                  style={[styles.button, { backgroundColor: colors.selector, marginTop: 10 }]}
                   onPress={handleVerifyOtp}
                   disabled={resetLoading}
                 >
