@@ -151,7 +151,9 @@ export default function SettingsScreen() {
   const handleExportData = useCallback(async () => {
     setIsExporting(true);
     try {
-      // 1. Fetch Data (Added new financial columns)
+      // 1. Fetch Data (Added new financial columns + Relationships for Location)
+      // Note: This assumes you have relationships set up in Supabase:
+      // items -> storages -> warehouses
       const { data: items, error } = await supabase
         .from('items')
         .select(`
@@ -160,9 +162,13 @@ export default function SettingsScreen() {
           cost_per_unit, 
           purchase_price,
           purchase_vat_percent,
-          barcode
+          barcode,
+          storage:storages (
+            name,
+            warehouse:warehouses ( name )
+          )
         `)
-        .order('name', { ascending: true }); // Order by name for cleaner list
+        .order('name', { ascending: true });
 
       if (error) throw error;
       if (!items || items.length === 0) {
@@ -175,8 +181,12 @@ export default function SettingsScreen() {
       let totalGrossStockValue = 0;
 
       // 2. Format Data & Calculate Totals
-      const formattedData = items.map(item => {
+      const formattedData = items.map((item: any) => {
         const qty = item.quantity || 0;
+        
+        // Extract location names safely
+        const storageName = item.storage?.name || '-';
+        const warehouseName = item.storage?.warehouse?.name || '-';
         
         // Use new fields if available, otherwise fallback to old 'cost_per_unit'
         const unitCost = item.purchase_price !== null ? item.purchase_price : (item.cost_per_unit || 0);
@@ -192,6 +202,8 @@ export default function SettingsScreen() {
         totalGrossStockValue += rowTotalGross;
 
         return {
+          warehouseName, // Added
+          storageName,   // Added
           name: item.name,
           quantity: qty,
           unitCost: unitCost,
@@ -243,6 +255,10 @@ export default function SettingsScreen() {
       // Loop Data
       data.forEach((item, index) => {
         csvRows.push({
+          // New Columns First
+          [t('export.colWarehouse', 'Warehouse')]: item.warehouseName,
+          [t('export.colStorage', 'Storage')]: item.storageName,
+          // Existing Columns
           [t('export.colName')]: item.name,
           [t('export.colQty')]: item.quantity,
           [t('export.colUnitCost')]: item.unitCost.toFixed(2),
@@ -260,11 +276,11 @@ export default function SettingsScreen() {
       // Footer
       csvRows.push({}); // Empty line at bottom
       
-      // Summary Rows (aligned roughly to columns by using empty keys)
-      // Note: CSV alignment is tricky, but we put it in the "Total Net" column area
+      // Summary Rows
+      // We align totals roughly by using keys from later columns
       csvRows.push({
-        [t('export.colTax')]: t('export.costOfStock'), // "One column to left" -> Tax Column
-        [t('export.colTotalNet')]: totalNet.toFixed(2) // "In column with cost" -> Total Net Column
+        [t('export.colTax')]: t('export.costOfStock'), 
+        [t('export.colTotalNet')]: totalNet.toFixed(2) 
       });
       
       csvRows.push({
@@ -293,6 +309,8 @@ export default function SettingsScreen() {
         
         let html = `
           <tr>
+            <td style="text-align: left;">${item.warehouseName}</td>
+            <td style="text-align: left;">${item.storageName}</td>
             <td style="text-align: left;">${item.name}</td>
             <td style="text-align: center;">${item.quantity}</td>
             <td style="text-align: right;">${item.unitCost.toFixed(2)}</td>
@@ -302,9 +320,9 @@ export default function SettingsScreen() {
           </tr>
         `;
 
-        // Add empty row spacer
+        // Add empty row spacer - colspan increased to 8
         if (isSpacer) {
-          html += `<tr style="height: 20px;"><td colspan="6" style="border:none;"></td></tr>`;
+          html += `<tr style="height: 20px;"><td colspan="8" style="border:none;"></td></tr>`;
         }
         return html;
       }).join('');
@@ -314,17 +332,17 @@ export default function SettingsScreen() {
           <head>
             <meta name="viewport" content="width=device-width, initial-scale=1.0" />
             <style>
-              body { font-family: 'Helvetica', sans-serif; padding: 30px; color: #333; }
+              body { font-family: 'Helvetica', sans-serif; padding: 20px; color: #333; }
               .header { margin-bottom: 20px; }
-              .header h1 { color: #10567A; margin-bottom: 5px; }
+              .header h1 { color: #10567A; margin-bottom: 5px; font-size: 20px; }
               .meta { font-size: 12px; color: #666; }
               
               table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-              th { background-color: #f2f2f2; border: 1px solid #ccc; padding: 8px; font-size: 11px; text-transform: uppercase; }
-              td { border: 1px solid #ddd; padding: 8px; font-size: 12px; }
+              th { background-color: #f2f2f2; border: 1px solid #ccc; padding: 6px; font-size: 10px; text-transform: uppercase; }
+              td { border: 1px solid #ddd; padding: 6px; font-size: 11px; }
               
               /* Footer Styling */
-              tfoot td { font-weight: bold; font-size: 14px; background-color: #fff; border: none; padding-top: 10px; }
+              tfoot td { font-weight: bold; font-size: 13px; background-color: #fff; border: none; padding-top: 10px; }
               .label-col { text-align: right; padding-right: 10px; color: #10567A; }
               .value-col { text-align: right; border-bottom: 1px solid #000; }
             </style>
@@ -339,6 +357,8 @@ export default function SettingsScreen() {
             <table>
               <thead>
                 <tr>
+                  <th style="text-align: left;">${t('export.colWarehouse', 'Warehouse')}</th>
+                  <th style="text-align: left;">${t('export.colStorage', 'Storage')}</th>
                   <th style="text-align: left;">${t('export.colName')}</th>
                   <th>${t('export.colQty')}</th>
                   <th>${t('export.colUnitCost')}</th>
@@ -351,17 +371,17 @@ export default function SettingsScreen() {
                 ${rowsHtml}
               </tbody>
               <tfoot>
-                <tr style="height: 20px;"><td colspan="6"></td></tr>
+                <tr style="height: 20px;"><td colspan="8"></td></tr>
                 
                 <tr>
-                  <td colspan="3"></td>
+                  <td colspan="5"></td>
                   <td class="label-col">${t('export.costOfStock')}</td>
                   <td class="value-col">${totalNet.toFixed(2)}</td>
                   <td></td>
                 </tr>
 
                 <tr>
-                  <td colspan="3"></td>
+                  <td colspan="5"></td>
                   <td class="label-col">${t('export.withTax')}</td>
                   <td class="value-col">${totalGross.toFixed(2)}</td>
                   <td></td>
@@ -558,7 +578,7 @@ export default function SettingsScreen() {
           </Pressable>
         </View>
       </View>
-       
+        
       {/* DELETE & LOGOUT */}
       <View style={[styles.section, { marginTop: 20, marginBottom: 50 }]}>
         {profile?.role === 'admin' && (
