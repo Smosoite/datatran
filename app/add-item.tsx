@@ -323,7 +323,7 @@ export default function AddItemScreen() {
             </Text>
             <View style={[styles.usageRow, { borderColor: colors.border }]}>
               <Pressable 
-                style={[styles.usageBtn, usageType === 'production' && { backgroundColor: colors.primary }]}
+                style={[styles.usageBtn, usageType === 'production' && { backgroundColor: colors.selector }]}
                 onPress={() => setUsageType('production')}
               >
                  <Text style={[typography.body, { color: usageType === 'production' ? '#fff' : colors.text }]}>
