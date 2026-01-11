@@ -50,7 +50,7 @@ const ThemedStack = () => {
         <Stack.Screen name="create-location" options={{ headerShown: true, title: '', presentation: 'modal' }} />
         <Stack.Screen name="select-location-modal" options={{ headerShown: true, title: '', presentation: 'modal' }} />
         <Stack.Screen name="find" options={{ headerShown: true, title: '', presentation: 'push' }} />
-        <Stack.Screen name="edit-item/[id]" options={{ headerShown: true, title: 'Edit Item', presentation: 'modal' }} />
+        <Stack.Screen name="edit-item/[id]" options={{ headerShown: true, title: '', presentation: 'modal' }} />
         <Stack.Screen name="scan" options={{ headerShown: true, title: 'Scan', presentation: 'modal' }} />
         <Stack.Screen name="restock" options={{ headerShown: true, title: 'Restock', presentation: 'modal' }} />
         <Stack.Screen name="profile" options={{ headerShown: true, title: 'Profile', presentation: 'modal' }} />
