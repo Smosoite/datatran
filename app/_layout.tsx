@@ -42,7 +42,7 @@ const ThemedStack = () => {
         <Stack.Screen name="join-workgroup" options={{ headerShown: true, title: 'Join Workgroup' }} />
 
         {/* App Screens */}
-        <Stack.Screen name="warehouse/[id]" options={{ headerShown: true, title: 'Warehouse', presentation: 'push' }} />
+        <Stack.Screen name="warehouse/[id]" options={{ headerShown: true, title: '', presentation: 'push' }} />
         <Stack.Screen name="create-warehouse" options={{ headerShown: true, title: 'Create Warehouse', presentation: 'modal' }} />
         <Stack.Screen name="add-item" options={{ headerShown: true, title: '', presentation: 'modal' }} />
         <Stack.Screen name="create-storage" options={{ headerShown: true, title: '', presentation: 'modal' }} />
@@ -51,10 +51,10 @@ const ThemedStack = () => {
         <Stack.Screen name="select-location-modal" options={{ headerShown: true, title: '', presentation: 'modal' }} />
         <Stack.Screen name="find" options={{ headerShown: true, title: '', presentation: 'push' }} />
         <Stack.Screen name="edit-item/[id]" options={{ headerShown: true, title: '', presentation: 'modal' }} />
-        <Stack.Screen name="scan" options={{ headerShown: true, title: 'Scan', presentation: 'modal' }} />
-        <Stack.Screen name="restock" options={{ headerShown: true, title: 'Restock', presentation: 'modal' }} />
-        <Stack.Screen name="profile" options={{ headerShown: true, title: 'Profile', presentation: 'modal' }} />
-        <Stack.Screen name="edit-location/[id]" options={{ headerShown: true, title: 'Edit Location', presentation: 'modal' }} />
+        <Stack.Screen name="scan" options={{ headerShown: true, title: '', presentation: 'modal' }} />
+        <Stack.Screen name="restock" options={{ headerShown: true, title: '', presentation: 'modal' }} />
+        <Stack.Screen name="profile" options={{ headerShown: true, title: '', presentation: 'modal' }} />
+        <Stack.Screen name="edit-location/[id]" options={{ headerShown: true, title: '', presentation: 'modal' }} />
         <Stack.Screen name="stock-grid" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="history" options={{ headerShown: true, presentation: 'push' }} /> 
         <Stack.Screen name="manage-members" options={{ headerShown: true, presentation: 'push' }} />
