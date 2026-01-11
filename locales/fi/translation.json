@@ -391,8 +391,8 @@
     "colTotalGross": "ARVO (SIS. ALV)",
     "costOfStock": "VARASTON ARVO",
     "withTax": "SIS. VERO",
-    "colWarehouse": ,
-    "colStorage": ,
+    "colWarehouse": "VARASTO",
+    "colStorage": "VARASTOYKSIKKÖ",
   },
   "onboarding": {
     "welcome": "Tervetuloa StoreTooliin",
