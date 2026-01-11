@@ -52,7 +52,7 @@ export default function HomeScreen() {
         <Text style={[styles.title, { color: colors.text }]}></Text>
         <View style={styles.buttonContainer}>
           <Pressable style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/add-item')}>
-            <FontAwesome name="plus-circle" size={20} color={colors.text} style={[typography.shadow, { textShadowColor: colors.textShadow }]} />
+            <FontAwesome name="plus-circle" size={20} color={colors.subtext}/>
             <Text
               numberOfLines={1}
               adjustsFontSizeToFit
