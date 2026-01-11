@@ -108,7 +108,7 @@ const QuickInventoryDemo = () => {
             ))}
           </View>
           <Pressable style={[styles.demoBtn, { backgroundColor: colors.primary }]} onPress={handleWarehouseCreate}>
-             {loading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.demoBtnText}>{t('general.next', 'Next')}</Text>}
+             {loading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.demoBtnText}>{t('general.cont', 'Next')}</Text>}
           </Pressable>
         </>
       )}
