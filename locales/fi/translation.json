@@ -386,11 +386,13 @@
     "colName": "NIMI",
     "colQty": "MÄÄRÄ",
     "colUnitCost": "KAPPALEHINTA",
-    "colTax": "VERO %",
+    "colTax": "ALV %",
     "colTotalNet": "ARVO (ALV 0)",
     "colTotalGross": "ARVO (SIS. ALV)",
     "costOfStock": "VARASTON ARVO",
-    "withTax": "SIS. VERO"
+    "withTax": "SIS. VERO",
+    "colWarehouse": ,
+    "colStorage": ,
   },
   "onboarding": {
     "welcome": "Tervetuloa StoreTooliin",
