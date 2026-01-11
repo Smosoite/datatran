@@ -471,7 +471,7 @@ export default function SettingsScreen() {
             <Text style={[typography.button, styles.value, { color: colors.selector }]}>{workgroup?.name || '...'}</Text>
           </View>
           <View style={[styles.row, { borderBottomWidth: 0 }]}>
-            <Text style={[typography.button, styles.label, { color: colors.primary }]}>{t('settings.code')}</Text>
+            <Text style={[typography.button, styles.label, { color: colors.text }]}>{t('settings.code')}</Text>
             <Text style={[typography.button, styles.value, { color: colors.selector }]}>{workgroup?.join_code || '...'}</Text>
           </View>
         </View>
