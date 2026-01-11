@@ -302,6 +302,11 @@
     "namePlaceholder": "Roadhouse Inc.",
     "createButton": "Create Workgroup",
   },
+  "history": {
+    "Last": "Viimeiseltä",
+    "days": "päivältä.",
+    "begin"
+  },
   "pilot": {
     "addNew": "Tap here to manually add new items to your inventory.",
     "search": "Search for items by name or location.",
