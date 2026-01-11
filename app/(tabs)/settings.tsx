@@ -654,7 +654,7 @@ export default function SettingsScreen() {
               onPress={() => handleExportData('today')}
               disabled={isExporting}
             >
-              <Text style={[typography.button, { color: colors.text }]}>{t('history.exportToday', 'Today')}</Text>
+              <Text style={[typography.button, { color: colors.text }]}>{t('history.today', 'Today')}</Text>
             </Pressable>
 
             {/* Option 2: All Time */}
