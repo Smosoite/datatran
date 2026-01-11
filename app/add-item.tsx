@@ -221,6 +221,7 @@ export default function AddItemScreen() {
       resetForm();
 
     } catch (error: any) {
+      console.error('SUPABASE ADD ITEM ERROR:', JSON.stringify(error, null, 2));
       showError(t('general.error'), error.message);
     } finally {
       setSaving(false);
