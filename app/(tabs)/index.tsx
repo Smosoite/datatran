@@ -129,7 +129,7 @@ export default function HomeScreen() {
         {!loading && restockItems.length > 0 && (
           <Pressable style={[styles.restockButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/restock')}>
             <FontAwesome name="cubes" size={20} color={colors.text}/>
-            <Text style={[typography.h3, typography.shadow, styles.restockButtonText, { color: colors.text, textShadowColor: colors.textShadow }]}>{t('restock.button')}</Text>
+            <Text style={[typography.h3, styles.restockButtonText, { color: colors.textWhite }]}>{t('restock.button')}</Text>
           </Pressable>
         )}
       </View>
