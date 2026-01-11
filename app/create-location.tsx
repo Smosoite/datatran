@@ -163,7 +163,20 @@ export default function CreateLocationScreen() {
         />
         <IdentifierSelector value={shelfType} onValueChange={setShelfType} colors={colors} />
       </View>
-      
+
+<View style={[styles.dimensionContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('location.numCols')}</Text>
+        <TextInput 
+            style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} 
+            placeholder="e.g., 4" 
+            placeholderTextColor={colors.subtext}
+            value={colCount} 
+            onChangeText={setColCount} 
+            keyboardType="number-pad" 
+        />
+        <IdentifierSelector value={colType} onValueChange={setColType} colors={colors} />
+      </View>
+
       <View style={[styles.dimensionContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('location.numRows')}</Text>
         <TextInput 
@@ -177,19 +190,6 @@ export default function CreateLocationScreen() {
         <IdentifierSelector value={rowType} onValueChange={setRowType} colors={colors} />
       </View>
 
-      <View style={[styles.dimensionContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('location.numCols')}</Text>
-        <TextInput 
-            style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} 
-            placeholder="e.g., 4" 
-            placeholderTextColor={colors.subtext}
-            value={colCount} 
-            onChangeText={setColCount} 
-            keyboardType="number-pad" 
-        />
-        <IdentifierSelector value={colType} onValueChange={setColType} colors={colors} />
-      </View>
-      
       <Pressable style={[styles.button, { backgroundColor: colors.selector }]} onPress={handleBulkCreate} disabled={loading}>
         {loading ? (
             <ActivityIndicator color={colors.text || '#fff'} />
