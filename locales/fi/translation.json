@@ -93,7 +93,7 @@
     "showPassword": "Näytä salasana",
     "forgotPassword": "Unohditko salasanan?",
     "emailRequired": "Syötä sähköpostiosoitteesi",
-    "resetEmailSent": "Salasanan palautuslinkki on lähetetty sähköpostiisi",
+    "resetEmailSent": "Salasanan palautuskoodi on lähetetty sähköpostiisi",
     "signIn": "Kirjaudu sisään",
     "noAccount": "Eikö sinulla ole tiliä? Rekisteröidy"
   },
