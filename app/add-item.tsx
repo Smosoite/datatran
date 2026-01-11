@@ -170,6 +170,7 @@ export default function AddItemScreen() {
         restock_threshold: finalThreshold,
         barcode: barcodeValue.trim() || null,
         storage_id: storageId,
+        warehouse_id: warehouseId,
         workgroup_id: profile.workgroup_id,
         
         // Financials
