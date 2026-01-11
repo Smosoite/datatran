@@ -429,19 +429,7 @@ export default function AddItemScreen() {
                  </Text>
                  <View style={[styles.locationContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
                     {loadingLocations ? (
-                        <ActivityIndicator color={colors.<View style={[styles.dimensionContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('location.numCols')}</Text>
-        <TextInput 
-            style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} 
-            placeholder="e.g., 4" 
-            placeholderTextColor={colors.subtext}
-            value={colCount} 
-            onChangeText={setColCount} 
-            keyboardType="number-pad" 
-        />
-        <IdentifierSelector value={colType} onValueChange={setColType} colors={colors} />
-      </View>
-      } />
+                        <ActivityIndicator color={colors.selector} />
                     ) : (
                         sortedShelves.map(shelf => (
                             <View key={shelf} style={styles.shelfGroup}>
