@@ -44,7 +44,7 @@ const ThemedStack = () => {
         {/* App Screens */}
         <Stack.Screen name="warehouse/[id]" options={{ headerShown: true, title: 'Warehouse', presentation: 'push' }} />
         <Stack.Screen name="create-warehouse" options={{ headerShown: true, title: 'Create Warehouse', presentation: 'modal' }} />
-        <Stack.Screen name="add-item" options={{ headerShown: true, title: 'Add Item', presentation: 'modal' }} />
+        <Stack.Screen name="add-item" options={{ headerShown: true, title: '', presentation: 'modal' }} />
         <Stack.Screen name="create-storage" options={{ headerShown: true, title: '', presentation: 'modal' }} />
         <Stack.Screen name="storage/[id]" options={{ headerShown: true, presentation: 'push' }} />
         <Stack.Screen name="create-location" options={{ headerShown: true, title: '', presentation: 'modal' }} />
