@@ -279,7 +279,8 @@
     "removeMemberConfirm": "Haluatko varmasti poistaa käyttäjän {{username}} työryhmästä?",
     "promoteSuccess": "Käyttäjä ylennetty ylläpitäjäksi!",
     "demoteSuccess": "Käyttäjä alennettu jäseneksi.",
-    "removeSuccess": "Käyttäjä poistettu työryhmästä."
+    "removeSuccess": "Käyttäjä poistettu työryhmästä.",
+    "taxRate": "ALV %",
   },
   "profile": {
     "title": "Profiili",
