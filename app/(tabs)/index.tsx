@@ -64,7 +64,7 @@ export default function HomeScreen() {
           </Pressable>
 
           <Pressable style={[styles.actionButton, { backgroundColor: colors.selector }]} onPress={() => router.push('/find')}>
-            <FontAwesome name="search" size={20} color={colors.text} style={[typography.shadow, { textShadowColor: colors.textShadow }]} />
+            <FontAwesome name="search" size={20} color={colors.subtext}/>
             <Text
               numberOfLines={1}
               adjustsFontSizeToFit
