@@ -190,7 +190,7 @@ export default function CreateLocationScreen() {
         <IdentifierSelector value={colType} onValueChange={setColType} colors={colors} />
       </View>
       
-      <Pressable style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleBulkCreate} disabled={loading}>
+      <Pressable style={[styles.button, { backgroundColor: colors.selector }]} onPress={handleBulkCreate} disabled={loading}>
         {loading ? (
             <ActivityIndicator color={colors.text || '#fff'} />
         ) : (
