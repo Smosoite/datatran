@@ -194,7 +194,7 @@ export default function EditItemScreen() {
             styles.taxChip,
             { 
               backgroundColor: value === bracket.value ? colors.selector : colors.card,
-              borderColor: value === bracket.value ? colors.primary : colors.border
+              borderColor: value === bracket.value ? colors.selector : colors.border
             }
           ]}
         >
