@@ -68,10 +68,7 @@ const ThemedStack = () => {
 
 // --- 2. AuthRedirectHandler (Logic Layer) ---
 const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
-  // FIX: Destructure subscriptionStatus directly from useAuth()
-  // This uses the Source of Truth (Supabase/Context) instead of the local hook
   const { session, profile, loading: authLoading, subscriptionStatus } = useAuth();
-  
   const { hasCompletedOnboarding, isLoading: onboardingLoading } = useOnboarding();
   const { colors } = useTheme();
 
@@ -105,7 +102,7 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
 
     // --- LOGIC FLOW (Strict Order) ---
 
-    // 1. Not Onboarded? -> Onboarding Flow (Before Login)
+    // 1. Not Onboarded? -> Onboarding Flow
     if (!hasCompletedOnboarding) {
       if (!inOnboardingGroup) {
           router.replace('/onboarding/welcome');
@@ -119,20 +116,13 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
       return;
     }
 
-    // 3. Subscription Check (Paywall) - MOVED UP
-    // Logic: Must pay before joining a workgroup.
-    // We check subscriptionStatus from AuthProvider. If 'trial_active', we proceed.
+    // 3. Subscription Check
     if (!isDemoMode && (subscriptionStatus === 'trial_expired')) {
-      // Note: We are lenient with 'none' here to allow the AuthProvider to set defaults for new users
-      // But if it is explicitly expired, we block.
-      
       if (currentRoute !== 'paywall' && !pathname.includes('paywall')) {
           router.replace('/onboarding/paywall?expired=true');
       }
       return;
     }
-    // Double check: if status is 'none', it implies data error, but we usually default to active.
-    // If you want to be strict: || subscriptionStatus === 'none'
 
     // 4. No Workgroup? -> Setup
     if (!profile?.workgroup_id) {
@@ -140,19 +130,33 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
       return;
     }
 
-    // 5. All Good -> Main App (Tabs)
-    // Only redirect if we are currently stuck in auth/setup/onboarding but don't need to be.
+    // 5. All Good -> Main App OR Custom Destination
     if (inAuthGroup || inSetupGroup || inOnboardingGroup || pathname.includes('paywall')) {
-      router.replace('/(tabs)');
+      
+      // --- NEW LOGIC START ---
+      const handleRedirect = async () => {
+        const customDestination = await AsyncStorage.getItem('LOGIN_DESTINATION');
+        
+        if (customDestination) {
+          // Clear the flag and go to the custom page (e.g., Profile)
+          await AsyncStorage.removeItem('LOGIN_DESTINATION');
+          // Use 'as any' to satisfy TypeScript if the route isn't strictly typed
+          router.replace(customDestination as any); 
+        } else {
+          // Default behavior
+          router.replace('/(tabs)');
+        }
+      };
+      
+      handleRedirect();
+      // --- NEW LOGIC END ---
     }
 
   }, [session, profile, hasCompletedOnboarding, subscriptionStatus, segments, isLoading, isDemoMode, pathname]);
 
-  // --- RENDERING ---
   return (
     <View style={{ flex: 1 }}>
       {children}
-
       {isLoading && (
         <View style={{
             position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
