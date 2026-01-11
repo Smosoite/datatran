@@ -303,10 +303,11 @@
     "createButton": "Create Workgroup",
   },
   "history": {
-    "Last": "Viimeiset",
-    "days": "päivää.",
-    "exportAll": "Alusta",
+    "Last": "Last",
+    "days": "days.",
+    "exportAll": "From the start",
     "today": "24h",
+    "exportTitle": "Export history",
   },
   "pilot": {
     "addNew": "Tap here to manually add new items to your inventory.",
