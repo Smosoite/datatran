@@ -129,7 +129,7 @@ export default function FindScreen() {
                 <View style={[styles.quantityControls, { backgroundColor: colors.background }]}>
                   <Text style={[typography.body, styles.quantityLabel, { color: colors.text }]}>{t('item.quantity')}</Text>
                   <Pressable style={styles.quantityButton} onPress={() => updateItemQuantity(item.id, item.quantity - 1)}>
-                    <FontAwesome name="minus" size={16} color={colors.primary} />
+                    <FontAwesome name="minus" size={16} color={colors.selector} />
                   </Pressable>
                   <Text style={[typography.body, styles.quantityValue, { color: colors.text }]}>{item.quantity}</Text>
                   <Pressable style={styles.quantityButton} onPress={() => updateItemQuantity(item.id, item.quantity + 1)}>
