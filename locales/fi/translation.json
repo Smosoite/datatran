@@ -35,7 +35,7 @@
     "noStorID": "Varastoyksikön tunnusta ei löytynyt.",
     "nothing": "Ei mitään luotavaa...",
     "creation": "Hyväksy",
-    "thisWill": "Tämä tulee luomaan {{count}} varastopaikkaa. Jatketaanko?",
+    "thisWill": "Tämä tulee luomaan {{count}} hyllypaikkaa. Jatketaanko?",
     "yes": "Kyllä",
     "generate": "Rakennetaan...",
     "nameRequired": "Nimi on pakollinen",
