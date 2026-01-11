@@ -133,7 +133,7 @@ export default function FindScreen() {
                   </Pressable>
                   <Text style={[typography.body, styles.quantityValue, { color: colors.text }]}>{item.quantity}</Text>
                   <Pressable style={styles.quantityButton} onPress={() => updateItemQuantity(item.id, item.quantity + 1)}>
-                    <FontAwesome name="plus" size={16} color={colors.primary} />
+                    <FontAwesome name="plus" size={16} color={colors.selector} />
                   </Pressable>
                 </View>
               </View>
