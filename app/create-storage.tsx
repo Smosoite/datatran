@@ -56,7 +56,7 @@ export default function CreateStorageScreen() {
         value={name}
         onChangeText={setName}
       />
-      <Pressable style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleCreateStorage} disabled={loading}>
+      <Pressable style={[styles.button, { backgroundColor: colors.selector }]} onPress={handleCreateStorage} disabled={loading}>
         {loading ? (
           <ActivityIndicator color={colors.text || '#fff'} />
         ) : (
