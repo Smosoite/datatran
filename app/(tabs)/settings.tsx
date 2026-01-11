@@ -641,7 +641,7 @@ export default function SettingsScreen() {
                 <Text style={[styles.toggleText, { color: exportFormat === 'csv' ? '#fff' : colors.text }]}>CSV</Text>
               </Pressable>
               <Pressable 
-                style={[styles.toggleBtn, exportFormat === 'pdf' && { backgroundColor: colors.primary }]}
+                style={[styles.toggleBtn, exportFormat === 'pdf' && { backgroundColor: colors.selector }]}
                 onPress={() => setExportFormat('pdf')}
               >
                 <Text style={[styles.toggleText, { color: exportFormat === 'pdf' ? '#fff' : colors.text }]}>PDF</Text>
