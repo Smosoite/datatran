@@ -62,7 +62,7 @@
     "email": "Sähköposti",
     "email1": "Sähköposti varmistus vaadittu",
     "password": "Salasana",
-    "password1": "Väh 8 merkkiä, kirjaimet + numerot",
+    "password1": "Väh. 8 merkkiä, kirjaimet + numerot",
     "signIn": "Kirjaudu sisään",
     "noAccount": "Eikö sinulla ole tiliä? Rekisteröidy",
     "signUpHeader": "Luo tili",
