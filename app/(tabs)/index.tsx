@@ -81,7 +81,7 @@ export default function HomeScreen() {
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.5}
-              style={[typography.button, typography.shadow, styles.buttonText, { color: colors.subtext, textShadowColor: colors.textShadow }]}
+              style={[typography.button, styles.buttonText, { color: colors.subtext, textShadowColor: colors.textShadow }]}
             >
               {t('dashboard.scanItem')}
             </Text>
