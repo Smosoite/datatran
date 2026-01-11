@@ -678,7 +678,7 @@ export default function SettingsScreen() {
               <Text style={[typography.body, { color: colors.text, marginLeft: 10 }]}>{t('history.days', 'Days')}</Text>
               
               <Pressable 
-                style={[styles.smallBtn, { backgroundColor: colors.primary }]} 
+                style={[styles.smallBtn, { backgroundColor: colors.selector }]} 
                 onPress={() => handleExportData('custom')}
                 disabled={isExporting}
               >
