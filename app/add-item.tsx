@@ -469,7 +469,7 @@ export default function AddItemScreen() {
         )}
 
         {/* --- Submit Button --- */}
-        <Pressable style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleSave} disabled={saving}>
+        <Pressable style={[styles.button, { backgroundColor: colors.selector }]} onPress={handleSave} disabled={saving}>
           {saving ? (
             <ActivityIndicator color="#fff" />
           ) : (
