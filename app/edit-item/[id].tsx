@@ -297,7 +297,7 @@ export default function EditItemScreen() {
            <Switch 
              value={showFinancials} 
              onValueChange={setShowFinancials} 
-             trackColor={{ false: colors.border, true: colors.primary }}
+             trackColor={{ false: colors.border, true: colors.border }}
            />
       </View>
 
