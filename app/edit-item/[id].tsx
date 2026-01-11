@@ -413,7 +413,7 @@ export default function EditItemScreen() {
         {updating ? (
           <ActivityIndicator color={colors.text || '#fff'} />
         ) : (
-          <Text style={[typography.button, styles.buttonText, { color: colors.selector }]}>{t('general.save')}</Text>
+          <Text style={[typography.button, styles.buttonText, { color: colors.text }]}>{t('general.save')}</Text>
         )}
       </Pressable>
     </ScrollView>
