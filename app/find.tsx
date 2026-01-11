@@ -93,7 +93,7 @@ export default function FindScreen() {
           onChangeText={setSearchQuery}
           onSubmitEditing={handleSearch}
         />
-        <Pressable style={[styles.searchButton, { backgroundColor: colors.primary }]} onPress={handleSearch}>
+        <Pressable style={[styles.searchButton, { backgroundColor: colors.selector }]} onPress={handleSearch}>
           <FontAwesome name="search" size={20} color={colors.text} />
         </Pressable>
       </View>
