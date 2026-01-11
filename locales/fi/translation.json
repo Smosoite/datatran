@@ -108,6 +108,7 @@
     "passwordsRequired": "Täytä molemmat salasanakentät",
     "passwordsNoMatch": "Salasanat eivät täsmää",
     "passwordUpdated": "Salasana päivitetty onnistuneesti. Kirjaudu sisään.",
+    "verify": "Varmista",
     "signIn": "Kirjaudu sisään",
     "noAccount": "Eikö sinulla ole tiliä? Rekisteröidy",
   },
