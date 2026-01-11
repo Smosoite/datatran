@@ -409,7 +409,7 @@ export default function EditItemScreen() {
       />
       
       {/* 7. Save Button */}
-      <Pressable style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleUpdate} disabled={updating}>
+      <Pressable style={[styles.button, { backgroundColor: colors.selector }]} onPress={handleUpdate} disabled={updating}>
         {updating ? (
           <ActivityIndicator color={colors.text || '#fff'} />
         ) : (
