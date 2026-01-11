@@ -133,7 +133,7 @@
     "title": "Varastoyksikkö"
   },
   "location": {
-    "defined": "Määritellyt varastopaikat",
+    "defined": "Määritellyt hyllypaikat",
     "createHeader": "Lisää uusi varastopaikka",
     "createButton": "Luo varastopaikka",
     "generatorHeader": "Paikkojen luonti",
