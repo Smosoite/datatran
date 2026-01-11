@@ -218,7 +218,7 @@ export default function EditItemScreen() {
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={styles.contentContainer}>
       
       {/* 1. Name */}
-      <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.itemName*')}</Text>
+      <Text style={[typography.h3, styles.label, { color: colors.text }]}>{t('item.itemName')}</Text>
       <TextInput 
         style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]} 
         value={name} 
