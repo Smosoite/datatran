@@ -193,7 +193,7 @@ export default function EditItemScreen() {
           style={[
             styles.taxChip,
             { 
-              backgroundColor: value === bracket.value ? colors.primary : colors.card,
+              backgroundColor: value === bracket.value ? colors.selector : colors.card,
               borderColor: value === bracket.value ? colors.primary : colors.border
             }
           ]}
