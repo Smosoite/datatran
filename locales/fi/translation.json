@@ -397,8 +397,9 @@
   "history": {
     "Last": "Viimeiset",
     "days": "päivää.",
-    "exportAll": "Alusta",
+    "exportAll": "Alusta asti",
     "today": "24h",
+    "exportTitle": "Lataa tapahtumat",
   },
   "onboarding": {
     "welcome": "Tervetuloa StoreTooliin",
