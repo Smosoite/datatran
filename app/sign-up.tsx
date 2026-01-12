@@ -31,16 +31,18 @@ export default function SignUpScreen() {
     // --- FIX START: Cleaned up logic ---
     if (error) {
       // Error exists, show it
-      showError(t('general.error'), error.message);
+      if (error.message.includes('already registered') || error.message.includes('User already registered')) {
+      showError(t('general.error'), t('auth.emailTaken', 'Email already taken'));
     } else {
-      // Success (Error is null here, so don't try to read error.message)
-      showSuccess(t('general.success'), t('general.accountCreated'));
-      router.push('/login');
+      showError(t('general.error'), error.message);
     }
-    // --- FIX END ---
-    
-    setLoading(false);
+  } else {
+    showSuccess(t('general.success'), t('general.accountCreated'));
+    router.push('/login');
   }
+  
+  setLoading(false);
+}
 
   return (
       <ScrollView contentContainerStyle={[styles.container, { backgroundColor: colors.background }]}>
