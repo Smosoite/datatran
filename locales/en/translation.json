@@ -84,7 +84,8 @@
     "joinedGroup": "You have joined the workgroup!",
     "signing": "Authenticating...",
     "passwordNoMatch": "Passwords do not match!",
-    "creating": "Creating account..."
+    "creating": "Creating account...",
+    "invalidCredentials": "Invalid login credentials!",
   },
   "login": {
     "subtitle": "Sign in to manage your inventory",
