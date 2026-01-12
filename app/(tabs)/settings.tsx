@@ -136,19 +136,17 @@ export default function SettingsScreen() {
   }, [workgroup, t, showConfirmation, showPasscodeModal]);
 
   const handleLogout = useCallback(async () => {
+    // Flag it so Layout doesn't bounce us back
+    await AsyncStorage.setItem('IS_LOGGING_OUT', 'true');
+    router.replace('/login');
+
+    // Attempt sign out in background (race condition proof)
     try {
-      // Attempt to sign out normally, but race against a 2-second timeout
-      // This prevents the button from doing "nothing" if the Supabase client is stuck
-      await Promise.race([
-        supabase.auth.signOut(),
-        new Promise((resolve) => setTimeout(resolve, 2000))
-      ]);
-    } catch (err) {
-      console.log("Logout cleanup error (ignored):", err);
-    } finally {
-      // ALWAYS force redirect to login, no matter what happened above
-      router.replace('/login');
-    }
+        await Promise.race([
+            supabase.auth.signOut(), 
+            new Promise(r => setTimeout(r, 2000))
+        ]);
+    } catch(e) { console.log("Logout cleanup error", e); }
   }, [t, router]);
 
   const toggleMode = useCallback(() => {
