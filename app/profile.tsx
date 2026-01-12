@@ -1,33 +1,4 @@
-import { useTranslation } from 'react-i18next';
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
-import { supabase } from '../lib/supabase';
-import { useAuth } from '../providers/AuthProvider';
-import { useTheme } from '../providers/ThemeProvider';
-import { showError, showSuccess } from '../lib/toast';
-import { typography } from '../styles/typography';
-import { Feather } from '@expo/vector-icons';
-
-export default function ProfileScreen() {
-  const { t } = useTranslation();
-  const router = useRouter();
-  const { colors } = useTheme();
-  const { profile, refreshProfile } = useAuth();
-  
-  const [username, setUsername] = useState(profile?.username || '');
-  
-  // Password States
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  
-  // Visibility Toggles
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
-  const [loading, setLoading] = useState(false);
-
-  const handleUpdateProfile = async () => {
+const handleUpdateProfile = async () => {
     // 1. Validation
     if (!username.trim()) {
       showError(t('general.error'), t('profile.noUserName', 'Username is required'));
@@ -48,47 +19,44 @@ export default function ProfileScreen() {
     setLoading(true);
     
     try {
-      const updates = [];
-
-      // 2. Prepare Username Update (if changed)
+      // 2. Update Username First (Database Operation)
+      // We do this first because we need the current session to be valid.
       if (username !== profile?.username) {
-        const profileUpdatePromise = supabase
+        const { error: profileError } = await supabase
           .from('profiles')
           .update({ username: username.trim() })
-          .eq('id', profile?.id)
-          .then(({ error }) => { if (error) throw error; });
-          
-        updates.push(profileUpdatePromise);
+          .eq('id', profile?.id);
+
+        if (profileError) throw profileError;
       }
 
-      // 3. Prepare Password Update (if entered)
+      // 3. Update Password Second (Auth Operation)
       if (password) {
-        const passwordUpdatePromise = supabase.auth
-          .updateUser({ password })
-          .then(({ error }) => { if (error) throw error; });
-          
-        updates.push(passwordUpdatePromise);
-      }
+        const { error: passwordError } = await supabase.auth.updateUser({ password });
+        
+        if (passwordError) throw passwordError;
 
-      // 4. Run updates in parallel
-      if (updates.length > 0) {
-        await Promise.all(updates);
-      }
-
-      setLoading(false);
-
-      // 5. Handle Post-Update Logic
-      if (password) {
-        // CASE A: Password was changed -> Logout User
-        // The _layout.tsx will detect the session loss and redirect to Login automatically.
-        await supabase.auth.signOut();
+        // CASE A: Password Changed -> Manual Logout & Redirect
+        // Stop loading BEFORE navigating to prevent memory leaks
+        setLoading(false); 
+        
+        // Show success message
         showSuccess(t('general.success'), t('login.passwordUpdated', 'Password updated. Please log in again.'));
-      } else {
-        // CASE B: Only Username changed -> Refresh & Go Back
-        showSuccess(t('general.success'), t('profile.updateSuccess', 'Profile updated successfully'));
-        refreshProfile().catch(err => console.log('Background refresh warning:', err));
-        router.back();
+        
+        // Sign out explicitly
+        await supabase.auth.signOut();
+
+        // FORCE navigation to login (replace ensures they can't go back)
+        // Adjust the path '/login' to match your actual route structure (e.g., '/(auth)/login')
+        router.replace('/login'); 
+        return;
       }
+
+      // CASE B: Only Username changed -> Refresh & Go Back
+      await refreshProfile(); // Await this to ensure UI updates before going back
+      setLoading(false);
+      showSuccess(t('general.success'), t('profile.updateSuccess', 'Profile updated successfully'));
+      router.back();
 
     } catch (error: any) {
       setLoading(false);
@@ -96,93 +64,3 @@ export default function ProfileScreen() {
       showError(t('general.error'), error.message || t('general.errorOccurred'));
     }
   };
-
-  return (
-    <ScrollView 
-      style={{ flex: 1, backgroundColor: colors.background }} 
-      contentContainerStyle={styles.contentContainer}
-      keyboardShouldPersistTaps="handled"
-    >
-      <Text style={[typography.h3, styles.header, { color: colors.text }]}>{t('profile.editHeader', 'Edit Profile')}</Text>
-
-      {/* USERNAME INPUT */}
-      <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('login.username', 'Username')}</Text>
-      <TextInput
-        style={[typography.body, styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
-        value={username}
-        onChangeText={setUsername}
-        autoCapitalize="none"
-      />
-      
-      {/* PASSWORD SECTION */}
-      <Text style={[typography.body, styles.sectionTitle, { color: colors.text, borderBottomColor: colors.border }]}>
-        {t('profile.changePassword', 'Change Password')}
-      </Text>
-
-      {/* New Password Field */}
-      <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('login.newPassword', 'New Password')}</Text>
-      <View style={[styles.passwordContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <TextInput
-            style={[styles.passwordInput, { color: colors.text }]}
-            placeholder={t('login.newPassword', 'New Password')}
-            placeholderTextColor={colors.subtext}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={!showPassword}
-        />
-        <TouchableOpacity 
-            style={styles.eyeIcon} 
-            onPress={() => setShowPassword(!showPassword)}
-        >
-            <Feather name={showPassword ? "eye" : "eye-off"} size={20} color={colors.subtext} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Confirm Password Field */}
-      <Text style={[typography.body, styles.label, { color: colors.text }]}>{t('login.reInputPassword', 'Confirm Password')}</Text>
-      <View style={[styles.passwordContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <TextInput
-            style={[styles.passwordInput, { color: colors.text }]}
-            placeholder={t('login.reInputPassword', 'Confirm Password')}
-            placeholderTextColor={colors.subtext}
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry={!showConfirmPassword}
-        />
-        <TouchableOpacity 
-            style={styles.eyeIcon} 
-            onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-        >
-            <Feather name={showConfirmPassword ? "eye" : "eye-off"} size={20} color={colors.subtext} />
-        </TouchableOpacity>
-      </View>
-      
-      {/* SAVE BUTTON */}
-      <Pressable style={[styles.button, { backgroundColor: colors.primary || colors.selector }]} onPress={handleUpdateProfile} disabled={loading}>
-        {loading ? (
-          <ActivityIndicator color={colors.primaryText || '#fff'} />
-        ) : (
-          <Text style={[typography.button, styles.buttonText, { color: colors.primaryText || '#fff' }]}>{t('general.save1', 'Save Changes')}</Text>
-        )}
-      </Pressable>
-    </ScrollView>
-  );
-}
-
-const styles = StyleSheet.create({
-  contentContainer: { padding: 24 },
-  header: { fontWeight: 'bold', marginBottom: 24, textAlign: 'center' },
-  sectionTitle: { fontWeight: '600', marginTop: 24, marginBottom: 16, borderBottomWidth: 1, paddingBottom: 8 },
-  label: { marginBottom: 8, fontWeight: '500' },
-  
-  // Standard Input
-  input: { borderWidth: 1, borderRadius: 8, padding: 16, marginBottom: 16 },
-  
-  // Password Input (Flex Row Container)
-  passwordContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 8, marginBottom: 16 },
-  passwordInput: { flex: 1, padding: 16 },
-  eyeIcon: { padding: 16 },
-
-  button: { padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 24 },
-  buttonText: { fontWeight: 'bold' },
-});
