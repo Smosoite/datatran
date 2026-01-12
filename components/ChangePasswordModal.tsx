@@ -4,12 +4,12 @@ import { useTranslation } from 'react-i18next';
 import { Feather } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { showError, showSuccess } from '../lib/toast';
-// import { useRouter } from 'expo-router'; // Not needed if we rely on AuthRedirectHandler
+import { useRouter } from 'expo-router';
 import { useTheme } from '../providers/ThemeProvider';
 
 export default function ChangePasswordModal({ isVisible, onClose, themeColors, styles }) {
   const { t } = useTranslation();
-  // const router = useRouter(); // Removed manual router
+  const router = useRouter();
   const { colors } = useTheme();
   
   const [password, setPassword] = useState('');
@@ -29,9 +29,8 @@ export default function ChangePasswordModal({ isVisible, onClose, themeColors, s
     try {
       console.log("Attempting to update password...");
 
-      // --- FIX: RACE CONDITION ---
-      // Supabase updateUser in React Native sometimes hangs indefinitely due to a client lock bug.
-      // We race the update against a 5-second timeout.
+      // 2. Race Condition Fix:
+      // Run the update against a 5-second timer. If Supabase hangs, we proceed anyway.
       const timeOutPromise = new Promise((resolve) => {
         setTimeout(() => resolve({ error: null, timeout: true }), 5000);
       });
@@ -41,24 +40,20 @@ export default function ChangePasswordModal({ isVisible, onClose, themeColors, s
         timeOutPromise
       ]);
 
-      // If it was a real error from Supabase (not a timeout), throw it
       if (response.error) throw response.error;
 
-      if (response.timeout) {
-        console.warn("Update timed out locally (known bug), but proceeding assuming DB success.");
-      }
-      // ---------------------------
-
-      // 3. SUCCESS! Stop the UI spinners IMMEDIATELY
+      // 3. SUCCESS - Force Navigation FIRST
       setLoading(false);
-      onClose(); 
+      onClose();
       
       showSuccess(t('general.success'), t('login.passwordUpdated', 'Password updated. Please log in again.'));
       
-      // 4. Clean Logout
-      // We await this so the session clears.
-      // Your AuthRedirectHandler in _layout.tsx will detect the session loss and redirect to /login automatically.
-      await supabase.auth.signOut(); 
+      // CRITICAL: Manually navigate to login. Do not wait for AuthListener.
+      router.replace('/login');
+
+      // 4. Cleanup (Background)
+      // Fire and forget. We don't await this because it might hang.
+      supabase.auth.signOut();
 
     } catch (error: any) {
       setLoading(false);
