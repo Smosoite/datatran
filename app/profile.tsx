@@ -7,7 +7,7 @@ import { useAuth } from '../providers/AuthProvider';
 import { useTheme } from '../providers/ThemeProvider';
 import { showError, showSuccess } from '../lib/toast';
 import { typography } from '../styles/typography';
-import { Feather } from '@expo/vector-icons'; // Added for the Eye icon
+import { Feather } from '@expo/vector-icons';
 
 export default function ProfileScreen() {
   const { t } = useTranslation();
@@ -34,36 +34,66 @@ export default function ProfileScreen() {
       return;
     }
 
-    setLoading(true);
-    try {
-      // 2. Update Username (Public Profile)
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ username: username.trim() })
-        .eq('id', profile?.id);
-      
-      if (profileError) throw profileError;
+    if (password && password !== confirmPassword) {
+      showError(t('general.error'), t('login.passwordsNoMatch', 'Passwords do not match'));
+      return;
+    }
 
-      // 3. Update Password (Auth) - Only if field is filled
-      if (password) {
-        if (password !== confirmPassword) {
-          showError(t('general.error'), t('login.passwordsNoMatch', 'Passwords do not match'));
-          setLoading(false);
-          return;
-        }
-        
-        const { error: passwordError } = await supabase.auth.updateUser({ password });
-        if (passwordError) throw passwordError;
+    // If nothing changed, just go back
+    if (username === profile?.username && !password) {
+      router.back();
+      return;
+    }
+
+    setLoading(true);
+    
+    try {
+      const updates = [];
+
+      // 2. Prepare Username Update (if changed)
+      if (username !== profile?.username) {
+        const profileUpdatePromise = supabase
+          .from('profiles')
+          .update({ username: username.trim() })
+          .eq('id', profile?.id)
+          .then(({ error }) => { if (error) throw error; });
+          
+        updates.push(profileUpdatePromise);
       }
 
-      await refreshProfile(); 
-      showSuccess(t('general.success'), t('profile.updateSuccess', 'Profile updated successfully'));
-      router.back();
+      // 3. Prepare Password Update (if entered)
+      if (password) {
+        const passwordUpdatePromise = supabase.auth
+          .updateUser({ password })
+          .then(({ error }) => { if (error) throw error; });
+          
+        updates.push(passwordUpdatePromise);
+      }
+
+      // 4. Run updates in parallel
+      if (updates.length > 0) {
+        await Promise.all(updates);
+      }
+
+      setLoading(false);
+
+      // 5. Handle Post-Update Logic
+      if (password) {
+        // CASE A: Password was changed -> Logout User
+        // The _layout.tsx will detect the session loss and redirect to Login automatically.
+        await supabase.auth.signOut();
+        showSuccess(t('general.success'), t('login.passwordUpdated', 'Password updated. Please log in again.'));
+      } else {
+        // CASE B: Only Username changed -> Refresh & Go Back
+        showSuccess(t('general.success'), t('profile.updateSuccess', 'Profile updated successfully'));
+        refreshProfile().catch(err => console.log('Background refresh warning:', err));
+        router.back();
+      }
 
     } catch (error: any) {
-      showError(t('general.error'), error.message);
-    } finally {
       setLoading(false);
+      console.error("Profile Update Error:", error);
+      showError(t('general.error'), error.message || t('general.errorOccurred'));
     }
   };
 
