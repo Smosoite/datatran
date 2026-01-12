@@ -27,12 +27,11 @@ export default function ChangePasswordModal({ isVisible, onClose, themeColors, s
     setLoading(true);
 
     try {
-      // 2. Perform the Update
-      try {
       console.log("Attempting to update password..."); // Debug Log
       const { error } = await supabase.auth.updateUser({ password });
       console.log("Update response received", error); // Debug Log
       // ...
+      
       const { error } = await supabase.auth.updateUser({ password });
       
       if (error) throw error;
