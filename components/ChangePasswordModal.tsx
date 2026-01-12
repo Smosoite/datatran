@@ -16,6 +16,7 @@ export default function ChangePasswordModal({ isVisible, onClose, themeColors, s
   const [loading, setLoading] = useState(false);
 
   const handleUpdatePassword = async () => {
+    // 1. Validation
     if (!password || password !== confirmPassword) {
       showError(t('general.error'), t('login.passwordsNoMatch', 'Passwords do not match'));
       return;
@@ -24,21 +25,30 @@ export default function ChangePasswordModal({ isVisible, onClose, themeColors, s
     setLoading(true);
 
     try {
+      // 2. Perform the Update
       const { error } = await supabase.auth.updateUser({ password });
+      
       if (error) throw error;
 
-      // Success sequence
+      // 3. SUCCESS! Stop the UI spinners IMMEDIATELY
       setLoading(false);
-      onClose(); // Close modal immediately
+      onClose(); // Close the modal right now so it can't get "stuck"
       
       showSuccess(t('general.success'), t('login.passwordUpdated', 'Password updated. Please log in again.'));
       
-      // Logout and Redirect
-      await supabase.auth.signOut();
+      // 4. Force Navigation to Login
+      // We do this BEFORE signing out to prevent the app from getting confused 
+      // about which screen to show while the session is being destroyed.
       router.replace('/login'); 
 
+      // 5. Cleanup (Background)
+      // We do NOT await this. Just let it happen in the background.
+      supabase.auth.signOut();
+
     } catch (error: any) {
+      // If we fail, stop loading and keep modal open so they can try again
       setLoading(false);
+      console.error("Password Update Error:", error);
       showError(t('general.error'), error.message);
     }
   };
