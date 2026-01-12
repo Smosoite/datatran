@@ -58,11 +58,20 @@ export default function ManageWarehouseScreen() {
 
   // --- NEW HANDLER FUNCTION ---
   const handleOpenGrid = (storageId: string) => {
-    // 1. Check if admin passcode is set
-    if (!workgroup?.admin_passcode) {
-      showError(t('general.error'), "No admin passcode is set for this workgroup."); // You can add a translation for this
-      return;
-    }
+    // 1. Check if admin passcode is set
+    if (!workgroup?.admin_passcode) {
+        showConfirmation({
+            title: t('stockGrid.adminAccess', 'Admin Access'),
+            message: t('stockGrid.noPasscodeSetup', 'An admin passcode is required to use the Grid View. Please set one in Settings.'),
+            confirmText: t('settings.title', 'Settings'),
+            onConfirm: () => router.push('/(tabs)/settings'),
+        });
+        return;
+    }
+
+    // 2. Navigate directly (Edit mode inside grid will handle auth)
+    router.push(`/stock-grid/${storageId}`);
+  };
 
     // 2. Show the passcode modal
     showPasscodeModal({
