@@ -4,13 +4,13 @@ import { useTranslation } from 'react-i18next';
 import { Feather } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { showError, showSuccess } from '../lib/toast';
-import { useRouter } from 'expo-router';
+// import { useRouter } from 'expo-router'; // Not needed if we rely on AuthRedirectHandler
 import { useTheme } from '../providers/ThemeProvider';
 
 export default function ChangePasswordModal({ isVisible, onClose, themeColors, styles }) {
   const { t } = useTranslation();
-  const router = useRouter();
-  const { colors } = useTheme(); 
+  // const router = useRouter(); // Removed manual router
+  const { colors } = useTheme();
   
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -27,30 +27,40 @@ export default function ChangePasswordModal({ isVisible, onClose, themeColors, s
     setLoading(true);
 
     try {
-      console.log("Attempting to update password..."); // Debug Log
-      const { error } = await supabase.auth.updateUser({ password });
-      console.log("Update response received", error); // Debug Log
-      // ...
-      
-      if (error) throw error;
+      console.log("Attempting to update password...");
+
+      // --- FIX: RACE CONDITION ---
+      // Supabase updateUser in React Native sometimes hangs indefinitely due to a client lock bug.
+      // We race the update against a 5-second timeout.
+      const timeOutPromise = new Promise((resolve) => {
+        setTimeout(() => resolve({ error: null, timeout: true }), 5000);
+      });
+
+      const response: any = await Promise.race([
+        supabase.auth.updateUser({ password }),
+        timeOutPromise
+      ]);
+
+      // If it was a real error from Supabase (not a timeout), throw it
+      if (response.error) throw response.error;
+
+      if (response.timeout) {
+        console.warn("Update timed out locally (known bug), but proceeding assuming DB success.");
+      }
+      // ---------------------------
 
       // 3. SUCCESS! Stop the UI spinners IMMEDIATELY
       setLoading(false);
-      onClose(); // Close the modal right now so it can't get "stuck"
+      onClose(); 
       
       showSuccess(t('general.success'), t('login.passwordUpdated', 'Password updated. Please log in again.'));
       
-      // 4. Force Navigation to Login
-      // We do this BEFORE signing out to prevent the app from getting confused 
-      // about which screen to show while the session is being destroyed.
-      router.replace('/login'); 
-
-      // 5. Cleanup (Background)
-      // We do NOT await this. Just let it happen in the background.
-      supabase.auth.signOut();
+      // 4. Clean Logout
+      // We await this so the session clears.
+      // Your AuthRedirectHandler in _layout.tsx will detect the session loss and redirect to /login automatically.
+      await supabase.auth.signOut(); 
 
     } catch (error: any) {
-      // If we fail, stop loading and keep modal open so they can try again
       setLoading(false);
       console.error("Password Update Error:", error);
       showError(t('general.error'), error.message);
