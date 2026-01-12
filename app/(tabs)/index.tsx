@@ -29,20 +29,41 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      let isActive = true;
+
       const fetchData = async () => {
         setLoading(true);
-        const { data: restockData, error: restockError } = await supabase.rpc('get_restock_items');
+        
+        try {
+          // --- FIX: ADD TIMEOUT ---
+          // Prevent infinite hanging by racing against a 5-second timeout
+          const timeoutPromise = new Promise((resolve) => 
+             setTimeout(() => resolve({ error: { message: 'Request timed out' }, data: null }), 5000)
+          );
 
-        if (restockError) {
-          console.error(t('general.errorFetch'), restockError.message);
-        } else {
-          setRestockItems(restockData || []);
+          // Cast the result to any to handle the race result
+          const { data: restockData, error: restockError } = (await Promise.race([
+            supabase.rpc('get_restock_items'),
+            timeoutPromise
+          ])) as any;
+
+          if (!isActive) return;
+
+          if (restockError) {
+            console.error(t('general.errorFetch'), restockError.message);
+          } else {
+            setRestockItems(restockData || []);
+          }
+        } catch (err) {
+          console.error("Unexpected fetch error:", err);
+        } finally {
+          if (isActive) setLoading(false);
         }
-
-        setLoading(false);
       };
 
       fetchData();
+
+      return () => { isActive = false; };
     }, [t])
   );
 
@@ -220,4 +241,4 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   restockButtonText: { marginLeft: 16 },
-})
+});
