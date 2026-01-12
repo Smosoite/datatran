@@ -10,6 +10,7 @@ import { useTheme } from '../providers/ThemeProvider';
 export default function ChangePasswordModal({ isVisible, onClose, colors, styles }) {
   const { t } = useTranslation();
   const router = useRouter();
+  const { colors } = useTheme();
   
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
