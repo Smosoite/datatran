@@ -162,7 +162,7 @@ export default function ProfileScreen() {
         {loading ? (
           <ActivityIndicator color={colors.primaryText || '#fff'} />
         ) : (
-          <Text style={[typography.button, styles.buttonText, { color: colors.primaryText || '#fff' }]}>{t('general.save', 'Save Changes')}</Text>
+          <Text style={[typography.button, styles.buttonText, { color: colors.primaryText || '#fff' }]}>{t('general.save1', 'Save Changes')}</Text>
         )}
       </Pressable>
     </ScrollView>
