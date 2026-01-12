@@ -32,8 +32,6 @@ export default function ChangePasswordModal({ isVisible, onClose, themeColors, s
       console.log("Update response received", error); // Debug Log
       // ...
       
-      const { error } = await supabase.auth.updateUser({ password });
-      
       if (error) throw error;
 
       // 3. SUCCESS! Stop the UI spinners IMMEDIATELY
