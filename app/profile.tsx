@@ -7,7 +7,7 @@ import { showError, showSuccess } from '../lib/toast';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../providers/ThemeProvider';
 
-export default function ChangePasswordModal({ isVisible, onClose, colors, styles }) {
+export default function ChangePasswordModal({ isVisible, onClose, styles }) {
   const { t } = useTranslation();
   const router = useRouter();
   const { colors } = useTheme();
