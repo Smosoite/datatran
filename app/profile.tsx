@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 import { showError, showSuccess } from '../lib/toast';
 import { useRouter } from 'expo-router';
 
-export default function ChangePasswordModal({ isVisible, onClose, themeColors, styles }) {
+export default function ChangePasswordModal({ isVisible, onClose, colors, styles }) {
   const { t } = useTranslation();
   const router = useRouter();
   
@@ -46,33 +46,33 @@ export default function ChangePasswordModal({ isVisible, onClose, themeColors, s
   return (
     <Modal visible={isVisible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={modalStyles.overlay}>
-        <View style={[modalStyles.container, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+        <View style={[modalStyles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
           
-          <Text style={[styles.header, { color: themeColors.text }]}>
+          <Text style={[styles.header, { color: colors.text }]}>
             {t('profile.changePassword', 'Change Password')}
           </Text>
 
           {/* New Password */}
-          <View style={[styles.passwordContainer, { borderColor: themeColors.border }]}>
+          <View style={[styles.passwordContainer, { borderColor: colors.border }]}>
             <TextInput
-              style={[styles.passwordInput, { color: themeColors.text }]}
+              style={[styles.passwordInput, { color: colors.text }]}
               placeholder={t('login.newPassword', 'New Password')}
-              placeholderTextColor={themeColors.subtext}
+              placeholderTextColor={colors.subtext}
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
             />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-              <Feather name={showPassword ? "eye" : "eye-off"} size={20} color={themeColors.subtext} />
+              <Feather name={showPassword ? "eye" : "eye-off"} size={20} color={colors.subtext} />
             </TouchableOpacity>
           </View>
 
           {/* Confirm Password */}
-          <View style={[styles.passwordContainer, { borderColor: themeColors.border }]}>
+          <View style={[styles.passwordContainer, { borderColor: colors.border }]}>
             <TextInput
-              style={[styles.passwordInput, { color: themeColors.text }]}
+              style={[styles.passwordInput, { color: colors.text }]}
               placeholder={t('login.reInputPassword', 'Confirm Password')}
-              placeholderTextColor={themeColors.subtext}
+              placeholderTextColor={colors.subtext}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               secureTextEntry={!showPassword}
@@ -82,13 +82,13 @@ export default function ChangePasswordModal({ isVisible, onClose, themeColors, s
           {/* Action Buttons */}
           <View style={modalStyles.buttonRow}>
             <Pressable onPress={onClose} style={[modalStyles.cancelButton]}>
-              <Text style={{ color: themeColors.subtext }}>{t('general.cancel', 'Cancel')}</Text>
+              <Text style={{ color: colors.subtext }}>{t('general.cancel', 'Cancel')}</Text>
             </Pressable>
 
             <Pressable 
               onPress={handleUpdatePassword} 
               disabled={loading}
-              style={[styles.button, { marginTop: 0, flex: 1, backgroundColor: themeColors.primary || '#007AFF' }]}
+              style={[styles.button, { marginTop: 0, flex: 1, backgroundColor: colors.primary || '#007AFF' }]}
             >
               {loading ? <ActivityIndicator color="#fff" /> : (
                 <Text style={[styles.buttonText, { color: '#fff' }]}>{t('general.save', 'Update')}</Text>
