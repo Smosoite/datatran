@@ -1,13 +1,12 @@
 import { useTranslation } from 'react-i18next';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, useWindowDimensions, Alert, TouchableOpacity, Platform, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, useWindowDimensions, Alert, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../providers/ThemeProvider';
 import { useAuth } from '../../providers/AuthProvider';
 import { useModal } from '../../providers/ModalProvider';
 import { showError, showSuccess } from '../../lib/toast';
-import { typography } from '../../styles/typography';
 import { Feather, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { logActivity } from '../../lib/logger';
 import * as Haptics from 'expo-haptics';
@@ -43,34 +42,6 @@ export default function StockGridScreen() {
   const { workgroup } = useAuth();
   const { storageId } = useLocalSearchParams<{ storageId: string }>();
 
-  // --- DYNAMIC LAYOUT CALCULATION ---
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions(); 
-  
-  // 1. Determine Orientation
-  const isLandscape = screenWidth > screenHeight;
-
-  // 2. Define Constraints based on Orientation
-  const VISIBLE_COLS = isLandscape ? 7 : 6; 
-  const GRID_PADDING = 12; 
-  const GAP_SIZE = 4;
-
-  // 3. Calculate Unit Width (Columns)
-  // We force exactly 'VISIBLE_COLS' to fit in the screen width. 
-  // If data has more cols, it will overflow and scroll.
-  const AVAILABLE_WIDTH = screenWidth - (GRID_PADDING * 2);
-  const TOTAL_GAPS_W = GAP_SIZE * (VISIBLE_COLS - 1);
-  const UNIT_WIDTH = (AVAILABLE_WIDTH - TOTAL_GAPS_W) / VISIBLE_COLS;
-
-  // 4. Calculate Base Height (Rows)
-  // In Portrait: Fixed 80px.
-  // In Landscape: Calculate height so exactly 7 shelves fit vertically.
-  const AVAILABLE_HEIGHT = screenHeight - (GRID_PADDING * 2); 
-  // Subtracting a small buffer (e.g., 20) for safety/margins in landscape
-  const TOTAL_GAPS_H = GAP_SIZE * (7 - 1); 
-  const BASE_HEIGHT = isLandscape 
-      ? Math.floor((AVAILABLE_HEIGHT - TOTAL_GAPS_H - 20) / 7) 
-      : 80;
-
   const [locations, setLocations] = useState<LocationSlot[]>([]);
   const [originalSnapshot, setOriginalSnapshot] = useState<LocationSlot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,6 +51,9 @@ export default function StockGridScreen() {
 
   // --- MENU STATE ---
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // --- SCREEN DIMENSIONS ---
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions(); 
 
   const fetchData = useCallback(async () => {
     if (!storageId) return;
@@ -121,6 +95,113 @@ export default function StockGridScreen() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // --- DYNAMIC LAYOUT CALCULATION (FIT VS SCROLL) ---
+  const layoutMetrics = useMemo(() => {
+      // 1. Analyze Data to find Grid Extents
+      const shelvesDict: { [key: string]: LocationSlot[] } = {};
+      locations.forEach(loc => {
+        if (!shelvesDict[loc.shelf]) shelvesDict[loc.shelf] = [];
+        shelvesDict[loc.shelf].push(loc);
+      });
+
+      const sortedShelfKeys = Object.keys(shelvesDict).sort(naturalSort);
+      
+      let maxDataCols = 1;
+      let totalDataRows = 0;
+
+      sortedShelfKeys.forEach(key => {
+          const slots = shelvesDict[key];
+          const uniqueCols = new Set(slots.map(l => l.column)).size;
+          const uniqueRows = new Set(slots.map(l => l.row)).size;
+          
+          if (uniqueCols > maxDataCols) maxDataCols = uniqueCols;
+          totalDataRows += uniqueRows;
+      });
+
+      // Add gaps between shelves to total row count (visual approximation)
+      if (sortedShelfKeys.length > 1) {
+          totalDataRows += (sortedShelfKeys.length - 1) * 0.2; // Gaps count as fractional rows
+      }
+
+      // 2. Define Fit Constraints (6x8 Max)
+      const GRID_PADDING = 12;
+      const GAP_SIZE = 4;
+      
+      // Determine how many columns/rows we *want* to show on screen
+      // If data is small (e.g. 2 cols), we fit 2. If data is large (e.g. 10 cols), we fit 6 and scroll.
+      const targetCols = Math.min(Math.max(maxDataCols, 1), 6);
+      const targetRows = Math.min(Math.max(totalDataRows, 1), 8);
+
+      const availWidth = screenWidth - (GRID_PADDING * 2);
+      const availHeight = screenHeight - (GRID_PADDING * 2) - 60; // -60 for Header/Top safe area
+
+      // Calculate Unit Sizes based on "Fitting" the target amount
+      const totalGapsW = GAP_SIZE * (targetCols - 1);
+      const calculatedUnitWidth = (availWidth - totalGapsW) / targetCols;
+
+      const totalGapsH = GAP_SIZE * (targetRows - 1);
+      const calculatedBaseHeight = (availHeight - totalGapsH) / targetRows;
+
+      return {
+          UNIT_WIDTH: Math.max(calculatedUnitWidth, 40), // Minimum width safety
+          BASE_HEIGHT: Math.max(calculatedBaseHeight, 40), // Minimum height safety
+          GAP_SIZE,
+          GRID_PADDING
+      };
+  }, [locations, screenWidth, screenHeight]);
+
+  const { UNIT_WIDTH, BASE_HEIGHT, GAP_SIZE, GRID_PADDING } = layoutMetrics;
+
+
+  // --- VISUAL GRID MAPPING ---
+  const visualGrid = useMemo(() => {
+    const shelvesDict: { [key: string]: LocationSlot[] } = {};
+    locations.forEach(loc => {
+      if (!shelvesDict[loc.shelf]) shelvesDict[loc.shelf] = [];
+      shelvesDict[loc.shelf].push(loc);
+    });
+
+    const sortedShelfKeys = Object.keys(shelvesDict).sort(naturalSort);
+
+    return sortedShelfKeys.map(shelfKey => {
+        const slots = shelvesDict[shelfKey];
+        const uniqueRows = [...new Set(slots.map(l => l.row))].sort(naturalSort);
+        const uniqueCols = [...new Set(slots.map(l => l.column))].sort(naturalSort);
+        
+        const mappedSlots = slots.map(slot => {
+            const rowIdx = uniqueRows.indexOf(slot.row);
+            const colIdx = uniqueCols.indexOf(slot.column);
+            const top = (rowIdx * (BASE_HEIGHT + GAP_SIZE));
+            const left = (colIdx * (UNIT_WIDTH + GAP_SIZE));
+
+            return { ...slot, _top: top, _left: left };
+        });
+
+        const rowCount = uniqueRows.length;
+        const colCount = uniqueCols.length;
+        const totalHeight = (rowCount * BASE_HEIGHT) + ((rowCount - 1) * GAP_SIZE);
+
+        return {
+            shelfLabel: shelfKey,
+            totalHeight: Math.max(totalHeight, BASE_HEIGHT),
+            mappedSlots,
+            rowCount,
+            colCount 
+        };
+    });
+  }, [locations, BASE_HEIGHT, GAP_SIZE, UNIT_WIDTH]);
+
+  // --- CONTENT SIZE CALCULATION ---
+  const maxGridColumns = useMemo(() => {
+      if (visualGrid.length === 0) return 1;
+      return Math.max(...visualGrid.map(s => s.colCount));
+  }, [visualGrid]);
+
+  const contentWidth = useMemo(() => {
+     return (maxGridColumns * UNIT_WIDTH) + ((maxGridColumns - 1) * GAP_SIZE) + (GRID_PADDING * 2);
+  }, [maxGridColumns, UNIT_WIDTH, GAP_SIZE, GRID_PADDING]);
+
 
   // --- ACTIONS: SAVE / CANCEL ---
 
@@ -197,8 +278,7 @@ export default function StockGridScreen() {
       }
   };
 
-  // --- LOCAL ACTIONS ---
-
+  // --- MERGE LOGIC ---
   const handleMerge = async (sourceSlot: LocationSlot, direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT') => {
     
     const allShelves = [...new Set(locations.map(l => l.shelf))].sort(naturalSort);
@@ -275,7 +355,6 @@ export default function StockGridScreen() {
         return;
     }
 
-    // --- PERFORM MERGE (LOCAL) ---
     const winningId = sourceSlot.master_id;
     const losingId = neighbor.master_id;
 
@@ -301,57 +380,6 @@ export default function StockGridScreen() {
           ]
       );
   };
-
-  // --- VISUAL GRID CALCULATION ---
-  const visualGrid = useMemo(() => {
-    const shelvesDict: { [key: string]: LocationSlot[] } = {};
-    locations.forEach(loc => {
-      if (!shelvesDict[loc.shelf]) shelvesDict[loc.shelf] = [];
-      shelvesDict[loc.shelf].push(loc);
-    });
-
-    const sortedShelfKeys = Object.keys(shelvesDict).sort(naturalSort);
-
-    return sortedShelfKeys.map(shelfKey => {
-        const slots = shelvesDict[shelfKey];
-        const uniqueRows = [...new Set(slots.map(l => l.row))].sort(naturalSort);
-        const uniqueCols = [...new Set(slots.map(l => l.column))].sort(naturalSort);
-        
-        const mappedSlots = slots.map(slot => {
-            const rowIdx = uniqueRows.indexOf(slot.row);
-            const colIdx = uniqueCols.indexOf(slot.column);
-            const top = (rowIdx * (BASE_HEIGHT + GAP_SIZE));
-            const left = (colIdx * (UNIT_WIDTH + GAP_SIZE));
-
-            return { ...slot, _top: top, _left: left };
-        });
-
-        const rowCount = uniqueRows.length;
-        const colCount = uniqueCols.length;
-        const totalHeight = (rowCount * BASE_HEIGHT) + ((rowCount - 1) * GAP_SIZE);
-
-        return {
-            shelfLabel: shelfKey,
-            totalHeight: Math.max(totalHeight, BASE_HEIGHT),
-            mappedSlots,
-            rowCount,
-            colCount 
-        };
-    });
-  }, [locations, BASE_HEIGHT, GAP_SIZE, UNIT_WIDTH]);
-
-  // --- Calculate Content Width ---
-  // If the actual data has more columns than VISIBLE_COLS, the grid grows.
-  const maxGridColumns = useMemo(() => {
-      if (visualGrid.length === 0) return VISIBLE_COLS;
-      const maxColsInShelves = Math.max(...visualGrid.map(s => s.colCount));
-      return Math.max(VISIBLE_COLS, maxColsInShelves);
-  }, [visualGrid, VISIBLE_COLS]);
-
-  const contentWidth = useMemo(() => {
-     return (maxGridColumns * UNIT_WIDTH) + ((maxGridColumns - 1) * GAP_SIZE) + (GRID_PADDING * 2);
-  }, [maxGridColumns, UNIT_WIDTH, GAP_SIZE, GRID_PADDING]);
-
 
   // --- COMPONENT: Merge Handle ---
   const MergeHandle = ({ direction, onPress }: { direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT', onPress: () => void }) => {
