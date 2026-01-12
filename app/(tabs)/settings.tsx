@@ -13,6 +13,7 @@ import { useTheme } from '../../providers/ThemeProvider';
 import { showError, showSuccess } from '../../lib/toast';
 import { useModal } from '../../providers/ModalProvider';
 import { typography } from '../../styles/typography';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // <--- IMPORT ADDED
 
 const themes = [
   { key: 'default', name: 'Default', representativeColor: '#10567A' },
@@ -109,7 +110,12 @@ export default function SettingsScreen() {
               const { error } = await supabase.rpc('delete_current_workgroup');
               if (error) throw error;
               showSuccess(t('general.groupDeleted'));
-              await supabase.auth.signOut();
+              
+              // Use the safe logout here too
+              await AsyncStorage.setItem('IS_LOGGING_OUT', 'true');
+              router.replace('/login');
+              supabase.auth.signOut();
+              
             } catch (err: any) {
               showError(err.message || "An unknown error occurred.");
             }
@@ -133,21 +139,26 @@ export default function SettingsScreen() {
     } else {
       proceedToDelete();
     }
-  }, [workgroup, t, showConfirmation, showPasscodeModal]);
+  }, [workgroup, t, showConfirmation, showPasscodeModal, router]);
 
+  // --- FIX: ROBUST LOGOUT ---
   const handleLogout = useCallback(async () => {
-    // Flag it so Layout doesn't bounce us back
-    await AsyncStorage.setItem('IS_LOGGING_OUT', 'true');
-    router.replace('/login');
-
-    // Attempt sign out in background (race condition proof)
     try {
+        // 1. Set Flag to prevent Layout Redirect Loop
+        await AsyncStorage.setItem('IS_LOGGING_OUT', 'true');
+
+        // 2. Force Navigation immediately (don't wait for supabase)
+        router.replace('/login');
+
+        // 3. Cleanup Session in Background (Race against timeout)
         await Promise.race([
             supabase.auth.signOut(), 
             new Promise(r => setTimeout(r, 2000))
         ]);
-    } catch(e) { console.log("Logout cleanup error", e); }
-  }, [t, router]);
+    } catch(err) {
+        console.log("Logout cleanup error (ignored):", err);
+    }
+  }, [router]);
 
   const toggleMode = useCallback(() => {
     setMode(prev => (prev === 'dark' ? 'light' : 'dark'));
