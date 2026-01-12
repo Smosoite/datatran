@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 import { showError, showSuccess } from '../lib/toast';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../providers/ThemeProvider';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ChangePasswordModal({ isVisible, onClose, themeColors, styles }) {
   const { t } = useTranslation();
@@ -45,10 +46,10 @@ export default function ChangePasswordModal({ isVisible, onClose, themeColors, s
       // 3. SUCCESS - Force Navigation FIRST
       setLoading(false);
       onClose();
-      
-      showSuccess(t('general.success'), t('login.passwordUpdated', 'Password updated. Please log in again.'));
-      
-      // CRITICAL: Manually navigate to login. Do not wait for AuthListener.
+      showSuccess(t('general.success'), t('login.passwordUpdated'));
+
+      // --- FLAG THE LOGOUT ---
+      await AsyncStorage.setItem('IS_LOGGING_OUT', 'true');
       router.replace('/login');
 
       // 4. Cleanup (Background)
