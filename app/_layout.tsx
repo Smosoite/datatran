@@ -91,66 +91,77 @@ const AuthRedirectHandler = ({ children }: { children: React.ReactNode }) => {
   const isLoading = onboardingLoading || authLoading || !isMounted;
 
   useEffect(() => {
-    if (isLoading) return;
+    const runAuthGuard = async () => {
+        if (isLoading) return;
 
-    const currentRoute = segments[0] || '';
+        const currentRoute = segments[0] || '';
 
-    // Group definitions
-    const inAuthGroup = ['login', 'sign-up', 'forgot-password'].includes(currentRoute);
-    const inSetupGroup = ['workgroup-gate', 'create-workgroup', 'join-workgroup'].includes(currentRoute);
-    const inOnboardingGroup = currentRoute === 'onboarding';
+        // Group definitions
+        const inAuthGroup = ['login', 'sign-up', 'forgot-password'].includes(currentRoute);
+        const inSetupGroup = ['workgroup-gate', 'create-workgroup', 'join-workgroup'].includes(currentRoute);
+        const inOnboardingGroup = currentRoute === 'onboarding';
 
-    // --- LOGIC FLOW (Strict Order) ---
+        // --- LOGIC FLOW (Strict Order) ---
 
-    // 1. Not Onboarded? -> Onboarding Flow
-    if (!hasCompletedOnboarding) {
-      if (!inOnboardingGroup) {
-          router.replace('/onboarding/welcome');
-      }
-      return;
-    }
-
-    // 2. Not Logged In? -> Login
-    if (!session) {
-      if (!inAuthGroup) router.replace('/login');
-      return;
-    }
-
-    // 3. Subscription Check
-    if (!isDemoMode && (subscriptionStatus === 'trial_expired')) {
-      if (currentRoute !== 'paywall' && !pathname.includes('paywall')) {
-          router.replace('/onboarding/paywall?expired=true');
-      }
-      return;
-    }
-
-    // 4. No Workgroup? -> Setup
-    if (!profile?.workgroup_id) {
-      if (!inSetupGroup) router.replace('/workgroup-gate');
-      return;
-    }
-
-    // 5. All Good -> Main App OR Custom Destination
-    if (inAuthGroup || inSetupGroup || inOnboardingGroup || pathname.includes('paywall')) {
-      
-      // --- NEW LOGIC START ---
-      const handleRedirect = async () => {
-        const customDestination = await AsyncStorage.getItem('LOGIN_DESTINATION');
-        
-        if (customDestination) {
-          // Clear the flag and go to the custom page (e.g., Profile)
-          await AsyncStorage.removeItem('LOGIN_DESTINATION');
-          // Use 'as any' to satisfy TypeScript if the route isn't strictly typed
-          router.replace(customDestination as any); 
-        } else {
-          // Default behavior
-          router.replace('/(tabs)');
+        // 1. Not Onboarded? -> Onboarding Flow
+        if (!hasCompletedOnboarding) {
+        if (!inOnboardingGroup) {
+            router.replace('/onboarding/welcome');
         }
-      };
-      
-      handleRedirect();
-      // --- NEW LOGIC END ---
-    }
+        return;
+        }
+
+        // 2. Not Logged In? -> Login
+        if (!session) {
+            // Clean up any logout flags now that we are truly logged out
+            await AsyncStorage.removeItem('IS_LOGGING_OUT');
+            
+            if (!inAuthGroup) router.replace('/login');
+            return;
+        }
+
+        // 3. Subscription Check
+        if (!isDemoMode && (subscriptionStatus === 'trial_expired')) {
+        if (currentRoute !== 'paywall' && !pathname.includes('paywall')) {
+            router.replace('/onboarding/paywall?expired=true');
+        }
+        return;
+        }
+
+        // 4. No Workgroup? -> Setup
+        if (!profile?.workgroup_id) {
+        if (!inSetupGroup) router.replace('/workgroup-gate');
+        return;
+        }
+
+        // 5. All Good -> Main App OR Custom Destination
+        if (inAuthGroup || inSetupGroup || inOnboardingGroup || pathname.includes('paywall')) {
+        
+            // --- FIX FOR REDIRECT LOOP ---
+            // If we are on the login screen AND we set the 'IS_LOGGING_OUT' flag,
+            // we stop here. We do NOT redirect to tabs. We let the user stay on Login.
+            if (inAuthGroup) {
+                const isLoggingOut = await AsyncStorage.getItem('IS_LOGGING_OUT');
+                if (isLoggingOut === 'true') {
+                    return; 
+                }
+            }
+            // -----------------------------
+
+            // --- NEW LOGIC START ---
+            const customDestination = await AsyncStorage.getItem('LOGIN_DESTINATION');
+            
+            if (customDestination) {
+                await AsyncStorage.removeItem('LOGIN_DESTINATION');
+                router.replace(customDestination as any); 
+            } else {
+                router.replace('/(tabs)');
+            }
+            // --- NEW LOGIC END ---
+        }
+    };
+
+    runAuthGuard();
 
   }, [session, profile, hasCompletedOnboarding, subscriptionStatus, segments, isLoading, isDemoMode, pathname]);
 
