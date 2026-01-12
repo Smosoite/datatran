@@ -86,6 +86,7 @@
     "passwordNoMatch": "Passwords do not match!",
     "creating": "Creating account...",
     "invalidCredentials": "Invalid login credentials!",
+    "emailTaken": "Email adress already taken.",
   },
   "login": {
     "subtitle": "Sign in to manage your inventory",
