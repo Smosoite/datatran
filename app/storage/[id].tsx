@@ -28,7 +28,7 @@ export default function ManageStorageScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { showConfirmation } = useModal();
-  const { workgroup } = useAuth(); //
+  const { workgroup } = useAuth(); 
 
   const [locations, setLocations] = useState<DefinedLocation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,14 +86,13 @@ export default function ManageStorageScreen() {
   const handleOpenGrid = () => {
     // Check if admin passcode is set
     if (!workgroup?.admin_passcode) {
-        Alert.alert(
-            t('general.error', 'Error'),
-            "An admin passcode is required to use the Grid View. Please set one in Settings.",
-            [
-                { text: t('general.cancel'), style: 'cancel' },
-                { text: t('settings.title', 'Settings'), onPress: () => router.push('/(tabs)/settings') }
-            ]
-        );
+        // Use the app's custom confirmation modal instead of native Alert
+        showConfirmation({
+            title: t('stockGrid.adminAccess', 'Admin Access'),
+            message: t('stockGrid.noPasscodeSetup', 'An admin passcode is required to use the Grid View. Please set one in Settings.'),
+            confirmText: t('settings.title', 'Settings'),
+            onConfirm: () => router.push('/(tabs)/settings'),
+        });
         return;
     }
     router.push(`/stock-grid/${storageId}`);
