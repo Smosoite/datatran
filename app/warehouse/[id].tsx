@@ -67,7 +67,7 @@ export default function ManageWarehouseScreen() {
             onConfirm: () => router.push('/(tabs)/settings'),
         });
         return;
-    }
+    };
 
     // 2. Navigate directly (Edit mode inside grid will handle auth)
     router.push(`/stock-grid/${storageId}`);
