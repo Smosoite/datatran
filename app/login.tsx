@@ -245,7 +245,7 @@ export default function LoginScreen() {
         </Pressable>
 
         <Pressable
-          style={[styles.button, { backgroundColor: colors.primary }]}
+          style={[styles.button, { backgroundColor: colors.selector }]}
           onPress={handleLogin}
           disabled={loading}
         >
