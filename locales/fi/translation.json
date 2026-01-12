@@ -86,7 +86,7 @@
     "passwordNoMatch": "Salasanat eivät täsmää!",
     "creating": "Luodaan tiliä...",
     "invalidCredentials": "Väärät tunnistautumistiedot!",
-    "emailTaken": "Tämä sähköposti on jo käytössä.",
+    "emailTaken": "Tämä sähköposti osoite on jo käytössä.",
   },
   "login": {
     "subtitle": "Kirjaudu sisään hallitaksesi varastoasi",
