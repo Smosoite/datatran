@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../providers/ThemeProvider';
 import { typography } from '../styles/typography';
-import { showError, showSuccess } from '../lib/toast'; // Assuming showSuccess exists, otherwise use showError with success color
+import { showError, showSuccess } from '../lib/toast'; 
 import { Feather } from '@expo/vector-icons';
 import { useOnboarding } from '../providers/OnboardingProvider';
 import { useSubscription } from '../hooks/useSubscription';
@@ -29,13 +29,13 @@ export default function LoginScreen() {
   // --- Forgot Password Flow State ---
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [forgotStep, setForgotStep] = useState<'email' | 'otp' | 'password'>('email');
-  
+   
   // Forgot Password Inputs
   const [resetEmail, setResetEmail] = useState('');
   const [resetToken, setResetToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
-  
+   
   // Visibility Toggles for Reset
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
@@ -44,6 +44,13 @@ export default function LoginScreen() {
   // --- Login Logic ---
   const handleLogin = async () => {
     setLoading(true);
+
+    // --- FIX: CLEAR LOGOUT FLAG ---
+    // If we are logging in, we are definitely NOT logging out anymore.
+    // This prevents the auth redirect loop where the app thinks you are still exiting.
+    await AsyncStorage.removeItem('IS_LOGGING_OUT');
+    // -----------------------------
+
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
@@ -58,6 +65,10 @@ export default function LoginScreen() {
     }
 
     await completeOnboarding();
+    
+    // Note: No need to router.push here manually. 
+    // The AuthRedirectHandler in _layout.tsx observes the session change 
+    // and will redirect you to (tabs) automatically.
   };
 
   const changeLanguage = (lang: string) => {
@@ -155,9 +166,9 @@ export default function LoginScreen() {
       setShowForgotModal(false);
       setPassword(''); // Clear old password input
       setEmail(resetEmail); // Ensure login email matches reset email
-      // Optional: You could auto-login here or ask them to sign in again. 
-      // Since verifyOtp logs them in, they are technically authenticated now.
-      // If you want to force them to click "Sign In", you can sign them out:
+      
+      // Force sign out to ensure clean state, or let them stay logged in.
+      // Given the complexity of your auth flow, signing out and asking for re-login is safer.
       await supabase.auth.signOut(); 
       showError(t('general.success'), t('login.passwordUpdated', 'Password updated successfully. Please sign in.'));
     }
