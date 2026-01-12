@@ -103,7 +103,7 @@ export default function ChangePasswordModal({ isVisible, onClose, themeColors, s
               style={[styles.button, { marginTop: 0, flex: 1, backgroundColor: themeColors.primary || '#007AFF' }]}
             >
               {loading ? <ActivityIndicator color="#fff" /> : (
-                <Text style={[styles.buttonText, { color: colors.selector }]}>{t('general.save', 'Update')}</Text>
+                <Text style={[styles.buttonText, { color: colors.text }]}>{t('general.save', 'Update')}</Text>
               )}
             </Pressable>
           </View>
