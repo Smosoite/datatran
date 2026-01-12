@@ -83,9 +83,9 @@
     "joinGroup": "Liity työryhmään",
     "joinedGroup": "Liityit työryhmään!",
     "signing": "Kirjataan...",
-    "passwordNoMatch": "Passwords do not match!",
-    "creating": "Creating account...",
-    "invalidCredentials": "Invalid login credentials!",
+    "passwordNoMatch": "Salasanat eivät täsmää!",
+    "creating": "Luodaan tiliä...",
+    "invalidCredentials": "Väärät tunnistautumistiedot!",
   },
   "login": {
     "subtitle": "Kirjaudu sisään hallitaksesi varastoasi",
