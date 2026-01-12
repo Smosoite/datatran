@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 import { showError, showSuccess } from '../lib/toast';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../providers/ThemeProvider';
+import { typography } from '../styles/typography';
 
 export default function ChangePasswordModal({ isVisible, onClose, styles }) {
   const { t } = useTranslation();
