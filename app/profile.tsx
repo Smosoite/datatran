@@ -46,18 +46,18 @@ export default function ChangePasswordModal({ isVisible, onClose, colors, styles
   return (
     <Modal visible={isVisible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={modalStyles.overlay}>
-        <View style={[modalStyles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[modalStyles.container, { backgroundcolor: colors.card, bordercolor: colors.border }]}>
           
           <Text style={[styles.header, { color: colors.text }]}>
             {t('profile.changePassword', 'Change Password')}
           </Text>
 
           {/* New Password */}
-          <View style={[styles.passwordContainer, { borderColor: colors.border }]}>
+          <View style={[styles.passwordContainer, { bordercolor: colors.border }]}>
             <TextInput
               style={[styles.passwordInput, { color: colors.text }]}
               placeholder={t('login.newPassword', 'New Password')}
-              placeholderTextColor={colors.subtext}
+              placeholderTextcolor={colors.subtext}
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
@@ -68,11 +68,11 @@ export default function ChangePasswordModal({ isVisible, onClose, colors, styles
           </View>
 
           {/* Confirm Password */}
-          <View style={[styles.passwordContainer, { borderColor: colors.border }]}>
+          <View style={[styles.passwordContainer, { bordercolor: colors.border }]}>
             <TextInput
               style={[styles.passwordInput, { color: colors.text }]}
               placeholder={t('login.reInputPassword', 'Confirm Password')}
-              placeholderTextColor={colors.subtext}
+              placeholderTextcolor={colors.subtext}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               secureTextEntry={!showPassword}
@@ -88,7 +88,7 @@ export default function ChangePasswordModal({ isVisible, onClose, colors, styles
             <Pressable 
               onPress={handleUpdatePassword} 
               disabled={loading}
-              style={[styles.button, { marginTop: 0, flex: 1, backgroundColor: colors.primary || '#007AFF' }]}
+              style={[styles.button, { marginTop: 0, flex: 1, backgroundcolor: colors.primary || '#007AFF' }]}
             >
               {loading ? <ActivityIndicator color="#fff" /> : (
                 <Text style={[styles.buttonText, { color: '#fff' }]}>{t('general.save', 'Update')}</Text>
@@ -102,7 +102,7 @@ export default function ChangePasswordModal({ isVisible, onClose, colors, styles
 }
 
 const modalStyles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
+  overlay: { flex: 1, backgroundcolor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
   container: { borderRadius: 12, padding: 24, borderWidth: 1 },
   buttonRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20, gap: 12 },
   cancelButton: { padding: 16 },
