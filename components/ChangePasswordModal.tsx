@@ -5,6 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { showError, showSuccess } from '../lib/toast';
 import { useRouter } from 'expo-router';
+import { useTheme } from '../providers/ThemeProvider';
 
 export default function ChangePasswordModal({ isVisible, onClose, themeColors, styles }) {
   const { t } = useTranslation();
