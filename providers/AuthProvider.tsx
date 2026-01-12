@@ -5,7 +5,7 @@ import { differenceInDays, parseISO, addDays } from 'date-fns';
 import { useRouter, useSegments } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// 1. Updated Types
+// 1. Types
 export type SubscriptionStatus = 'trial_active' | 'trial_expired' | 'subscribed' | 'none';
 
 type Profile = {
@@ -45,7 +45,7 @@ const AuthContext = createContext<AuthContextType>({
   refreshProfile: async () => {},
   isStockGridLocked: false,
   setStockGridLocked: () => {},
-  subscriptionStatus: 'trial_active', // Default is permissive
+  subscriptionStatus: 'trial_active', 
   daysRemaining: 7,
 });
 
@@ -72,14 +72,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
       if (profileError) throw profileError;
       
-      // --- FIX: Check if we need to activate a new trial ---
-      // This bridges the gap between Onboarding (AsyncStorage) and Auth (Supabase)
+      // Check for pending trial activation (from Onboarding)
       const pendingTrial = await AsyncStorage.getItem('PENDING_TRIAL_START');
-      
       if (pendingTrial === 'true' && profileData) {
          const newTrialDate = addDays(new Date(), 7).toISOString();
-         
-         // Update Supabase
          const { error: updateError } = await supabase
            .from('profiles')
            .update({ trial_ends_at: newTrialDate })
@@ -90,15 +86,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
              await AsyncStorage.removeItem('PENDING_TRIAL_START');
          }
       }
-      // ---------------------------------------------------
 
       setProfile(profileData);
 
-      // --- 2. Calculate Trial Logic Based on Profile ---
+      // --- 2. Calculate Trial Logic ---
       if (profileData?.trial_ends_at) {
           const trialEnd = parseISO(profileData.trial_ends_at);
           const now = new Date();
-          
           const diff = differenceInDays(trialEnd, now);
           
           if (now > trialEnd) {
@@ -109,8 +103,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
               setDaysRemaining(diff >= 0 ? diff : 0);
           }
       } else {
-          // Fallback: If no date is set, we assume they are a new user or legacy user
-          // defaulting to 'trial_active' ensures they can get to Workgroup creation
           setSubscriptionStatus('trial_active'); 
       }
 
@@ -132,7 +124,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
       console.error("Error fetching profile/workgroup:", error);
       setProfile(null);
       setWorkgroup(null);
-      // In case of error, we don't want to lock them out completely immediately
       setSubscriptionStatus('trial_active');
     }
   }, []);
@@ -143,32 +134,48 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }, [session, fetchProfileAndWorkgroup]);
 
-  // Initial Data Load
+  // --- FIX: SPLIT LISTENER AND DATA FETCHING ---
+  
+  // 1. Initial Load & Auth Listener (Synchronous)
   useEffect(() => {
+    let mounted = true;
+
     const getInitialData = async () => {
       const { data: { session: initialSession } } = await supabase.auth.getSession();
-      setSession(initialSession);
-      if (initialSession) {
-        await fetchProfileAndWorkgroup(initialSession);
+      if (mounted) {
+         setSession(initialSession);
+         setLoading(false);
       }
-      setLoading(false);
     };
 
     getInitialData();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-      setSession(newSession);
-      if (newSession) {
-        await fetchProfileAndWorkgroup(newSession);
-      } else {
-        setProfile(null);
-        setWorkgroup(null);
-        setStockGridLocked(false);
+    // Do NOT await anything inside this callback
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      if (mounted) {
+        setSession(newSession);
+        
+        if (!newSession) {
+          // Cleanup on logout
+          setProfile(null);
+          setWorkgroup(null);
+          setStockGridLocked(false);
+        }
       }
     });
 
-    return () => subscription.unsubscribe();
-  }, [fetchProfileAndWorkgroup]);
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // 2. Fetch Data when Session Changes (Async, safe from deadlock)
+  useEffect(() => {
+    if (session) {
+      fetchProfileAndWorkgroup(session);
+    }
+  }, [session, fetchProfileAndWorkgroup]);
 
   return (
     <AuthContext.Provider 
