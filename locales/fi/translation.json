@@ -304,7 +304,9 @@
     "removeTitle": "Poista Määrä",
     "removeMessage": "Poistetaan tuotetta {{itemName}}. Nykyinen: {{count}}.",
     "amountToRemove": "Poistettava määrä",
-    "invalidPasscode": "Virheellinen salasana"
+    "invalidPasscode": "Virheellinen salasana",
+    "adminAccess": "Ylläpitäjän pääsy",
+    "noPasscodeSetup": "Ylläpitäjän salasana on vaadittu tämän tilan avaukseen, ole hyvä ja aseta salasana Asetuksista.",
   },
   "find": {
     "storage:": "Yksikkö:",
