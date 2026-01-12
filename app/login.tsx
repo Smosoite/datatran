@@ -294,7 +294,7 @@ export default function LoginScreen() {
                   keyboardType="email-address"
                 />
                 <Pressable
-                  style={[styles.button, { backgroundColor: colors.primary, marginTop: 10 }]}
+                  style={[styles.button, { backgroundColor: colors.selector, marginTop: 10 }]}
                   onPress={handleSendResetEmail}
                   disabled={resetLoading}
                 >
