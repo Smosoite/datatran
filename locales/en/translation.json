@@ -310,7 +310,9 @@
     "removeTitle": "Remove Quantity",
     "removeMessage": "Removing from {{itemName}}. Current: {{count}}.",
     "amountToRemove": "Amount to Remove",
-    "invalidPasscode": "Invalid Passcode"
+    "invalidPasscode": "Invalid Passcode",
+    "adminAccess": "Admin Access",
+    "noPasscodeSetup": "An admin passcode is required to use the Grid View. Please set one in Settings."
   },
   "themes": {
     "default": "Default",
