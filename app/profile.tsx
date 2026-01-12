@@ -46,7 +46,7 @@ export default function ChangePasswordModal({ isVisible, onClose, colors, styles
   return (
     <Modal visible={isVisible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={modalStyles.overlay}>
-        <View style={[modalStyles.container, { backgroundcolor: colors.card, bordercolor: colors.border }]}>
+        <View style={[modalStyles.container, { backgroundcolor: colors., bordercolor: colors.border }]}>
           
           <Text style={[styles.header, { color: colors.text }]}>
             {t('profile.changePassword', 'Change Password')}
