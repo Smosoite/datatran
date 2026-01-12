@@ -55,10 +55,17 @@ export default function LoginScreen() {
 
     if (error) {
       console.error("LOGIN ERROR DETAILED:", JSON.stringify(error, null, 2));
+      // Check for specific invalid credentials error
+    if (error.message.includes('Invalid login credentials')) {
+      showError(t('general.error'), t('auth.invalidCredentials', 'Login failed - invalid credentials'));
+    } else {
+      // Fallback for other errors
       showError(t('general.error'), error.message);
-      setLoading(false);
-      return;
     }
+    
+    setLoading(false);
+    return;
+  }
 
     if (data.user && params.start_trial === 'true') {
       await startTrial();
