@@ -177,7 +177,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
-  // --- 2. Fetch Data when Session Changes (Async) ---
+  // --- 2. Fetch Data when Se..ssion Changes (Async) ---
   useEffect(() => {
     if (session) {
       fetchProfileAndWorkgroup(session);
