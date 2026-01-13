@@ -36,7 +36,7 @@ const ThemedStack = () => {
         <Stack.Screen name="sign-up" options={{ headerShown: false }} />
         <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
 
-        {/* Setup Screens */}
+        {/* Setup .Screens */}
         <Stack.Screen name="workgroup-gate" options={{ headerShown: false }} />
         <Stack.Screen name="create-workgroup" options={{ headerShown: true, title: 'Create Workgroup' }} />
         <Stack.Screen name="join-workgroup" options={{ headerShown: true, title: 'Join Workgroup' }} />
