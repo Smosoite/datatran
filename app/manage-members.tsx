@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     gap: 8,
-    marginLeft: 4, // Ensure buttons never touch the text container
+    marginLeft: 4, // Ensure buttons ne touch the text container
   },
   iconButton: {
     width: 36,
