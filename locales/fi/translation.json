@@ -61,7 +61,7 @@
     "loginHeader": "Tervetuloa takaisin",
     "loginSubheader": "Kirjaudu sisään varastoillesi",
     "email": "Sähköposti",
-    "email1": "Sähköpostiosoite varmistetaan",
+    "email1": "Sähköposti - vaadittu tunnusten palauttamiseksi.",
     "password": "Salasana",
     "password1": "Väh. 8 merkkiä, kirjaimet + numerot",
     "signIn": "Kirjaudu sisään",
