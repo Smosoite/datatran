@@ -183,7 +183,7 @@
     "production": "Production",
     "resale": "Resale",
     "purchasePrice": "Purchase Price (Net)",
-    "purchaseTaxBracket": "Purchase Tax %",
+    "purchaseTaxBracket": "Default purchase tax amounts.",
     "salePrice": "Sale Price (Net)",
     "salesTaxBracket": "Sales Tax %",
     "costPerUnit": "Cost per unit",
