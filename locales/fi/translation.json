@@ -186,7 +186,7 @@
     "production": "Tuotanto",
     "resale": "Jälleenmyynti",
     "purchasePrice": "Ostohinta (ALV 0%)",
-    "purchaseTaxBracket": "Osto ALV %",
+    "purchaseTaxBracket": "Oletus osto ALV %",
     "salePrice": "Myyntihinta (ALV 0%)",
     "salesTaxBracket": "Myynti ALV %",
     "costPerUnit": "Kappalehinta",
