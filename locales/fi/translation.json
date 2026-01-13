@@ -63,7 +63,7 @@
     "email": "Sähköposti",
     "email1": "Sähköposti - vaadittu tunnusten palauttamiseksi.",
     "password": "Salasana",
-    "password1": "Väh. 8 merkkiä, kirjaimet + numerot",
+    "password1": "Salasana - väh. 8 merkkiä, Kirjaimet + numerot",
     "signIn": "Kirjaudu sisään",
     "noAccount": "Eikö sinulla ole tiliä? Rekisteröidy",
     "signUpHeader": "Luo tili",
