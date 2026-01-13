@@ -30,7 +30,7 @@ export default function PaywallScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { completeOnboarding } = useOnboarding();
-  const { buySubscription, startTrial } = useSubscription(); // destructured startTrial
+  const { buySubscription, startTrial } = useSubscription();
 
   const isTrialExpired = params.expired === 'true';
 
@@ -45,24 +45,56 @@ export default function PaywallScreen() {
   useEffect(() => {
     const setupPurchases = async () => {
       if (DEMO_MODE) {
+        // Updated Demo Prices and Currency (EURO)
+        const companyPrices: Record<number, number> = { 5: 300, 10: 600, 20: 1150, 50: 2900, 100: 5700 };
+        
         setPackages([
-            { identifier: '$rc_monthly', packageType: 'MONTHLY', product: { identifier: 'monthly_pro', priceString: '$9.99', price: 9.99, title: 'Monthly', description: '', currencyCode: 'USD' }, offeringIdentifier: 'default' } as any,
-            { identifier: '$rc_annual', packageType: 'ANNUAL', product: { identifier: 'yearly_pro', priceString: '$99.99', price: 99.99, title: 'Yearly', description: '', currencyCode: 'USD' }, offeringIdentifier: 'default' } as any,
+            { identifier: '$rc_monthly', packageType: 'MONTHLY', product: { identifier: 'monthly_pro', priceString: '€6.95', price: 6.95, title: 'Monthly', description: '', currencyCode: 'EUR' }, offeringIdentifier: 'default' } as any,
+            { identifier: '$rc_annual', packageType: 'ANNUAL', product: { identifier: 'yearly_pro', priceString: '€69.95', price: 69.95, title: 'Yearly', description: '', currencyCode: 'EUR' }, offeringIdentifier: 'default' } as any,
             ...[5, 10, 20, 50, 100].map(count => ({
                 identifier: `company_${count}_yearly`,
                 packageType: 'CUSTOM',
-                product: { identifier: `company_${count}_yearly`, priceString: `$${count * 100}.00`, price: count * 100, title: `${count} Users`, description: '', currencyCode: 'USD' },
+                product: { 
+                    identifier: `company_${count}_yearly`, 
+                    priceString: `€${companyPrices[count as keyof typeof companyPrices]}`, 
+                    price: companyPrices[count as keyof typeof companyPrices], 
+                    title: `${count} Users`, 
+                    description: '', 
+                    currencyCode: 'EUR' 
+                },
                 offeringIdentifier: 'default'
             } as any))
         ]);
         return;
       }
       // ... RevenueCat setup ...
+      try {
+        if (Platform.OS === 'ios') {
+            await Purchases.configure({ apiKey: API_KEYS.apple });
+        } else if (Platform.OS === 'android') {
+            await Purchases.configure({ apiKey: API_KEYS.google });
+        }
+        const offerings = await Purchases.getOfferings();
+        if (offerings.current && offerings.current.availablePackages.length !== 0) {
+            setPackages(offerings.current.availablePackages);
+        }
+      } catch (e) {
+        console.log("Error fetching offerings", e);
+      }
     };
     setupPurchases();
   }, []);
 
-  // ... Keep selectedProduct logic same ...
+  // Helpers to get specific package details for UI display
+  const monthlyPackage = useMemo(() => 
+    packages.find(p => p.packageType === 'MONTHLY' || p.identifier === '$rc_monthly'), 
+  [packages]);
+
+  const yearlyPackage = useMemo(() => 
+    packages.find(p => p.packageType === 'ANNUAL' || p.identifier === '$rc_annual'), 
+  [packages]);
+
+  // Determine the actual product selected for purchase
   const selectedProduct = useMemo(() => {
     if (planType === 'individual') {
       const identifier = billingCycle === 'monthly' ? '$rc_monthly' : '$rc_annual';
@@ -75,6 +107,9 @@ export default function PaywallScreen() {
     }
   }, [packages, planType, billingCycle, userCount]);
 
+  // Display strings
+  const monthlyPriceDisplay = monthlyPackage?.product.priceString || '...';
+  const yearlyPriceDisplay = yearlyPackage?.product.priceString || '...';
   const displayPrice = selectedProduct ? selectedProduct.product.priceString : '...';
 
   // --- ACTIONS ---
@@ -223,7 +258,7 @@ export default function PaywallScreen() {
           </View>
         </View>
 
-        {/* PLANS - Same as original */}
+        {/* PLANS */}
         <View style={styles.section}>
           <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>
             {t('paywall.selectPlan', 'Select Plan')}
@@ -241,7 +276,8 @@ export default function PaywallScreen() {
               >
                 <Text style={[typography.h3, { color: colors.text, fontSize: 13, fontWeight: '600' }]}>{t('paywall.mo')}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 2 }}>
-                  <Text style={[typography.h3, { color: colors.primary }]}>{billingCycle === 'monthly' ? displayPrice : '...'}</Text>
+                  {/* Changed: Always show monthly price */}
+                  <Text style={[typography.h3, { color: colors.primary }]}>{monthlyPriceDisplay}</Text>
                   <Text style={[typography.caption, { color: colors.subtext, fontSize: 11 }]}>/ {t('paywall.mo')}</Text>
                 </View>
               </Pressable>
@@ -261,7 +297,8 @@ export default function PaywallScreen() {
                   </View>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 2 }}>
-                  <Text style={[typography.h3, { color: colors.primary }]}>{billingCycle === 'yearly' ? displayPrice : '...'}</Text>
+                   {/* Changed: Always show yearly price */}
+                  <Text style={[typography.h3, { color: colors.primary }]}>{yearlyPriceDisplay}</Text>
                   <Text style={[typography.caption, { color: colors.subtext, fontSize: 11 }]}>/ {t('paywall.yr')}</Text>
                 </View>
               </Pressable>
