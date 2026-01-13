@@ -2,7 +2,7 @@ import React, { useState, useEffect, createContext, useContext, PropsWithChildre
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { differenceInDays, parseISO, addDays } from 'date-fns';
-import { useRouter, useSegments } from 'expo-router';
+import { useRouter } from 'expo-router'; // Added useRouter just in case you need explicit navigation
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // 1. Types
@@ -34,6 +34,7 @@ type AuthContextType = {
   setStockGridLocked: (locked: boolean) => void;
   subscriptionStatus: SubscriptionStatus;
   daysRemaining: number;
+  signOut: () => Promise<void>; // Exposed signOut to context
 };
 
 // 2. Default Context Values
@@ -47,6 +48,7 @@ const AuthContext = createContext<AuthContextType>({
   setStockGridLocked: () => {},
   subscriptionStatus: 'trial_active', 
   daysRemaining: 7,
+  signOut: async () => {},
 });
 
 export function AuthProvider({ children }: PropsWithChildren) {
@@ -56,10 +58,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [workgroup, setWorkgroup] = useState<Workgroup | null>(null);
   const [loading, setLoading] = useState(true);
   const [isStockGridLocked, setStockGridLocked] = useState(false);
-  
+   
   // New State for Subscription
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>('trial_active');
   const [daysRemaining, setDaysRemaining] = useState(7);
+
+  const router = useRouter(); 
+
+  // Helper to Sign Out
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    // The onAuthStateChange listener below will handle state cleanup
+  };
 
   const fetchProfileAndWorkgroup = useCallback(async (currentSession: Session) => {
     try {
@@ -134,9 +144,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }, [session, fetchProfileAndWorkgroup]);
 
-  // --- FIX: SPLIT LISTENER AND DATA FETCHING ---
-  
-  // 1. Initial Load & Auth Listener (Synchronous)
+  // --- 1. Initial Load & Auth Listener (Synchronous) ---
   useEffect(() => {
     let mounted = true;
 
@@ -150,7 +158,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     getInitialData();
 
-    // Do NOT await anything inside this callback
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
       if (mounted) {
         setSession(newSession);
@@ -170,12 +177,50 @@ export function AuthProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
-  // 2. Fetch Data when Session Changes (Async, safe from deadlock)
+  // --- 2. Fetch Data when Session Changes (Async) ---
   useEffect(() => {
     if (session) {
       fetchProfileAndWorkgroup(session);
     }
   }, [session, fetchProfileAndWorkgroup]);
+
+  // --- 3. REALTIME LISTENER: Handle Force Logout / Updates ---
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    const channel = supabase
+      .channel(`profile_watcher_${session.user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${session.user.id}`, // Listen only to my own profile changes
+        },
+        async (payload) => {
+          const newProfile = payload.new as Profile;
+          
+          // Check if user was removed (workgroup_id changed to null)
+          if (newProfile.workgroup_id === null) {
+            console.log('User removed from workgroup via Realtime. Logging out.');
+            
+            // Log out explicitly
+            await signOut();
+            
+            // Note: The onAuthStateChange listener will handle the UI redirection
+          } else {
+            // If just a role change or name update, simply refresh data
+            refreshProfile();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session?.user?.id, refreshProfile]);
 
   return (
     <AuthContext.Provider 
@@ -188,7 +233,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
         isStockGridLocked,
         setStockGridLocked,
         subscriptionStatus,
-        daysRemaining
+        daysRemaining,
+        signOut
       }}
     >
       {children}
