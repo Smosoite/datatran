@@ -63,7 +63,7 @@
     "email": "Email",
     "email1": "Email address - required for credential reset.",
     "password": "Password",
-    "password1": "Min 8 char. Letters and num.",
+    "password1": "Password - Min 8 characters, Letters and num.",
     "signIn": "Sign In",
     "noAccount": "Don't have an account? Sign Up",
     "signUpHeader": "Create Account",
