@@ -184,7 +184,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }, [session, fetchProfileAndWorkgroup]);
 
-  // --- 3. REALTIME LISTENER: Handle Force Logout / Updates ---
+  // --- 3. REALTIME LISTENER: Hand.le Force Logout / Updates ---
   useEffect(() => {
     if (!session?.user?.id) return;
 
