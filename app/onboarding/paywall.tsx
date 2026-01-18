@@ -464,10 +464,6 @@ export default function PaywallScreen() {
     </Text>
 
     <ScrollView style={{ width: '100%', marginBottom: 20 }} showsVerticalScrollIndicator={true}>
-      
-      {/* ================================================= */}
-      {/* TERMS AND CONDITIONS                 */}
-      {/* ================================================= */}
       {activeLegalDoc === 'terms' && (
         <>
           <Text style={[typography.caption, { color: colors.textTertiary, marginBottom: 10 }]}>
@@ -518,10 +514,6 @@ export default function PaywallScreen() {
           <LegalText text={t('legalterms.section8_email')} />
         </>
       )}
-
-      {/* ================================================= */}
-      {/* PRIVACY POLICY                    */}
-      {/* ================================================= */}
       {activeLegalDoc === 'privacy' && (
         <>
           <Text style={[typography.caption, { color: colors.textTertiary, marginBottom: 10 }]}>
@@ -605,7 +597,6 @@ export default function PaywallScreen() {
         </View>
           </View>
       </Modal>
-     </SafeAreaView>
 
       {/* FOOTER ACTION */}
       <View style={styles.footer}>
