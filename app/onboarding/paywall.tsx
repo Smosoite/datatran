@@ -457,6 +457,26 @@ export default function PaywallScreen() {
                     title={t('legal.terms.liability_title', '3. Limitation of Liability')} 
                     body={t('legal.terms.liability_body', 'We are not liable for any damages...')} 
                   />
+                  <LegalSection 
+                    title={t('legal.terms.liability_title', '3. Limitation of Liability')} 
+                    body={t('legal.terms.liability_body', 'We are not liable for any damages...')} 
+                  />
+                  <LegalSection 
+                    title={t('legal.terms.liability_title', '3. Limitation of Liability')} 
+                    body={t('legal.terms.liability_body', 'We are not liable for any damages...')} 
+                  />
+                  <LegalSection 
+                    title={t('legal.terms.liability_title', '3. Limitation of Liability')} 
+                    body={t('legal.terms.liability_body', 'We are not liable for any damages...')} 
+                  />
+                  <LegalSection 
+                    title={t('legal.terms.liability_title', '3. Limitation of Liability')} 
+                    body={t('legal.terms.liability_body', 'We are not liable for any damages...')} 
+                  />
+                  <LegalSection 
+                    title={t('legal.terms.liability_title', '3. Limitation of Liability')} 
+                    body={t('legal.terms.liability_body', 'We are not liable for any damages...')} 
+                  />
                 </>
               )}
 
