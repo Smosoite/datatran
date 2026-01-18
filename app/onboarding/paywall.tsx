@@ -605,7 +605,7 @@ export default function PaywallScreen() {
         </View>
           </View>
       </Modal>
-      </ScrollView>
+     </SafeAreaView>
 
       {/* FOOTER ACTION */}
       <View style={styles.footer}>
