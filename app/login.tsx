@@ -259,7 +259,7 @@ export default function LoginScreen() {
 
         {/* Updated Forgot Password Button */}
         <Pressable onPress={initForgotPassword} style={styles.forgotPassword} disabled={loading}>
-          <Text style={[typography.caption, { color: colors.primary }]}>{t('login.forgotPassword', 'Forgot Password?')}</Text>
+          <Text style={[typography.caption, { color: colors.subtext }]}>{t('login.forgotPassword', 'Forgot Password?')}</Text>
         </Pressable>
 
         <Pressable
@@ -275,7 +275,7 @@ export default function LoginScreen() {
         </Pressable>
 
         <Pressable onPress={() => router.push('/sign-up')} style={styles.linkButton}>
-          <Text style={[typography.body, { color: colors.primary }]}>{t('login.noAccount', "Don't have an account? Sign Up")}</Text>
+          <Text style={[typography.body, { color: colors.subtext }]}>{t('login.noAccount', "Don't have an account? Sign Up")}</Text>
         </Pressable>
       </View>
 
