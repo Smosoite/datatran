@@ -509,5 +509,29 @@
     "nextSteps": "Ready to unlock the full potential of StoreTool?",
     "unlockFullAccess": "Unlock Full Access",
     "freeTrialNote": "7-day free trial • No commitment"
+  },
+  "legalterms": {
+    "intro_title": "Last",
+    "intro_body": "days.",
+    "usage_title": "From the start",
+    "usage_body": "24h",
+    "usage_body2": "Export history",
+    "usage_body3": "Last",
+    "liability_body": "days.",
+    "liability_body2": "From the start",
+    "liability_body3": "24h",
+    "liability_title": "Export history",
+  },
+  "legalprivacy": {
+    "data_title": "Last",
+    "data_body": "days.",
+    "usage_title": "From the start",
+    "usage_body": "24h",
+    "usage_body2": "Export history",
+    "usage_body3": "Last",
+    "security_body": "days.",
+    "security_body2": "From the start",
+    "security_body3": "24h",
+    "security_title": "Export history",
   }
 }
