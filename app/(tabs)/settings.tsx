@@ -887,7 +887,7 @@ export default function SettingsScreen() {
         </View>
       </View>  
     </Modal>
-  </ScrollView>
+  </SafeAreaView>
   );
 }
 
