@@ -381,7 +381,7 @@
     "subscribe": "Tilaa Nyt",
     "subNow": "Tilaa Nyt",
     "restore": "Palauta",
-    "terms": "Ehdot",
+    "terms": "*Tilaukset uusiutuvat automaattisesti jakson päätyttyä.",
     "privacy": "Yksityisyys",
     "companyTier": "{{count}} Käyttäjän Lisenssi",
     "cancelAnytime": "Peruuta milloin tahansa. Ei sitoutumista.",
