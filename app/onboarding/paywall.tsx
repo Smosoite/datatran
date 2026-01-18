@@ -1,4 +1,3 @@
-// ... imports equal to your current file ...
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, Alert, Platform, Modal } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
