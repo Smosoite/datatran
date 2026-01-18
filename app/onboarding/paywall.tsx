@@ -603,6 +603,7 @@ export default function PaywallScreen() {
             </Pressable>
         </ScrollView>
         </View>
+          </View>
       </Modal>
       </ScrollView>
 
