@@ -888,7 +888,6 @@ export default function SettingsScreen() {
       </View>  
     </Modal>
   </ScrollView>
-  </SafeAreaView>
   );
 }
 
