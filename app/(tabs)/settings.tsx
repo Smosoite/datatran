@@ -620,7 +620,7 @@ export default function SettingsScreen() {
             disabled={isExporting}
           >
             <View style={{flexDirection:'row', alignItems:'center'}}>
-              {isExporting ? <ActivityIndicator color={colors.primary} /> : <FontAwesome name="download" size={18} color={colors.primary} /> }
+              {isExporting ? <ActivityIndicator color={colors.primary} /> : <FontAwesome name="download" size={18} color={colors.selector} /> }
               <Text style={[typography.button, styles.menuButtonText, { color: colors.text }]}>
                 {isExporting ? t('settings.expo') : t('settings.expoAll')}
               </Text>
