@@ -742,46 +742,139 @@ export default function SettingsScreen() {
           <View style={[styles.modalContent, { height: '80%', width: '90%', backgroundColor: colors.card, borderColor: colors.border }]}>
             
             <Text style={[typography.h3, styles.modalTitle, { color: colors.text, marginBottom: 20 }]}>
-               {activeLegalDoc === 'terms' ? t('legal.terms', 'Terms & Conditions') : t('legal.privacy', 'Privacy Policy')}
+               {activeLegalDoc === 'terms' ? t('legalterms.page_title', 'Terms of Service') : t('legalprivacy.page_title', 'Privacy Policy')}
             </Text>
 
             <ScrollView style={{ width: '100%', marginBottom: 20 }} showsVerticalScrollIndicator={true}>
               
-              {/* RENDER TERMS SECTIONS */}
+              {/* ================================================= */}
+              {/* TERMS AND CONDITIONS                 */}
+              {/* ================================================= */}
               {activeLegalDoc === 'terms' && (
                 <>
-                  <LegalSection 
-                    title={t('legal.terms.intro_title', '1. Introduction')} 
-                    body={t('legal.terms.intro_body', 'Welcome to our application... (Add your full text in en.json)')} 
-                  />
-                  <LegalSection 
-                    title={t('legal.terms.usage_title', '2. Usage Rights')} 
-                    body={t('legal.terms.usage_body', 'You agree to use this app only for...')} 
-                  />
-                  <LegalSection 
-                    title={t('legal.terms.liability_title', '3. Limitation of Liability')} 
-                    body={t('legal.terms.liability_body', 'We are not liable for any damages...')} 
-                  />
-                  {/* Copy/Paste more LegalSection blocks here as needed */}
+                  <Text style={[typography.caption, { color: colors.subtext, marginBottom: 10 }]}>
+                    {t('legalterms.last_updated', 'Last Updated: ...')}
+                  </Text>
+                  <LegalText text={t('legalterms.intro_body', 'Welcome to StoreTool...')} />
+
+                  {/* 1. General */}
+                  <LegalHeader title={t('legalterms.section1_title', '1. General')} />
+                  <LegalText text={t('legalterms.section1_body', 'These terms apply...')} />
+
+                  {/* 2. Intellectual Property */}
+                  <LegalHeader title={t('legalterms.section2_title', '2. Intellectual Property')} />
+                  <LegalText text={t('legalterms.section2_body', 'The StoreTool App...')} />
+
+                  {/* 3. User Accounts */}
+                  <LegalHeader title={t('legalterms.section3_title', '3. User Accounts')} />
+                  <LegalListItem label={t('legalterms.section3_point1_label', 'Account Access: ')} body={t('legalterms.section3_point1_body', 'The App uses your email...')} />
+                  <LegalListItem label={t('legalterms.section3_point2_label', 'Data Security: ')} body={t('legalterms.section3_point2_body', 'While we utilize...')} />
+                  <LegalListItem label={t('legalterms.section3_point3_label', 'Secure Wipe: ')} body={t('legalterms.section3_point3_body', 'The App includes...')} />
+
+                  {/* 4. Subscriptions */}
+                  <LegalHeader title={t('legalterms.section4_title', '4. Subscriptions')} />
+                  <LegalListItem label={t('legalterms.section4_point1_label', 'In-App Purchases: ')} body={t('legalterms.section4_point1_body', 'StoreTool offers...')} />
+                  <LegalListItem label={t('legalterms.section4_point2_label', 'Billing: ')} body={t('legalterms.section4_point2_body', 'Payment will be charged...')} />
+                  <LegalListItem label={t('legalterms.section4_point3_label', 'Renewal: ')} body={t('legalterms.section4_point3_body', 'Subscriptions automatically...')} />
+                  <LegalListItem label={t('legalterms.section4_point4_label', 'Refunds: ')} body={t('legalterms.section4_point4_body', 'Refunds are handled...')} />
+
+                  {/* 5. User Obligations (Bullet points) */}
+                  <LegalHeader title={t('legalterms.section5_title', '5. User Obligations')} />
+                  <LegalText text={t('legalterms.section5_intro', 'You agree to use...')} />
+                  <LegalBullet text={t('legalterms.section5_list_item1', 'Reverse engineering...')} />
+                  <LegalBullet text={t('legalterms.section5_list_item2', 'Using the App to...')} />
+                  <LegalBullet text={t('legalterms.section5_list_item3', 'Inputting illegal...')} />
+
+                  {/* 6. Liability */}
+                  <LegalHeader title={t('legalterms.section6_title', '6. Limitation of Liability')} />
+                  <LegalText text={t('legalterms.section6_body', 'Kulo Digital Oy strives...')} />
+
+                  {/* 7. Governing Law */}
+                  <LegalHeader title={t('legalterms.section7_title', '7. Governing Law')} />
+                  <LegalText text={t('legalterms.section7_body', 'These Terms are governed...')} />
+
+                  {/* 8. Contact */}
+                  <LegalHeader title={t('legalterms.section8_title', '8. Contact Information')} />
+                  <LegalText text={t('legalterms.section8_company', 'Kulo Digital Oy')} />
+                  <LegalText text={t('legalterms.section8_address', 'Hepokatintie 3...')} />
+                  <LegalText text={t('legalterms.section8_email', 'contact@kulodigital.fi')} />
                 </>
               )}
 
-              {/* RENDER PRIVACY SECTIONS */}
+              {/* ================================================= */}
+              {/* PRIVACY POLICY                    */}
+              {/* ================================================= */}
               {activeLegalDoc === 'privacy' && (
                 <>
-                  <LegalSection 
-                    title={t('legal.privacy.data_title', '1. Data Collection')} 
-                    body={t('legal.privacy.data_body', 'We collect basic profile information...')} 
-                  />
-                  <LegalSection 
-                    title={t('legal.privacy.usage_title', '2. How we use data')} 
-                    body={t('legal.privacy.usage_body', 'Your data is used solely for inventory management...')} 
-                  />
-                  <LegalSection 
-                    title={t('legal.privacy.security_title', '3. Data Security')} 
-                    body={t('legal.privacy.security_body', 'We implement standard security measures...')} 
-                  />
-                   {/* Copy/Paste more LegalSection blocks here as needed */}
+                  <Text style={[typography.caption, { color: colors.subtext, marginBottom: 10 }]}>
+                    {t('legalprivacy.last_updated', 'Last Updated...')}
+                  </Text>
+                  <LegalText text={t('legalprivacy.intro_body', 'Kulo Digital Oy is committed...')} />
+
+                  {/* 1. Data Controller */}
+                  <LegalHeader title={t('legalprivacy.section1_title', '1. Data Controller')} />
+                  <LegalText text={t('legalprivacy.section1_company', 'Company: Kulo Digital Oy')} style={{marginBottom: 0}} />
+                  <LegalText text={t('legalprivacy.section1_business_id', 'Business ID: ...')} style={{marginBottom: 0}} />
+                  <LegalText text={t('legalprivacy.section1_address', 'Address: Hepokatintie...')} style={{marginBottom: 0}} />
+                  <LegalText text={t('legalprivacy.section1_email', 'Email: ...')} style={{marginBottom: 0}} />
+                  <LegalText text={t('legalprivacy.section1_contact_person', 'Contact Person: ...')} />
+
+                  {/* 2. What Data */}
+                  <LegalHeader title={t('legalprivacy.section2_title', '2. What Data Do We Collect?')} />
+                  
+                  <LegalSubHeader title={t('legalprivacy.section2_subtitle_a', 'A. Information You Provide')} />
+                  <LegalListItem label={t('legalprivacy.section2_a_point1_label', 'Email: ')} body={t('legalprivacy.section2_a_point1_body', 'We collect...')} />
+                  <LegalListItem label={t('legalprivacy.section2_a_point2_label', 'App Content: ')} body={t('legalprivacy.section2_a_point2_body', 'Data you input...')} />
+
+                  <LegalSubHeader title={t('legalprivacy.section2_subtitle_b', 'B. Information Collected Automatically')} />
+                  <LegalListItem label={t('legalprivacy.section2_b_point1_label', 'Device Info: ')} body={t('legalprivacy.section2_b_point1_body', 'We may collect...')} />
+                  <LegalListItem label={t('legalprivacy.section2_b_point2_label', 'Subscription: ')} body={t('legalprivacy.section2_b_point2_body', 'We process data...')} />
+                  <LegalListItem label={t('legalprivacy.section2_b_point3_label', 'Camera: ')} body={t('legalprivacy.section2_b_point3_body', 'The App requires...')} />
+
+                  {/* 3. Purpose */}
+                  <LegalHeader title={t('legalprivacy.section3_title', '3. Purpose and Legal Basis')} />
+                  <LegalText text={t('legalprivacy.section3_intro', 'We process data for...')} />
+                  <LegalListItem label={t('legalprivacy.section3_point1_label', 'Service Delivery: ')} body={t('legalprivacy.section3_point1_body', 'To provide...')} />
+                  <LegalListItem label={t('legalprivacy.section3_point2_label', 'Billing: ')} body={t('legalprivacy.section3_point2_body', 'To manage...')} />
+                  <LegalListItem label={t('legalprivacy.section3_point3_label', 'Legal Obligation: ')} body={t('legalprivacy.section3_point3_body', 'To comply...')} />
+
+                  {/* 4. Sharing */}
+                  <LegalHeader title={t('legalprivacy.section4_title', '4. Data Sharing')} />
+                  <LegalText text={t('legalprivacy.section4_intro', 'We share data only...')} />
+                  <LegalListItem label={t('legalprivacy.section4_point1_label', 'Supabase: ')} body={t('legalprivacy.section4_point1_body', 'Backend database...')} />
+                  <LegalListItem label={t('legalprivacy.section4_point2_label', 'RevenueCat/Apple: ')} body={t('legalprivacy.section4_point2_body', 'Subscription payments...')} />
+                  <LegalListItem label={t('legalprivacy.section4_point3_label', 'Transfers: ')} body={t('legalprivacy.section4_point3_body', 'If data is processed...')} />
+
+                  {/* 5. Retention */}
+                  <LegalHeader title={t('legalprivacy.section5_title', '5. Data Retention')} />
+                  <LegalListItem label={t('legalprivacy.section5_point1_label', 'User Control: ')} body={t('legalprivacy.section5_point1_body', 'Secure Wipe...')} />
+                  <LegalListItem label={t('legalprivacy.section5_point2_label', 'Retention: ')} body={t('legalprivacy.section5_point2_body', 'If you do not wipe...')} />
+                  <LegalListItem label={t('legalprivacy.section5_point3_label', 'Backups: ')} body={t('legalprivacy.section5_point3_body', 'Deleted data may remain...')} />
+
+                  {/* 6. Rights (Bullets) */}
+                  <LegalHeader title={t('legalprivacy.section6_title', '6. Your Rights')} />
+                  <LegalText text={t('legalprivacy.section6_intro', 'You have the right to:')} />
+                  <LegalBullet text={t('legalprivacy.section6_list_item1_label', 'Access') + ': ' + t('legalprivacy.section6_list_item1_body', 'Request a copy...')} />
+                  <LegalBullet text={t('legalprivacy.section6_list_item2_label', 'Rectification') + ': ' + t('legalprivacy.section6_list_item2_body', 'Correct data...')} />
+                  <LegalBullet text={t('legalprivacy.section6_list_item3_label', 'Erasure') + ': ' + t('legalprivacy.section6_list_item3_body', 'Request deletion...')} />
+                  <LegalBullet text={t('legalprivacy.section6_list_item4_label', 'Object') + ': ' + t('legalprivacy.section6_list_item4_body', 'Object to processing...')} />
+                  <LegalBullet text={t('legalprivacy.section6_list_item5_label', 'Portability') + ': ' + t('legalprivacy.section6_list_item5_body', 'Receive data...')} />
+                  
+                  <View style={{ marginTop: 10 }}>
+                    <LegalText text={t('legalprivacy.section6_contact_text', 'Contact us at privacy@...')} style={{ fontWeight: '600', color: colors.text }} />
+                    <LegalText text={t('legalprivacy.section6_ombudsman_text', 'Lodge complaint...')} />
+                  </View>
+
+                  {/* 7. Security */}
+                  <LegalHeader title={t('legalprivacy.section7_title', '7. Data Security')} />
+                  <LegalText text={t('legalprivacy.section7_body', 'We employ HTTPS...')} />
+
+                  {/* 8. Changes */}
+                  <LegalHeader title={t('legalprivacy.section8_title', '8. Changes')} />
+                  <LegalText text={t('legalprivacy.section8_body', 'We reserve the right...')} />
+                  
+                  {/* Bottom spacer */}
+                  <View style={{ height: 40 }} />
                 </>
               )}
 
