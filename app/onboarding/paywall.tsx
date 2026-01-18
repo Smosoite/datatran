@@ -602,9 +602,9 @@ export default function PaywallScreen() {
               <Text style={[typography.button, { color: '#fff' }]}>{t('general.close', 'Close')}</Text>
             </Pressable>
           </View>
+        </ScrollView>
         </View>
       </Modal>
-        </ScrollView>
 
       {/* FOOTER ACTION */}
       <View style={styles.footer}>
