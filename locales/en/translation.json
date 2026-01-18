@@ -412,7 +412,7 @@
     "subscribe": "Subscribe Now",
     "subNow": "Subscribe Now",
     "restore": "Restore",
-    "terms": "Terms",
+    "terms": "*Subscriptions renew automatically after period ends.",
     "privacy": "Privacy",
     "companyTier": "{{count}} User License",
     "cancelAnytime": "Cancel anytime. No commitment.",
