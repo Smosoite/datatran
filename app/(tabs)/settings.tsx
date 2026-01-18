@@ -576,7 +576,7 @@ export default function SettingsScreen() {
             onPress={() => setShowTaxDropdown(!showTaxDropdown)}
           >
              <View style={{flexDirection:'row', alignItems:'center'}}>
-              <Ionicons name="pricetag-outline" size={18} color={colors.primary} />
+              <Ionicons name="pricetag-outline" size={18} color={colors.selector} />
               <View>
                  <Text style={[typography.button, styles.menuButtonText, { color: colors.text }]}>{t('settings.taxRate')}</Text>
                  <Text style={[typography.caption, { marginLeft: 12, color: colors.subtext }]}>{t('settings.taxFallback', '(Default Fallback)')}</Text>
