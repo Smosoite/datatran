@@ -597,8 +597,6 @@ export default function PaywallScreen() {
       )}
 
     </ScrollView>
-  </View>
-</View>
 
             <Pressable 
               style={[styles.modalBtn, { backgroundColor: colors.selector, borderWidth: 0, marginTop: 10 }]} 
@@ -606,7 +604,6 @@ export default function PaywallScreen() {
             >
               <Text style={[typography.button, { color: '#fff' }]}>{t('general.close', 'Close')}</Text>
             </Pressable>
-            
           </View>
         </View>
       </Modal>
