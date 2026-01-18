@@ -884,9 +884,9 @@ export default function SettingsScreen() {
               <Text style={[typography.button, { color: '#fff' }]}>{t('general.close', 'Close')}</Text>
             </Pressable>
           </View>
+          </ScrollView>
         </View>
       </Modal>
-    </ScrollView>
   );
 }
 
