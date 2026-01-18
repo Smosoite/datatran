@@ -13,7 +13,6 @@ import { useOnboarding } from '../../providers/OnboardingProvider';
 import { typography } from '../../styles/typography';
 import { useSubscription } from '../../hooks/useSubscription';
 
-// ... Keep API_KEYS, DEMO_MODE, Types same as before ...
 const API_KEYS = {
   apple: "appl_your_api_key_here",
   google: "goog_your_api_key_here"
@@ -39,6 +38,22 @@ export default function PaywallScreen() {
   const [userCount, setUserCount] = useState<UserCount>(5);
   const [packages, setPackages] = useState<PurchasesPackage[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
+
+  // --- LEGAL MODAL STATE ---
+  const [activeLegalDoc, setActiveLegalDoc] = useState<'terms' | 'privacy' | null>(null);
+
+  // --- HELPER COMPONENT FOR LEGAL TEXT ---
+  // Matches the one in SettingsScreen.tsx
+  const LegalSection = ({ title, body }: { title: string, body: string }) => (
+    <View style={{ marginBottom: 24 }}>
+      <Text style={[typography.h3, { color: colors.text, marginBottom: 8, fontSize: 16 }]}>
+        {title}
+      </Text>
+      <Text style={[typography.body, { color: colors.subtext, lineHeight: 22, fontSize: 14 }]}>
+        {body}
+      </Text>
+    </View>
+  );
 
   // ... Keep useEffect setupPurchases same as before ...
   useEffect(() => {
@@ -167,7 +182,6 @@ export default function PaywallScreen() {
   };
 
   const handleRestore = async () => {
-    // ... same as before ...
     setLoading(true);
     if (DEMO_MODE) {
         setTimeout(async () => {
@@ -178,7 +192,6 @@ export default function PaywallScreen() {
         }, 1000);
         return;
     }
-    // ...
     try {
         const customerInfo = await Purchases.restorePurchases();
         if (customerInfo.entitlements.active['Pro Access']) {
@@ -197,7 +210,6 @@ export default function PaywallScreen() {
 
   if (!colors) return <View style={{flex:1}} />;
 
-  // ... Return JSX same as before ...
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
@@ -275,7 +287,6 @@ export default function PaywallScreen() {
               >
                 <Text style={[typography.h3, { color: colors.text, fontSize: 13, fontWeight: '600' }]}>{t('paywall.mo')}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 2 }}>
-                  {/* Changed: Always show monthly price */}
                   <Text style={[typography.h3, { color: colors.primary }]}>{monthlyPriceDisplay}</Text>
                   <Text style={[typography.caption, { color: colors.subtext, fontSize: 11 }]}>/ {t('paywall.mo')}</Text>
                 </View>
@@ -296,7 +307,6 @@ export default function PaywallScreen() {
                   </View>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 2 }}>
-                   {/* Changed: Always show yearly price */}
                   <Text style={[typography.h3, { color: colors.primary }]}>{yearlyPriceDisplay}</Text>
                   <Text style={[typography.caption, { color: colors.subtext, fontSize: 11 }]}>/ {t('paywall.yr')}</Text>
                 </View>
@@ -331,7 +341,7 @@ export default function PaywallScreen() {
           )}
         </View>
 
-        {/* FEATURES - Same as original */}
+        {/* FEATURES */}
         <View style={styles.section}>
            <Text style={[typography.h3, styles.sectionTitle, { color: colors.text }]}>
             {t('paywall.included', 'What is included')}
@@ -354,9 +364,24 @@ export default function PaywallScreen() {
           {t('paywall.terms', 'Subscription automatically renews unless turned off 24h before end of period.')}
         </Text>
 
+        {/* --- NEW LEGAL LINKS --- */}
+        <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 24, marginTop: 10, marginBottom: 20 }}>
+          <Pressable onPress={() => setActiveLegalDoc('terms')} style={{ padding: 10 }}>
+            <Text style={[typography.caption, { color: colors.subtext, textDecorationLine: 'underline' }]}>
+              {t('legal.terms', 'Terms & Conditions')}
+            </Text>
+          </Pressable>
+          
+          <Pressable onPress={() => setActiveLegalDoc('privacy')} style={{ padding: 10 }}>
+             <Text style={[typography.caption, { color: colors.subtext, textDecorationLine: 'underline' }]}>
+              {t('legal.privacy', 'Privacy Policy')}
+            </Text>
+          </Pressable>
+        </View>
+
       </ScrollView>
 
-      {/* TEAM SIZE DROPDOWN - Same as original */}
+      {/* TEAM SIZE DROPDOWN */}
       <Modal
         transparent
         visible={showDropdown}
@@ -399,6 +424,71 @@ export default function PaywallScreen() {
             ))}
           </View>
         </Pressable>
+      </Modal>
+
+      {/* --- NEW LEGAL MODAL (Consistent with SettingsScreen) --- */}
+      <Modal
+        visible={!!activeLegalDoc}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setActiveLegalDoc(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { height: '80%', width: '90%', backgroundColor: colors.card, borderColor: colors.border }]}>
+            
+            <Text style={[typography.h3, styles.modalTitle, { color: colors.text, marginBottom: 20 }]}>
+               {activeLegalDoc === 'terms' ? t('legal.terms', 'Terms & Conditions') : t('legal.privacy', 'Privacy Policy')}
+            </Text>
+
+            <ScrollView style={{ width: '100%', marginBottom: 20 }} showsVerticalScrollIndicator={true}>
+              
+              {/* RENDER TERMS SECTIONS */}
+              {activeLegalDoc === 'terms' && (
+                <>
+                  <LegalSection 
+                    title={t('legal.terms.intro_title', '1. Introduction')} 
+                    body={t('legal.terms.intro_body', 'Welcome to our application...')} 
+                  />
+                  <LegalSection 
+                    title={t('legal.terms.usage_title', '2. Usage Rights')} 
+                    body={t('legal.terms.usage_body', 'You agree to use this app only for...')} 
+                  />
+                  <LegalSection 
+                    title={t('legal.terms.liability_title', '3. Limitation of Liability')} 
+                    body={t('legal.terms.liability_body', 'We are not liable for any damages...')} 
+                  />
+                </>
+              )}
+
+              {/* RENDER PRIVACY SECTIONS */}
+              {activeLegalDoc === 'privacy' && (
+                <>
+                  <LegalSection 
+                    title={t('legal.privacy.data_title', '1. Data Collection')} 
+                    body={t('legal.privacy.data_body', 'We collect basic profile information...')} 
+                  />
+                  <LegalSection 
+                    title={t('legal.privacy.usage_title', '2. How we use data')} 
+                    body={t('legal.privacy.usage_body', 'Your data is used solely for inventory management...')} 
+                  />
+                  <LegalSection 
+                    title={t('legal.privacy.security_title', '3. Data Security')} 
+                    body={t('legal.privacy.security_body', 'We implement standard security measures...')} 
+                  />
+                </>
+              )}
+
+            </ScrollView>
+
+            <Pressable 
+              style={[styles.modalBtn, { backgroundColor: colors.selector, borderWidth: 0, marginTop: 10 }]} 
+              onPress={() => setActiveLegalDoc(null)}
+            >
+              <Text style={[typography.button, { color: '#fff' }]}>{t('general.close', 'Close')}</Text>
+            </Pressable>
+            
+          </View>
+        </View>
       </Modal>
 
       {/* FOOTER ACTION */}
@@ -452,11 +542,36 @@ const styles = StyleSheet.create({
   planCard: { flex: 1, borderRadius: 12, padding: 8, paddingVertical: 8, borderWidth: 1 },
   dropdownCard: { flex: 1, borderRadius: 12, padding: 8, paddingVertical: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   dropdownDisplay: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  dropdownModal: { width: '80%', borderRadius: 12, padding: 20, borderWidth: 1 },
-  dropdownModalItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1 },
   card: { borderRadius: 12, padding: 12, borderWidth: 1 },
   badge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, alignSelf: 'flex-start' },
   footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20 },
-  ctaButton: { paddingVertical: 16, borderRadius: 12, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 }
+  ctaButton: { paddingVertical: 16, borderRadius: 12, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
+  
+  // --- MODAL STYLES (Added for Legal Text) ---
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  dropdownModal: { width: '80%', borderRadius: 12, padding: 20, borderWidth: 1 }, // Used for Team Size
+  dropdownModalItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1 },
+  
+  // New specific styles for the Legal Modal to match SettingsScreen
+  modalContent: {
+    borderRadius: 20,
+    padding: 24,
+    borderWidth: 1,
+    alignItems: 'center',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalTitle: {
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  modalBtn: {
+    width: '100%',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
 });
