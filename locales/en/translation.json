@@ -511,16 +511,50 @@
     "freeTrialNote": "7-day free trial • No commitment"
   },
   "legalterms": {
-    "intro_title": "Last",
-    "intro_body": "days.",
-    "usage_title": "From the start",
-    "usage_body": "24h",
-    "usage_body2": "Export history",
-    "usage_body3": "Last",
-    "liability_body": "days.",
-    "liability_body2": "From the start",
-    "liability_body3": "24h",
-    "liability_title": "Export history",
+    "page_title": "StoreTool Terms of Service",
+    "last_updated": "Last updated: January 18, 2026",
+    "intro_body": "Welcome to StoreTool. By downloading, accessing, or using the StoreTool mobile application (\"App\"), you agree to be bound by these Terms of Service. Please read them carefully.",
+    
+    "section1_title": "1. General",
+    "section1_body": "These Terms apply to the use of the StoreTool App provided by Kulo Digital Oy (\"Service Provider\"). We reserve the right to modify these terms at any time. Continued use of the App following any changes constitutes your acceptance of the new Terms.",
+    
+    "section2_title": "2. Intellectual Property",
+    "section2_body": "The StoreTool App, including its code, design, graphics, and underlying technology, is the property of Kulo Digital Oy or its licensors. You are granted a limited, non-exclusive, non-transferable, and revocable license to use the App for your personal or internal business purposes in accordance with these Terms.",
+    
+    "section3_title": "3. User Accounts and Data",
+    "section3_point1_label": "Account Access: ",
+    "section3_point1_body": "The App uses your email address solely to facilitate account access and restoration. You are responsible for maintaining access to this email address.",
+    "section3_point2_label": "Data Security: ",
+    "section3_point2_body": "While we utilize secure backend databases (Supabase) to store your data, you are responsible for maintaining the security of your device.",
+    "section3_point3_label": "Secure Wipe: ",
+    "section3_point3_body": "The App includes a \"Secure Wipe\" functionality. You acknowledge that using this feature will permanently and irreversibly delete all information you have input into the App from both your device and our servers. Kulo Digital Oy is not liable for data loss resulting from your use of this feature.",
+    
+    "section4_title": "4. Subscriptions and Payments",
+    "section4_point1_label": "In-App Purchases: ",
+    "section4_point1_body": "StoreTool offers subscription services (\"Pro\" features) purchasable through the Apple App Store or Google Play Store.",
+    "section4_point2_label": "Billing: ",
+    "section4_point2_body": "Payment will be charged to your Apple ID or Google Play account at the confirmation of purchase.",
+    "section4_point3_label": "Renewal: ",
+    "section4_point3_body": "Subscriptions automatically renew unless auto-renew is turned off at least 24 hours before the end of the current period. You can manage your subscriptions in your device's account settings.",
+    "section4_point4_label": "Refunds: ",
+    "section4_point4_body": "Refunds are handled directly by the Apple App Store or Google Play Store in accordance with their respective refund policies.",
+    
+    "section5_title": "5. User Obligations",
+    "section5_intro": "You agree to use the App only for lawful purposes. You are prohibited from:",
+    "section5_list_item1": "Reverse engineering or attempting to extract the source code of the App.",
+    "section5_list_item2": "Using the App to distribute malware or disrupt our backend systems.",
+    "section5_list_item3": "Inputting illegal or infringing content into the App's database.",
+    
+    "section6_title": "6. Limitation of Liability",
+    "section6_body": "Kulo Digital Oy strives to ensure the App functions correctly but does not guarantee it will be error-free or uninterrupted. To the fullest extent permitted by law, we shall not be liable for any direct, indirect, or consequential damages (including loss of data or business interruption) arising from the use or inability to use the App.",
+    
+    "section7_title": "7. Governing Law",
+    "section7_body": "These Terms are governed by the laws of Finland. Any disputes arising from these terms that cannot be settled between both parties, shall be settled in the District Court of Pirkanmaa, Finland.",
+    
+    "section8_title": "8. Contact Information",
+    "section8_company": "Kulo Digital Oy",
+    "section8_address": "Hepokatintie 3, Kangasala, 36240, FIN",
+    "section8_email": "Email: contact@kulodigital.fi",
   },
   "legalprivacy": {
     "data_title": "Last",
