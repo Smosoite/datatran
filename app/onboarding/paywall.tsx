@@ -595,9 +595,6 @@ export default function PaywallScreen() {
           <View style={{ height: 40 }} />
         </>
       )}
-
-    </ScrollView>
-
             <Pressable 
               style={[styles.modalBtn, { backgroundColor: colors.selector, borderWidth: 0, marginTop: 10 }]} 
               onPress={() => setActiveLegalDoc(null)}
@@ -607,6 +604,7 @@ export default function PaywallScreen() {
           </View>
         </View>
       </Modal>
+        </ScrollView>
 
       {/* FOOTER ACTION */}
       <View style={styles.footer}>
