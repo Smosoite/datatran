@@ -877,9 +877,6 @@ export default function SettingsScreen() {
                   <View style={{ height: 40 }} />
                 </>
               )}
-
-            </ScrollView>
-
             <Pressable 
               style={[styles.modalBtn, { backgroundColor: colors.selector, borderWidth: 0, marginTop: 10 }]} 
               onPress={() => setActiveLegalDoc(null)}
