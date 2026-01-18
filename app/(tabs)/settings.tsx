@@ -13,7 +13,7 @@ import { useTheme } from '../../providers/ThemeProvider';
 import { showError, showSuccess } from '../../lib/toast';
 import { useModal } from '../../providers/ModalProvider';
 import { typography } from '../../styles/typography';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // <--- IMPORT ADDED
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const themes = [
   { key: 'default', name: 'Default', representativeColor: '#10567A' },
@@ -40,17 +40,33 @@ export default function SettingsScreen() {
   const { showConfirmation, showPasscodeModal } = useModal();
   const router = useRouter();
   const { profile, workgroup, refreshProfile } = useAuth();
-   
+    
   // --- EXPORT STATE ---
   const [isExporting, setIsExporting] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportFormat, setExportFormat] = useState<'csv' | 'pdf'>('csv');
   const [customDays, setCustomDays] = useState('');
 
+  // --- LEGAL MODAL STATE ---
+  const [activeLegalDoc, setActiveLegalDoc] = useState<'terms' | 'privacy' | null>(null);
+
   // Default fallback tax rate if item doesn't have one specific
   const [globalTaxRate, setGlobalTaxRate] = useState(0.255); 
   // Tax dropdown visibility state
   const [showTaxDropdown, setShowTaxDropdown] = useState(false);
+
+  // --- HELPER COMPONENT FOR LEGAL TEXT ---
+  // This ensures your titles are bold and bodies are readable
+  const LegalSection = ({ title, body }: { title: string, body: string }) => (
+    <View style={{ marginBottom: 24 }}>
+      <Text style={[typography.h3, { color: colors.text, marginBottom: 8, fontSize: 16 }]}>
+        {title}
+      </Text>
+      <Text style={[typography.body, { color: colors.subtext, lineHeight: 22, fontSize: 14 }]}>
+        {body}
+      </Text>
+    </View>
+  );
 
   // --- ACTIONS ---
 
@@ -170,7 +186,6 @@ export default function SettingsScreen() {
     setIsExporting(true);
     try {
       // 1. Fetch Data 
-      // Added 'updated_at' to handle "Today/Custom" logic if needed
       let query = supabase
         .from('items')
         .select(`
@@ -215,15 +230,9 @@ export default function SettingsScreen() {
       // 2. Format Data & Calculate Totals
       const formattedData = items.map((item: any) => {
         const qty = item.quantity || 0;
-        
-        // Extract location names safely
         const storageName = item.storage?.name || '-';
         const warehouseName = item.storage?.warehouse?.name || '-';
-        
-        // Use new fields if available, otherwise fallback to old 'cost_per_unit'
         const unitCost = item.purchase_price !== null ? item.purchase_price : (item.cost_per_unit || 0);
-        
-        // Use item specific tax if available, otherwise global setting
         const taxPercent = item.purchase_vat_percent !== null ? item.purchase_vat_percent : (globalTaxRate * 100);
         
         const rowTotalNet = qty * unitCost;
@@ -249,14 +258,13 @@ export default function SettingsScreen() {
       const exportedBy = profile?.full_name || profile?.email || 'Admin';
       const exportDate = new Date().toLocaleString(i18n.language); 
 
-      // 4. Generate File based on Toggle Selection
+      // 4. Generate File
       if (exportFormat === 'csv') {
         await generateCSV(formattedData, totalNetStockValue, totalGrossStockValue, exportedBy, exportDate);
       } else {
         await generatePDF(formattedData, totalNetStockValue, totalGrossStockValue, exportedBy, exportDate);
       }
 
-      // Close modal on success
       setShowExportModal(false);
 
     } catch (error: any) {
@@ -269,19 +277,14 @@ export default function SettingsScreen() {
   const generateCSV = async (data: any[], totalNet: number, totalGross: number, user: string, date: string) => {
     try {
       const csvRows = [];
-      
-      // Header Info
       csvRows.push({ [t('export.colName')]: `${t('export.generatedOn')}: ${date}` });
       csvRows.push({ [t('export.colName')]: `${t('export.preparedBy')}: ${user}` });
-      csvRows.push({}); // Empty line
+      csvRows.push({}); 
 
-      // Loop Data
       data.forEach((item, index) => {
         csvRows.push({
-          // New Columns First
           [t('export.colWarehouse', 'Warehouse')]: item.warehouseName,
           [t('export.colStorage', 'Storage')]: item.storageName,
-          // Existing Columns
           [t('export.colName')]: item.name,
           [t('export.colQty')]: item.quantity,
           [t('export.colUnitCost')]: item.unitCost.toFixed(2),
@@ -289,23 +292,16 @@ export default function SettingsScreen() {
           [t('export.colTotalNet')]: item.totalNet.toFixed(2),
           [t('export.colTotalGross')]: item.totalGross.toFixed(2),
         });
-
-        // Empty row every 10 items for readability
         if ((index + 1) % 10 === 0) {
           csvRows.push({});
         }
       });
 
-      // Footer
-      csvRows.push({}); // Empty line at bottom
-      
-      // Summary Rows
-      // We align totals roughly by using keys from later columns
+      csvRows.push({}); 
       csvRows.push({
         [t('export.colTax')]: t('export.costOfStock'), 
         [t('export.colTotalNet')]: totalNet.toFixed(2) 
       });
-      
       csvRows.push({
         [t('export.colTax')]: t('export.withTax'),
         [t('export.colTotalNet')]: totalGross.toFixed(2)
@@ -324,10 +320,8 @@ export default function SettingsScreen() {
 
   const generatePDF = async (data: any[], totalNet: number, totalGross: number, user: string, date: string) => {
     try {
-      // Build Rows with spacing logic
       const rowsHtml = data.map((item, index) => {
         const isSpacer = (index + 1) % 10 === 0;
-        
         let html = `
           <tr>
             <td style="text-align: left;">${item.warehouseName}</td>
@@ -340,8 +334,6 @@ export default function SettingsScreen() {
             <td style="text-align: right;">${item.totalGross.toFixed(2)}</td>
           </tr>
         `;
-
-        // Add empty row spacer - colspan increased to 8
         if (isSpacer) {
           html += `<tr style="height: 20px;"><td colspan="8" style="border:none;"></td></tr>`;
         }
@@ -357,12 +349,9 @@ export default function SettingsScreen() {
               .header { margin-bottom: 20px; }
               .header h1 { color: #10567A; margin-bottom: 5px; font-size: 20px; }
               .meta { font-size: 12px; color: #666; }
-              
               table { width: 100%; border-collapse: collapse; margin-top: 10px; }
               th { background-color: #f2f2f2; border: 1px solid #ccc; padding: 6px; font-size: 10px; text-transform: uppercase; }
               td { border: 1px solid #ddd; padding: 6px; font-size: 11px; }
-              
-              /* Footer Styling */
               tfoot td { font-weight: bold; font-size: 13px; background-color: #fff; border: none; padding-top: 10px; }
               .label-col { text-align: right; padding-right: 10px; color: #10567A; }
               .value-col { text-align: right; border-bottom: 1px solid #000; }
@@ -374,7 +363,6 @@ export default function SettingsScreen() {
               <div class="meta">${t('export.generatedOn')}: ${date}</div>
               <div class="meta">${t('export.preparedBy')}: ${user}</div>
             </div>
-            
             <table>
               <thead>
                 <tr>
@@ -388,19 +376,15 @@ export default function SettingsScreen() {
                   <th>${t('export.colTotalGross')}</th>
                 </tr>
               </thead>
-              <tbody>
-                ${rowsHtml}
-              </tbody>
+              <tbody>${rowsHtml}</tbody>
               <tfoot>
                 <tr style="height: 20px;"><td colspan="8"></td></tr>
-                
                 <tr>
                   <td colspan="5"></td>
                   <td class="label-col">${t('export.costOfStock')}</td>
                   <td class="value-col">${totalNet.toFixed(2)}</td>
                   <td></td>
                 </tr>
-
                 <tr>
                   <td colspan="5"></td>
                   <td class="label-col">${t('export.withTax')}</td>
@@ -412,7 +396,6 @@ export default function SettingsScreen() {
           </body>
         </html>
       `;
-
       const { uri } = await Print.printToFileAsync({ html });
       await Sharing.shareAsync(uri);
     } catch (e: any) {
@@ -624,7 +607,7 @@ export default function SettingsScreen() {
       </View>
         
       {/* DELETE & LOGOUT */}
-      <View style={[styles.section, { marginTop: 20, marginBottom: 50 }]}>
+      <View style={[styles.section, { marginTop: 20, marginBottom: 10 }]}>
         {profile?.role === 'admin' && (
           <Pressable 
             style={[styles.dangerButton, { backgroundColor: colors.card, borderColor: colors.danger }]} 
@@ -639,6 +622,21 @@ export default function SettingsScreen() {
         </Pressable>
       </View>
       
+      {/* --- LEGAL LINKS --- */}
+      <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 24, marginBottom: 40, marginTop: 10 }}>
+        <Pressable onPress={() => setActiveLegalDoc('terms')} style={{ padding: 10 }}>
+          <Text style={[typography.caption, { color: colors.subtext, textDecorationLine: 'underline' }]}>
+            {t('legal.terms', 'Terms & Conditions')}
+          </Text>
+        </Pressable>
+        
+        <Pressable onPress={() => setActiveLegalDoc('privacy')} style={{ padding: 10 }}>
+           <Text style={[typography.caption, { color: colors.subtext, textDecorationLine: 'underline' }]}>
+            {t('legal.privacy', 'Privacy Policy')}
+          </Text>
+        </Pressable>
+      </View>
+
       {/* EXPORT MODAL */}
       <Modal
         visible={showExportModal}
@@ -652,7 +650,6 @@ export default function SettingsScreen() {
               {t('settings.exportTitle', 'Export Inventory')}
             </Text>
 
-            {/* FORMAT TOGGLE */}
             <View style={styles.toggleContainer}>
               <Pressable 
                 style={[styles.toggleBtn, exportFormat === 'csv' && { backgroundColor: colors.selector }]}
@@ -668,7 +665,6 @@ export default function SettingsScreen() {
               </Pressable>
             </View>
 
-            {/* Option 1: Today */}
             <Pressable 
               style={[styles.modalBtn, { borderColor: colors.border }]} 
               onPress={() => handleExportData('today')}
@@ -677,7 +673,6 @@ export default function SettingsScreen() {
               <Text style={[typography.button, { color: colors.text }]}>{t('history.today', 'Today')}</Text>
             </Pressable>
 
-            {/* Option 2: All Time */}
             <Pressable 
               style={[styles.modalBtn, { borderColor: colors.border }]} 
               onPress={() => handleExportData('all')}
@@ -686,7 +681,6 @@ export default function SettingsScreen() {
               <Text style={[typography.button, { color: colors.text }]}>{t('history.exportAll', 'From Start (All)')}</Text>
             </Pressable>
 
-            {/* Option 3: Custom Days */}
             <View style={styles.customRow}>
               <Text style={[typography.body, { color: colors.text, marginRight: 10 }]}>{t('history.last', 'Last')}</Text>
               <TextInput
@@ -714,6 +708,73 @@ export default function SettingsScreen() {
         </View>
       </Modal>
 
+      {/* --- LEGAL MODAL (UPDATED WITH SECTIONS) --- */}
+      <Modal
+        visible={!!activeLegalDoc}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setActiveLegalDoc(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { height: '80%', width: '90%', backgroundColor: colors.card, borderColor: colors.border }]}>
+            
+            <Text style={[typography.h3, styles.modalTitle, { color: colors.text, marginBottom: 20 }]}>
+               {activeLegalDoc === 'terms' ? t('legal.terms', 'Terms & Conditions') : t('legal.privacy', 'Privacy Policy')}
+            </Text>
+
+            <ScrollView style={{ width: '100%', marginBottom: 20 }} showsVerticalScrollIndicator={true}>
+              
+              {/* RENDER TERMS SECTIONS */}
+              {activeLegalDoc === 'terms' && (
+                <>
+                  <LegalSection 
+                    title={t('legal.terms.intro_title', '1. Introduction')} 
+                    body={t('legal.terms.intro_body', 'Welcome to our application... (Add your full text in en.json)')} 
+                  />
+                  <LegalSection 
+                    title={t('legal.terms.usage_title', '2. Usage Rights')} 
+                    body={t('legal.terms.usage_body', 'You agree to use this app only for...')} 
+                  />
+                  <LegalSection 
+                    title={t('legal.terms.liability_title', '3. Limitation of Liability')} 
+                    body={t('legal.terms.liability_body', 'We are not liable for any damages...')} 
+                  />
+                  {/* Copy/Paste more LegalSection blocks here as needed */}
+                </>
+              )}
+
+              {/* RENDER PRIVACY SECTIONS */}
+              {activeLegalDoc === 'privacy' && (
+                <>
+                  <LegalSection 
+                    title={t('legal.privacy.data_title', '1. Data Collection')} 
+                    body={t('legal.privacy.data_body', 'We collect basic profile information...')} 
+                  />
+                  <LegalSection 
+                    title={t('legal.privacy.usage_title', '2. How we use data')} 
+                    body={t('legal.privacy.usage_body', 'Your data is used solely for inventory management...')} 
+                  />
+                  <LegalSection 
+                    title={t('legal.privacy.security_title', '3. Data Security')} 
+                    body={t('legal.privacy.security_body', 'We implement standard security measures...')} 
+                  />
+                   {/* Copy/Paste more LegalSection blocks here as needed */}
+                </>
+              )}
+
+            </ScrollView>
+
+            <Pressable 
+              style={[styles.modalBtn, { backgroundColor: colors.selector, borderWidth: 0, marginTop: 10 }]} 
+              onPress={() => setActiveLegalDoc(null)}
+            >
+              <Text style={[typography.button, { color: '#fff' }]}>{t('general.close', 'Close')}</Text>
+            </Pressable>
+            
+          </View>
+        </View>
+      </Modal>
+
     </ScrollView>
   );
 }
@@ -723,19 +784,19 @@ const styles = StyleSheet.create({
   section: { marginBottom: 24 },
   sectionTitle: { marginBottom: 8, fontSize: 13, textTransform: 'uppercase', opacity: 0.7 },
   card: { borderRadius: 12, paddingHorizontal: 16, borderWidth: 1 },
-   
+    
   // Rows
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1 },
   appRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12 },
-   
+    
   // Text
   label: { fontSize: 15 },
   value: { fontSize: 15 },
-   
+    
   // Buttons
   menuButton: { paddingVertical: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   menuButtonText: { marginLeft: 12, fontSize: 15 },
-   
+    
   // Theme Grid
   themeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
   themeButton: { 
@@ -745,10 +806,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center'
   },
-   
+    
   // Language
   langButton: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
-   
+    
   // Footer Actions
   dangerButton: { borderWidth: 1, padding: 16, borderRadius: 12, alignItems: 'center', marginBottom: 12 },
   logoutButton: { padding: 16, borderRadius: 12, alignItems: 'center' },
