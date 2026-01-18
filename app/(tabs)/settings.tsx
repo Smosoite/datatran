@@ -583,7 +583,7 @@ export default function SettingsScreen() {
               </View>
             </View>
             <View style={{ flexDirection:'row', alignItems:'center'}}>
-              <Text style={[typography.button, { color: colors.selector, marginRight: 8 }]}>{(globalTaxRate * 100).toFixed(1)}%</Text>
+              <Text style={[typography.button, { color: colors.text, marginRight: 8 }]}>{(globalTaxRate * 100).toFixed(1)}%</Text>
               <FontAwesome name={showTaxDropdown ? "chevron-up" : "chevron-down"} size={12} color={colors.selector} />
             </View>
           </Pressable>
