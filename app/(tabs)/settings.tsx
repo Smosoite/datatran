@@ -607,7 +607,7 @@ export default function SettingsScreen() {
                   }}
                 >
                    <Text style={[typography.body, { color: colors.text }]}>{rate.label}</Text>
-                   {globalTaxRate === rate.value && <FontAwesome name="check" size={12} color={colors.text} />}
+                   {globalTaxRate === rate.value && <FontAwesome name="check" size={12} color={colors.selector} />}
                 </Pressable>
               ))}
             </View>
