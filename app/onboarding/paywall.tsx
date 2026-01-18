@@ -44,13 +44,36 @@ export default function PaywallScreen() {
 
   // --- HELPER COMPONENT FOR LEGAL TEXT ---
   // Matches the one in SettingsScreen.tsx
-  const LegalSection = ({ title, body }: { title: string, body: string }) => (
-    <View style={{ marginBottom: 24 }}>
-      <Text style={[typography.h3, { color: colors.text, marginBottom: 8, fontSize: 16 }]}>
-        {title}
-      </Text>
-      <Text style={[typography.body, { color: colors.subtext, lineHeight: 22, fontSize: 14 }]}>
-        {body}
+  const LegalHeader = ({ title }: { title: string }) => (
+    <Text style={[typography.h3, { color: colors.text, fontSize: 16, fontWeight: 'bold', textDecorationLine: 'underline', marginTop: 20, marginBottom: 8 }]}>
+      {title}
+    </Text>
+  );
+
+  const LegalSubHeader = ({ title }: { title: string }) => (
+    <Text style={[typography.body, { color: colors.text, fontSize: 14, fontWeight: '600', textDecorationLine: 'underline', marginTop: 12, marginBottom: 4 }]}>
+      {title}
+    </Text>
+  );
+
+  const LegalText = ({ text, style }: { text: string, style?: any }) => (
+    <Text style={[typography.body, { color: colors.subtext, fontSize: 14, lineHeight: 20, marginBottom: 8 }, style]}>
+      {text}
+    </Text>
+  );
+
+  const LegalListItem = ({ label, body }: { label: string, body: string }) => (
+    <Text style={[typography.body, { color: colors.subtext, fontSize: 14, lineHeight: 20, marginBottom: 8, paddingLeft: 8 }]}>
+      <Text style={{ fontWeight: 'bold', color: colors.text }}>{label}</Text>
+      {body}
+    </Text>
+  );
+
+  const LegalBullet = ({ text }: { text: string }) => (
+    <View style={{ flexDirection: 'row', paddingLeft: 8, marginBottom: 8 }}>
+      <Text style={{ color: colors.text, marginRight: 8, fontSize: 14 }}>•</Text>
+      <Text style={[typography.body, { color: colors.subtext, fontSize: 14, lineHeight: 20, flex: 1 }]}>
+        {text}
       </Text>
     </View>
   );
