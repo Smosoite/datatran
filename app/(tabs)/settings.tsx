@@ -885,6 +885,7 @@ export default function SettingsScreen() {
             </Pressable>
           </ScrollView>
         </View>
+      </View>  
     </Modal>
   </ScrollView>
   );
