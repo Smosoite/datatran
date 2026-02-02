@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "bolt-expo-nativewind",
-    "slug": "storetooltester",
+    "slug": "bolt-expo-nativewind",
     "version": "1.0.0",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
@@ -9,11 +9,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.kulodigital.storetooltester",
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
+      "supportsTablet": true
     },
     "web": {
       "bundler": "metro",
@@ -27,16 +23,6 @@
     ],
     "experiments": {
       "typedRoutes": true
-    },
-    "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "0e32330c-56ab-483b-b964-0b01e52b3d73"
-      }
-    },
-    "owner": "kulo-digital",
-    "android": {
-      "package": "com.kulodigital.storetooltester"
     }
   }
 }

@@ -1,40 +1,23 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Home, Package, Settings } from 'lucide-react-native';
+import { FontAwesome } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../providers/ThemeProvider';
 
 export default function TabLayout() {
   const { t } = useTranslation();
-  const { colors } = useTheme();
+  const { colors } = useTheme(); // Correct way to get colors
 
   return (
     <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.subtext,
+        screenOptions={{
+        tabBarActiveTintColor: colors.selector,
         tabBarStyle: {
           backgroundColor: colors.card,
           borderTopColor: colors.border,
-          borderTopWidth: 1,
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 8,
-          elevation: 8,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.05,
-          shadowRadius: 8,
-        },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
         },
         headerStyle: {
-          backgroundColor: colors.card,
-          borderBottomColor: colors.border,
-          elevation: 0,
-          shadowOpacity: 0,
+          backgroundColor: colors.card, borderBottomrColor: colors.border,
         },
         headerTintColor: colors.text,
       }}
@@ -42,31 +25,25 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: '',
           headerShown: false,
-          tabBarIcon: ({ color, focused }) => (
-            <Home size={24} color={color} strokeWidth={focused ? 2.5 : 2} />
-          ),
+          tabBarIcon: ({ color }) => <FontAwesome name="home" size={24} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="warehouse"
+        name="warehouse" 
         options={{
-          title: 'Inventory',
+          title: '',
           headerShown: false,
-          tabBarIcon: ({ color, focused }) => (
-            <Package size={24} color={color} strokeWidth={focused ? 2.5 : 2} />
-          ),
+          tabBarIcon: ({ color }) => <FontAwesome name="industry" size={24} color={color} />,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
+          title: '',
           headerShown: true,
-          tabBarIcon: ({ color, focused }) => (
-            <Settings size={24} color={color} strokeWidth={focused ? 2.5 : 2} />
-          ),
+          tabBarIcon: ({ color }) => <FontAwesome name="cog" size={24} color={color} />,
         }}
       />
     </Tabs>

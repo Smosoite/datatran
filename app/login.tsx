@@ -55,17 +55,10 @@ export default function LoginScreen() {
 
     if (error) {
       console.error("LOGIN ERROR DETAILED:", JSON.stringify(error, null, 2));
-      // Check for specific invalid credentials error
-    if (error.message.includes('Invalid login credentials')) {
-      showError(t('general.error'), t('auth.invalidCredentials', 'Login failed - invalid credentials'));
-    } else {
-      // Fallback for other errors
       showError(t('general.error'), error.message);
+      setLoading(false);
+      return;
     }
-    
-    setLoading(false);
-    return;
-  }
 
     if (data.user && params.start_trial === 'true') {
       await startTrial();
@@ -259,11 +252,11 @@ export default function LoginScreen() {
 
         {/* Updated Forgot Password Button */}
         <Pressable onPress={initForgotPassword} style={styles.forgotPassword} disabled={loading}>
-          <Text style={[typography.caption, { color: colors.subtext }]}>{t('login.forgotPassword', 'Forgot Password?')}</Text>
+          <Text style={[typography.caption, { color: colors.primary }]}>{t('login.forgotPassword', 'Forgot Password?')}</Text>
         </Pressable>
 
         <Pressable
-          style={[styles.button, { backgroundColor: colors.primary }]}
+          style={[styles.button, { backgroundColor: colors.selector }]}
           onPress={handleLogin}
           disabled={loading}
         >
@@ -275,7 +268,7 @@ export default function LoginScreen() {
         </Pressable>
 
         <Pressable onPress={() => router.push('/sign-up')} style={styles.linkButton}>
-          <Text style={[typography.body, { color: colors.subtext }]}>{t('login.noAccount', "Don't have an account? Sign Up")}</Text>
+          <Text style={[typography.body, { color: colors.primary }]}>{t('login.noAccount', "Don't have an account? Sign Up")}</Text>
         </Pressable>
       </View>
 

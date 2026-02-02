@@ -47,7 +47,7 @@ export default function AddItemScreen() {
 
   // --- Location Selection State (Multi-Select) ---
   const [availableLocations, setAvailableLocations] = useState<LocationDef[]>([]);
-  const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>([]); 
+  const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>([]); // Changed to Array
   const [loadingLocations, setLoadingLocations] = useState(false);
 
   // --- Financial State ---
@@ -117,6 +117,8 @@ export default function AddItemScreen() {
       setRestockThreshold('10');
       setBarcodeValue('');
       setSelectedLocationIds([]);
+      // We keep financial settings/tax as they are often repetitive
+      // but clear specific prices if needed:
       setPurchasePrice('');
       setSalePrice('');
   };
@@ -133,6 +135,7 @@ export default function AddItemScreen() {
   });
 
   const handleSave = async () => {
+    // 1. Validation
     if (!name.trim()) {
       showError(t('general.error'), t('general.fillFields'));
       return;
@@ -179,7 +182,7 @@ export default function AddItemScreen() {
         sale_vat_percent: (showFinancials && usageType === 'resale') ? parseNum(saleTax) : null,
       };
 
-      // Prepare Inserts (Multiple if multiple locations selected)
+      // 2. Prepare Inserts (Multiple if multiple locations selected)
       let itemsToInsert = [];
       
       if (selectedLocationIds.length > 0) {
@@ -199,7 +202,7 @@ export default function AddItemScreen() {
 
       if (error) throw error;
 
-      // Log Activity
+      // 3. Log Activity for each inserted item
       if (workgroup?.id && data) {
         data.forEach((item: any) => {
             logActivity({
@@ -214,6 +217,8 @@ export default function AddItemScreen() {
       }
 
       showSuccess(t('general.success'), t('general.itemAdded'));
+      
+      // 4. RESET FORM instead of router.back()
       resetForm();
 
     } catch (error: any) {
@@ -343,9 +348,6 @@ export default function AddItemScreen() {
             </Text>
             <View style={styles.rowInputs}>
               <View style={{flex: 1, marginRight: 8}}>
-                 <Text style={[typography.caption, {color: colors.subtext, marginBottom: 4}]}>
-                    {t('item.price', 'Price')}
-                 </Text>
                  <TextInput
                    style={[typography.body, styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                    value={purchasePrice}
@@ -355,11 +357,7 @@ export default function AddItemScreen() {
                    placeholderTextColor={colors.subtext}
                  />
               </View>
-              {/* Added Tax Label */}
               <View style={{width: 80}}>
-                 <Text style={[typography.caption, {color: colors.subtext, marginBottom: 4}]}>
-                    {t('item.tax', 'Tax')}
-                 </Text>
                  <TextInput
                    style={[typography.body, styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                    value={purchaseTax}
@@ -372,7 +370,7 @@ export default function AddItemScreen() {
             </View>
             
             <Text style={[typography.caption, {color: colors.subtext, marginBottom: 8}]}>
-               {t('item.purchaseTaxBracket', 'Purchase Tax % Presets')}
+               {t('item.purchaseTaxBracket', 'Purchase Tax %')}
             </Text>
             <TaxSelector value={purchaseTax} onChange={setPurchaseTax} />
 
@@ -385,9 +383,6 @@ export default function AddItemScreen() {
                 </Text>
                 <View style={styles.rowInputs}>
                   <View style={{flex: 1, marginRight: 8}}>
-                      <Text style={[typography.caption, {color: colors.subtext, marginBottom: 4}]}>
-                         {t('item.price', 'Price')}
-                      </Text>
                       <TextInput
                         style={[typography.body, styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                         value={salePrice}
@@ -397,11 +392,7 @@ export default function AddItemScreen() {
                         placeholderTextColor={colors.subtext}
                       />
                   </View>
-                  {/* Added Tax Label */}
                   <View style={{width: 80}}>
-                      <Text style={[typography.caption, {color: colors.subtext, marginBottom: 4}]}>
-                         {t('item.tax', 'Tax')}
-                      </Text>
                       <TextInput
                         style={[typography.body, styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                         value={saleTax}
@@ -413,7 +404,7 @@ export default function AddItemScreen() {
                   </View>
                 </View>
                 <Text style={[typography.caption, {color: colors.subtext, marginBottom: 8}]}>
-                   {t('item.salesTaxBracket', 'Sales Tax % Presets')}
+                   {t('item.salesTaxBracket', 'Sales Tax %')}
                 </Text>
                 <TaxSelector value={saleTax} onChange={setSaleTax} />
               </>
@@ -432,7 +423,7 @@ export default function AddItemScreen() {
           placeholderTextColor={colors.subtext}
         />
 
-        {/* --- Location Selector Grid --- */}
+        {/* --- Location Selector Grid (MOVED HERE) --- */}
         {sortedShelves.length > 0 && (
             <View style={{marginTop: 20, marginBottom: 10}}>
                  <Text style={[typography.h3, styles.label, { color: colors.text }]}>
@@ -463,16 +454,7 @@ export default function AddItemScreen() {
                                                         borderColor: isSelected ? colors.primary : colors.border,
                                                     }
                                                 ]}
-                                            >
-                                              {/* Added Text inside the chip so users can see the location Row */}
-                                              <Text style={{ 
-                                                  fontSize: 12, 
-                                                  fontWeight: 'bold', 
-                                                  color: isSelected ? '#fff' : colors.text 
-                                              }}>
-                                                {loc.row}
-                                              </Text>
-                                            </TouchableOpacity>
+                                            />
                                         )
                                     })}
                                 </View>
@@ -520,12 +502,10 @@ const styles = StyleSheet.create({
   shelfGroup: { marginBottom: 12 },
   gridRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   gridChip: { 
-      width: 28, 
+      width: 28, // Fixed small size
       height: 28,
       borderWidth: 1, 
       borderRadius: 4,
-      justifyContent: 'center', // Center the text vertically
-      alignItems: 'center',     // Center the text horizontally
   },
 
   // Financial Styles.
