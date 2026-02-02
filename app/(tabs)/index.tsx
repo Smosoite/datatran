@@ -77,7 +77,6 @@ export default function HomeScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.content}>
         <View style={styles.section}>
-          <Text style={[typography.h3, { color: colors.text, marginBottom: 16 }]}>Quick Actions</Text>
           <View style={styles.quickActionsGrid}>
             <Pressable
               style={[styles.quickActionCard, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }]}
