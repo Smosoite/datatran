@@ -2,43 +2,76 @@
 import { StyleSheet } from 'react-native';
 
 export const typography = StyleSheet.create({
-  // For large screen titles
   h1: {
-    fontSize: 32,
-    fontWeight: 'bold',
+    fontSize: 28,
+    fontWeight: '700',
+    lineHeight: 36,
+    letterSpacing: -0.5,
   },
-  // For section headers
   h2: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 22,
+    fontWeight: '700',
+    lineHeight: 30,
+    letterSpacing: -0.3,
   },
-  // For card titles or important labels
   h3: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
+    lineHeight: 26,
   },
-  // For regular body text
+  h4: {
+    fontSize: 16,
+    fontWeight: '600',
+    lineHeight: 24,
+  },
   body: {
+    fontSize: 15,
+    fontWeight: '400',
+    lineHeight: 22,
+  },
+  bodyLarge: {
     fontSize: 16,
     fontWeight: '400',
+    lineHeight: 24,
   },
-  // For input labels
   label: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '500',
+    lineHeight: 18,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  // For small helper text or descriptions
   caption: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '400',
+    lineHeight: 18,
+  },
+  captionSmall: {
+    fontSize: 11,
+    fontWeight: '400',
+    lineHeight: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  button: {
+    fontSize: 15,
+    fontWeight: '600',
+    lineHeight: 22,
   },
   shadow: {
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 8,
   },
-  // For text inside buttons
-  button: {
-    fontSize: 16,
-    fontWeight: 'bold',
+  number: {
+    fontSize: 24,
+    fontWeight: '700',
+    lineHeight: 32,
+    letterSpacing: -0.5,
+  },
+  numberLarge: {
+    fontSize: 32,
+    fontWeight: '700',
+    lineHeight: 40,
+    letterSpacing: -1,
   },
 });
